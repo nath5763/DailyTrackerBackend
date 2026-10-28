@@ -1,0 +1,25 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: daily_games
+      POSTGRES_USER: daily_games
+      POSTGRES_PASSWORD: daily_games
+    ports:
+      - "5432:5432"
+    volumes:
+      - daily_games_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U daily_games -d daily_games"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  mailpit:
+    image: axllent/mailpit:v1.27
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+volumes:
+  daily_games_postgres:
