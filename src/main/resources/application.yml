@@ -16,14 +16,6 @@ spring:
       ddl-auto: validate
   flyway:
     enabled: true
-  mail:
-    host: ${SMTP_HOST:localhost}
-    port: ${SMTP_PORT:1025}
-    username: ${SMTP_USERNAME:}
-    password: ${SMTP_PASSWORD:}
-    properties:
-      mail.smtp.auth: ${SMTP_AUTH:false}
-      mail.smtp.starttls.enable: ${SMTP_STARTTLS:false}
 management:
   endpoints:
     web:
@@ -34,7 +26,11 @@ management:
       show-details: never
 app:
   public-base-url: ${APP_BASE_URL:http://localhost:3000}
-  mail-from: ${MAIL_FROM:Daily Club <login@localhost>}
+  brevo:
+    api-url: ${BREVO_API_URL:https://api.brevo.com}
+    api-key: ${BREVO_API_KEY:}
+    sender-email: ${BREVO_SENDER_EMAIL:}
+    sender-name: ${BREVO_SENDER_NAME:Daily Tracker}
   token-pepper: ${AUTH_TOKEN_PEPPER:local-development-only-change-me}
   secure-cookie: ${SECURE_COOKIE:false}
   magic-link-minutes: 15

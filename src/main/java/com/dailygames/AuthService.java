@@ -1,13 +1,10 @@
 package com.dailygames;
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.MailException;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import jakarta.mail.internet.MimeMessage;
 import java.nio.charset.StandardCharsets;
 import java.security.*;
 import java.time.*;
@@ -20,20 +17,19 @@ class AuthService {
   private final ProfileRepository profiles;
   private final MagicLinkRepository links;
   private final AuthSessionRepository sessions;
-  private final JavaMailSender mailSender;
+  private final BrevoEmailClient emailClient;
   private final SecureRandom random = new SecureRandom();
   private final String publicBaseUrl;
-  private final String mailFrom;
   private final String pepper;
   private final int linkMinutes;
   private final int sessionDays;
 
   AuthService(UserRepository users, ProfileRepository profiles, MagicLinkRepository links, AuthSessionRepository sessions,
-              JavaMailSender mailSender, @Value("${app.public-base-url}") String publicBaseUrl,
-              @Value("${app.mail-from}") String mailFrom, @Value("${app.token-pepper}") String pepper,
+              BrevoEmailClient emailClient, @Value("${app.public-base-url}") String publicBaseUrl,
+              @Value("${app.token-pepper}") String pepper,
               @Value("${app.magic-link-minutes}") int linkMinutes, @Value("${app.session-days}") int sessionDays) {
-    this.users = users; this.profiles = profiles; this.links = links; this.sessions = sessions; this.mailSender = mailSender;
-    this.publicBaseUrl = publicBaseUrl.replaceAll("/$", ""); this.mailFrom = mailFrom; this.pepper = pepper;
+    this.users = users; this.profiles = profiles; this.links = links; this.sessions = sessions; this.emailClient = emailClient;
+    this.publicBaseUrl = publicBaseUrl.replaceAll("/$", ""); this.pepper = pepper;
     this.linkMinutes = linkMinutes; this.sessionDays = sessionDays;
   }
 
@@ -89,16 +85,7 @@ class AuthService {
 
   private void sendLink(String email, String token) {
     String url = publicBaseUrl + "/api/v1/auth/magic-link/consume?token=" + token;
-    try {
-      MimeMessage message = mailSender.createMimeMessage();
-      message.setFrom(mailFrom);
-      message.setRecipients(MimeMessage.RecipientType.TO, email);
-      message.setSubject("Your Daily Club sign-in link", StandardCharsets.UTF_8.name());
-      message.setContent("<p>Use this link to sign in to Daily Club:</p><p><a href=\"" + url + "\">Sign in to Daily Club</a></p><p>This link expires in " + linkMinutes + " minutes and can be used once.</p>", "text/html; charset=UTF-8");
-      mailSender.send(message);
-    } catch (MailException | jakarta.mail.MessagingException exception) {
-      throw new ApiException(503, "EMAIL_UNAVAILABLE", "Sign-in email is temporarily unavailable. Please try again.");
-    }
+    emailClient.sendMagicLink(email, url, linkMinutes);
   }
 
   private String normalizeEmail(String email) { return email.trim().toLowerCase(Locale.ROOT); }

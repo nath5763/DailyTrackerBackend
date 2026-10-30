@@ -25,6 +25,8 @@ class DailyGamesIntegrationTest {
     properties.add("spring.datasource.url", POSTGRES::getJdbcUrl);
     properties.add("spring.datasource.username", POSTGRES::getUsername);
     properties.add("spring.datasource.password", POSTGRES::getPassword);
+    properties.add("app.brevo.api-key", () -> "integration-test-key");
+    properties.add("app.brevo.sender-email", () -> "sender@example.com");
   }
 
   @Autowired DailyGamesService service;
