@@ -6,7 +6,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.springframework.web.client.RestClient;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -59,13 +58,13 @@ class BrevoEmailClientTest {
   @Test
   void requiresApiKeyAndVerifiedSenderConfiguration() {
     assertThrows(IllegalStateException.class,
-        () -> new BrevoEmailClient(RestClient.builder(), baseUrl(), "", "sender@example.com", "Daily Tracker"));
+        () -> new BrevoEmailClient(baseUrl(), "", "sender@example.com", "Daily Tracker"));
     assertThrows(IllegalStateException.class,
-        () -> new BrevoEmailClient(RestClient.builder(), baseUrl(), "test-api-key", "", "Daily Tracker"));
+        () -> new BrevoEmailClient(baseUrl(), "test-api-key", "", "Daily Tracker"));
   }
 
   private BrevoEmailClient client(String apiKey) {
-    return new BrevoEmailClient(RestClient.builder(), baseUrl(), apiKey, "noreply.dailyg@gmail.com", "Daily Tracker");
+    return new BrevoEmailClient(baseUrl(), apiKey, "noreply.dailyg@gmail.com", "Daily Tracker");
   }
 
   private String baseUrl() {

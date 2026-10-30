@@ -23,8 +23,7 @@ class BrevoEmailClient {
   private final String senderEmail;
   private final String senderName;
 
-  BrevoEmailClient(RestClient.Builder builder,
-                   @Value("${app.brevo.api-url}") String apiUrl,
+  BrevoEmailClient(@Value("${app.brevo.api-url}") String apiUrl,
                    @Value("${app.brevo.api-key}") String apiKey,
                    @Value("${app.brevo.sender-email}") String senderEmail,
                    @Value("${app.brevo.sender-name}") String senderName) {
@@ -35,7 +34,7 @@ class BrevoEmailClient {
     JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
     requestFactory.setReadTimeout(Duration.ofSeconds(10));
 
-    this.client = builder.baseUrl(apiUrl.replaceAll("/$", ""))
+    this.client = RestClient.builder().baseUrl(apiUrl.replaceAll("/$", ""))
         .requestFactory(requestFactory)
         .defaultHeader("api-key", apiKey)
         .defaultHeader("accept", MediaType.APPLICATION_JSON_VALUE)
