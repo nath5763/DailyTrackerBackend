@@ -2,6 +2,9 @@ package com.dailygames;
 
 import jakarta.servlet.http.*;
 import jakarta.validation.Valid;
+import com.stripe.exception.SignatureVerificationException;
+import com.stripe.model.*;
+import com.stripe.net.Webhook;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -72,15 +75,19 @@ class DailyGamesController {
   @PutMapping("/me/profile") ProfileView onboard(Authentication authentication, @Valid @RequestBody OnboardingRequest request) { return service.onboard(current(authentication), request); }
   @GetMapping("/dashboard") DashboardResponse dashboard(Authentication authentication) { return service.dashboard(current(authentication)); }
   @GetMapping("/profiles/{shareId}") ProfileResponse profile(Authentication authentication, @PathVariable UUID shareId) { return service.profile(current(authentication), shareId); }
+  @GetMapping("/games") List<GameView> games(Authentication authentication) { current(authentication); return service.listGames(); }
 
   @GetMapping("/leaderboards") List<BoardSummary> boards(Authentication authentication) { return service.listBoards(current(authentication)); }
   @PostMapping("/leaderboards") ResponseEntity<IdResponse> createBoard(Authentication authentication, @Valid @RequestBody CreateLeaderboardRequest request) {
     return ResponseEntity.status(HttpStatus.CREATED).body(new IdResponse(service.createBoard(current(authentication), request)));
   }
+  @PostMapping("/leaderboards/{id}/copy") ResponseEntity<IdResponse> copyBoard(Authentication authentication, @PathVariable UUID id,
+                                                                               @Valid @RequestBody CopyLeaderboardRequest request) {
+    return ResponseEntity.status(HttpStatus.CREATED).body(new IdResponse(service.copyBoard(current(authentication), id, request)));
+  }
   @GetMapping("/leaderboards/{id}") LeaderboardResponse board(Authentication authentication, @PathVariable UUID id,
-                                                               @RequestParam(defaultValue = "today") String range,
-                                                               @RequestParam(defaultValue = "fermi") String game) {
-    return service.board(current(authentication), id, range, game);
+                                                               @RequestParam(defaultValue = "today") String range) {
+    return service.board(current(authentication), id, range);
   }
   @PostMapping("/leaderboards/{id}/members") ResponseEntity<Void> addMember(Authentication authentication, @PathVariable UUID id,
                                                                               @Valid @RequestBody AddMemberRequest request) {
@@ -104,6 +111,53 @@ class DailyGamesController {
       throw new ApiException(401, "UNAUTHORIZED", "Sign in first.");
     }
     return current;
+  }
+}
+
+@RestController
+@RequestMapping("/api/v1/billing")
+class BillingController {
+  private final BillingService billing;
+  BillingController(BillingService billing) { this.billing = billing; }
+
+  @GetMapping("/status") BillingStatusResponse status(Authentication authentication) {
+    return billing.status(current(authentication).id());
+  }
+  @PostMapping("/checkout-session") UrlResponse checkout(Authentication authentication) {
+    return billing.createCheckout(current(authentication).id());
+  }
+  @PostMapping("/portal-session") UrlResponse portal(Authentication authentication) {
+    return billing.createPortal(current(authentication).id());
+  }
+
+  private CurrentUser current(Authentication authentication) {
+    if (authentication == null || !(authentication.getPrincipal() instanceof CurrentUser current)) {
+      throw new ApiException(401, "UNAUTHORIZED", "Sign in first.");
+    }
+    return current;
+  }
+}
+
+@RestController
+class StripeWebhookController {
+  private final BillingService billing;
+  private final String webhookSecret;
+  StripeWebhookController(BillingService billing, @Value("${app.stripe.webhook-secret:}") String webhookSecret) {
+    this.billing = billing; this.webhookSecret = webhookSecret;
+  }
+
+  @PostMapping(value = "/api/v1/billing/stripe/webhook", consumes = MediaType.APPLICATION_JSON_VALUE)
+  ResponseEntity<Void> webhook(@RequestBody String payload, @RequestHeader("Stripe-Signature") String signature) {
+    if (webhookSecret.isBlank()) throw new ApiException(503, "BILLING_UNAVAILABLE", "Billing has not been configured yet.");
+    try {
+      Event event = Webhook.constructEvent(payload, signature, webhookSecret);
+      StripeObject object = event.getDataObjectDeserializer().getObject()
+          .orElseThrow(() -> new ApiException(400, "INVALID_STRIPE_EVENT", "Stripe event could not be decoded."));
+      billing.process(event, object);
+      return ResponseEntity.noContent().build();
+    } catch (SignatureVerificationException exception) {
+      throw new ApiException(400, "INVALID_STRIPE_SIGNATURE", "Stripe signature is invalid.");
+    }
   }
 }
 

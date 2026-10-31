@@ -28,12 +28,15 @@ class Profile {
   @Column(name = "avatar_color", nullable = false) String avatarColor;
   @Column(name = "created_at", nullable = false) Instant createdAt;
   @Column(name = "updated_at", nullable = false) Instant updatedAt;
+  @Column(name = "free_leaderboard_claimed_at") Instant freeLeaderboardClaimedAt;
   protected Profile() {}
   Profile(UUID userId, String displayName, String avatarColor, Instant now) {
     this.userId = userId; this.shareId = UUID.randomUUID(); this.displayName = displayName;
     this.avatarColor = avatarColor; this.createdAt = now; this.updatedAt = now;
   }
 }
+
+enum BoardCreationBasis { FREE, SUBSCRIPTION, GRANDFATHERED }
 
 @Entity @Table(name = "games")
 class Game {
@@ -53,9 +56,45 @@ class Leaderboard {
   @Id UUID id;
   @Column(name = "owner_id", nullable = false) UUID ownerId;
   @Column(nullable = false) String name;
+  @Column(name = "game_id", nullable = false) UUID gameId;
+  @Enumerated(EnumType.STRING) @Column(name = "creation_basis", nullable = false) BoardCreationBasis creationBasis;
   @Column(name = "created_at", nullable = false) Instant createdAt;
   protected Leaderboard() {}
-  Leaderboard(UUID ownerId, String name, Instant now) { id = UUID.randomUUID(); this.ownerId = ownerId; this.name = name; createdAt = now; }
+  Leaderboard(UUID ownerId, String name, UUID gameId, BoardCreationBasis creationBasis, Instant now) {
+    id = UUID.randomUUID(); this.ownerId = ownerId; this.name = name; this.gameId = gameId;
+    this.creationBasis = creationBasis; createdAt = now;
+  }
+}
+
+@Entity @Table(name = "billing_accounts")
+class BillingAccount {
+  @Id @Column(name = "user_id") UUID userId;
+  @Column(name = "stripe_customer_id", unique = true) String stripeCustomerId;
+  @Column(name = "stripe_subscription_id", unique = true) String stripeSubscriptionId;
+  @Column(name = "subscription_status") String subscriptionStatus;
+  @Column(name = "current_period_end") Instant currentPeriodEnd;
+  @Column(name = "cancel_at_period_end", nullable = false) boolean cancelAtPeriodEnd;
+  @Column(name = "grace_until") Instant graceUntil;
+  @Column(name = "ever_subscribed_at") Instant everSubscribedAt;
+  @Column(name = "last_event_created_at") Instant lastEventCreatedAt;
+  @Column(name = "pending_checkout_session_id") String pendingCheckoutSessionId;
+  @Column(name = "pending_checkout_url") String pendingCheckoutUrl;
+  @Column(name = "pending_checkout_expires_at") Instant pendingCheckoutExpiresAt;
+  @Column(name = "updated_at", nullable = false) Instant updatedAt;
+  protected BillingAccount() {}
+  BillingAccount(UUID userId, Instant now) { this.userId = userId; updatedAt = now; }
+}
+
+@Entity @Table(name = "processed_stripe_events")
+class ProcessedStripeEvent {
+  @Id @Column(name = "event_id") String eventId;
+  @Column(name = "event_type", nullable = false) String eventType;
+  @Column(name = "event_created_at", nullable = false) Instant eventCreatedAt;
+  @Column(name = "processed_at", nullable = false) Instant processedAt;
+  protected ProcessedStripeEvent() {}
+  ProcessedStripeEvent(String eventId, String eventType, Instant eventCreatedAt, Instant processedAt) {
+    this.eventId = eventId; this.eventType = eventType; this.eventCreatedAt = eventCreatedAt; this.processedAt = processedAt;
+  }
 }
 
 @Embeddable
@@ -90,7 +129,7 @@ class Submission {
   @Column(name = "parser_version", nullable = false) int parserVersion;
   @Column(name = "created_at", nullable = false) Instant createdAt;
   protected Submission() {}
-  Submission(UUID userId, UUID gameId, FermiParser.Parsed value, String rawText, Instant now) {
+  Submission(UUID userId, UUID gameId, ParsedSubmission value, String rawText, Instant now) {
     id = UUID.randomUUID(); this.userId = userId; this.gameId = gameId; puzzleKey = value.puzzleKey();
     playedOn = value.playedOn(); primaryScore = value.primaryScore(); metrics = value.metrics();
     this.rawText = rawText; parserVersion = value.parserVersion(); createdAt = now;

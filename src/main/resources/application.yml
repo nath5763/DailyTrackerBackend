@@ -31,6 +31,10 @@ app:
     api-key: ${BREVO_API_KEY:}
     sender-email: ${BREVO_SENDER_EMAIL:}
     sender-name: ${BREVO_SENDER_NAME:Daily Tracker}
+  stripe:
+    secret-key: ${STRIPE_SECRET_KEY:}
+    webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
+    price-id: ${STRIPE_LEADERBOARD_PRICE_ID:}
   token-pepper: ${AUTH_TOKEN_PEPPER:local-development-only-change-me}
   secure-cookie: ${SECURE_COOKIE:false}
   magic-link-minutes: 15

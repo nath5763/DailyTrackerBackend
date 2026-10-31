@@ -7,8 +7,10 @@ import java.time.LocalDate;
 import java.util.*;
 import java.util.regex.*;
 
+import static com.dailygames.ApiModels.*;
+
 @Component
-class FermiParser {
+class FermiParser implements GameAdapter {
   static final int VERSION = 1;
   private static final LocalDate FIRST_PUZZLE = LocalDate.of(2026, 7, 27);
   private static final Pattern PUZZLE = Pattern.compile("(?i)(?:fermi\\s*)?#\\s*(\\d+)");
@@ -17,10 +19,14 @@ class FermiParser {
   private static final Pattern PERCENTILE = Pattern.compile("(?i)top\\s*(\\d+(?:\\.\\d+)?)\\s*%");
   private static final Pattern MULTIPLIER = Pattern.compile("(?i)(\\d+(?:[.,]\\d+)?)\\s*[×x]");
 
-  record Parsed(String puzzleKey, int puzzleNumber, LocalDate playedOn, BigDecimal primaryScore,
-                Map<String, Object> metrics, int parserVersion) {}
+  @Override public String slug() { return "fermi"; }
+  @Override public ScoreFormatView scoreFormat() { return new ScoreFormatView("", "×", 2, 2); }
+  @Override public SubmissionConfigView submissionConfig() {
+    return new SubmissionConfigView("Fermi #92\n1.31× score\ntop 8%", "Puzzle number", "Final score",
+        BigDecimal.ONE, null, new BigDecimal("0.01"), Set.of("puzzleKey", "playedOn", "primaryScore"));
+  }
 
-  Parsed parse(String rawText) {
+  @Override public ParsedSubmission parse(String rawText) {
     String text = rawText == null ? "" : rawText.trim();
     List<String> errors = new ArrayList<>();
     if (text.isEmpty()) throw new ApiException(422, "INVALID_SHARE_TEXT", "Paste your Fermi result first.");
@@ -47,20 +53,20 @@ class FermiParser {
       if (value.compareTo(score) != 0) components.add(value);
     }
     if (!components.isEmpty()) metrics.put("components", components);
-    return new Parsed(String.valueOf(puzzle), puzzle, FIRST_PUZZLE.plusDays(puzzle - 1L), score, metrics, VERSION);
+    return new ParsedSubmission(String.valueOf(puzzle), puzzle, FIRST_PUZZLE.plusDays(puzzle - 1L), score, metrics, VERSION);
   }
 
-  Parsed validateConfirmed(ApiModels.ConfirmedSubmission confirmed, String rawText) {
-    Parsed original = parse(rawText);
-    if (confirmed.puzzleNumber() == null || confirmed.puzzleNumber() < 1 || confirmed.playedOn() == null ||
+  @Override public ParsedSubmission validateConfirmed(ConfirmedSubmission confirmed, String rawText) {
+    ParsedSubmission original = parse(rawText);
+    Integer puzzleNumber;
+    try { puzzleNumber = Integer.valueOf(confirmed.puzzleKey()); }
+    catch (RuntimeException exception) { puzzleNumber = null; }
+    if (puzzleNumber == null || puzzleNumber < 1 || confirmed.playedOn() == null ||
         confirmed.primaryScore() == null || confirmed.primaryScore().compareTo(BigDecimal.ONE) < 0) {
       throw new ApiException(422, "INVALID_SUBMISSION", "Check the confirmed puzzle, date, and score.");
     }
-    if (!Objects.equals(confirmed.puzzleKey(), String.valueOf(confirmed.puzzleNumber()))) {
-      throw new ApiException(422, "INVALID_SUBMISSION", "Puzzle key must match the puzzle number.");
-    }
     Map<String, Object> metrics = confirmed.metrics() == null ? original.metrics() : confirmed.metrics();
-    return new Parsed(confirmed.puzzleKey(), confirmed.puzzleNumber(), confirmed.playedOn(), confirmed.primaryScore(), metrics, VERSION);
+    return new ParsedSubmission(confirmed.puzzleKey(), puzzleNumber, confirmed.playedOn(), confirmed.primaryScore(), metrics, VERSION);
   }
 
   private BigDecimal fallbackScore(String text) {

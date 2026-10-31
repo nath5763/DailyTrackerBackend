@@ -33,6 +33,7 @@ class SecurityConfig {
         .authorizeHttpRequests(auth -> auth
             .requestMatchers("/api/health", "/actuator/health").permitAll()
             .requestMatchers(HttpMethod.POST, "/api/v1/auth/magic-link").permitAll()
+            .requestMatchers(HttpMethod.POST, "/api/v1/billing/stripe/webhook").permitAll()
             .requestMatchers(HttpMethod.GET, "/api/v1/auth/magic-link/consume").permitAll()
             .anyRequest().authenticated())
         .addFilterBefore(originFilter, UsernamePasswordAuthenticationFilter.class)
