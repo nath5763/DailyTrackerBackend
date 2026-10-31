@@ -1,6 +1,6 @@
 # DailyGamesBackend
 
-Spring Boot API for Daily Tracker. It provides magic-link authentication, game-specific private leaderboards, Stripe subscription entitlements, interchangeable score parsers, and PostgreSQL persistence. Supported daily games include Fermi and Krillion.
+Spring Boot API for Daily Tracker. It provides verified email/password authentication, game-specific private leaderboards, Stripe subscription entitlements, interchangeable score parsers, and PostgreSQL persistence. Supported daily games include Fermi and Krillion.
 
 ## Local development
 
@@ -11,7 +11,7 @@ docker compose up -d
 mvn spring-boot:run
 ```
 
-PostgreSQL listens on `localhost:5432`. Flyway applies database migrations automatically when Spring starts. Set `BREVO_API_KEY` and `BREVO_SENDER_EMAIL` before starting the API so magic-link emails can be sent through Brevo's HTTPS API.
+PostgreSQL listens on `localhost:5432`. Flyway applies database migrations automatically when Spring starts. Set `BREVO_API_KEY` and `BREVO_SENDER_EMAIL` before starting the API so verification and password-reset emails can be sent through Brevo's HTTPS API.
 
 For billing, create a recurring Stripe Price for $2 USD per month and configure `STRIPE_SECRET_KEY`, `STRIPE_LEADERBOARD_PRICE_ID`, and `STRIPE_WEBHOOK_SECRET`. The webhook destination is `https://<your-app>/api/v1/billing/stripe/webhook`; subscribe it to Checkout Session completion, customer subscription changes/deletion, and successful/failed invoice events. Enable subscription cancellation and payment-method updates in Stripe Customer Portal settings.
 

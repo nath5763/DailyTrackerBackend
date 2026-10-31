@@ -10,6 +10,8 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.factory.PasswordEncoderFactories;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
@@ -22,6 +24,8 @@ import java.util.Arrays;
 
 @Configuration
 class SecurityConfig {
+  @Bean PasswordEncoder passwordEncoder() { return PasswordEncoderFactories.createDelegatingPasswordEncoder(); }
+
   @Bean
   SecurityFilterChain securityFilterChain(HttpSecurity http, SessionAuthenticationFilter sessionFilter,
                                           OriginValidationFilter originFilter) throws Exception {
@@ -32,9 +36,11 @@ class SecurityConfig {
         .exceptionHandling(errors -> errors.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
         .authorizeHttpRequests(auth -> auth
             .requestMatchers("/api/health", "/actuator/health").permitAll()
-            .requestMatchers(HttpMethod.POST, "/api/v1/auth/magic-link").permitAll()
+            .requestMatchers(HttpMethod.POST, "/api/v1/auth/register", "/api/v1/auth/login",
+                "/api/v1/auth/verification/resend", "/api/v1/auth/password/forgot",
+                "/api/v1/auth/password/reset", "/api/v1/auth/logout").permitAll()
             .requestMatchers(HttpMethod.POST, "/api/v1/billing/stripe/webhook").permitAll()
-            .requestMatchers(HttpMethod.GET, "/api/v1/auth/magic-link/consume").permitAll()
+            .requestMatchers(HttpMethod.GET, "/api/v1/auth/verification/consume").permitAll()
             .anyRequest().authenticated())
         .addFilterBefore(originFilter, UsernamePasswordAuthenticationFilter.class)
         .addFilterBefore(sessionFilter, UsernamePasswordAuthenticationFilter.class)

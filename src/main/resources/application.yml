@@ -37,5 +37,6 @@ app:
     price-id: ${STRIPE_LEADERBOARD_PRICE_ID:}
   token-pepper: ${AUTH_TOKEN_PEPPER:local-development-only-change-me}
   secure-cookie: ${SECURE_COOKIE:false}
-  magic-link-minutes: 15
+  verification-hours: 24
+  password-reset-minutes: 30
   session-days: 30

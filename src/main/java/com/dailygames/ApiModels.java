@@ -10,7 +10,12 @@ import java.util.*;
 final class ApiModels {
   private ApiModels() {}
 
-  record MagicLinkRequest(@NotBlank @Email @Size(max = 320) String email) {}
+  record EmailRequest(@NotBlank @Email @Size(max = 320) String email) {}
+  record CredentialsRequest(@NotBlank @Email @Size(max = 320) String email,
+                            @NotBlank @Size(max = 200) String password) {}
+  record ResetPasswordRequest(@NotBlank @Size(max = 200) String token,
+                              @NotBlank @Size(max = 200) String password) {}
+  record AuthSessionResponse(boolean onboarded) {}
   record MessageResponse(String message) {}
   record OnboardingRequest(@NotBlank @Size(min = 2, max = 32) String displayName, @NotBlank String avatarColor) {}
   record CreateLeaderboardRequest(@NotBlank @Size(min = 2, max = 48) String name,

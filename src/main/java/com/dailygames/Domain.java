@@ -14,10 +14,17 @@ import java.util.*;
 class UserAccount {
   @Id UUID id;
   @Column(name = "normalized_email", nullable = false, unique = true) String normalizedEmail;
+  @Column(name = "password_hash") String passwordHash;
+  @Column(name = "email_verified_at") Instant emailVerifiedAt;
   @Column(name = "created_at", nullable = false) Instant createdAt;
-  @Column(name = "last_login_at", nullable = false) Instant lastLoginAt;
+  @Column(name = "last_login_at") Instant lastLoginAt;
   protected UserAccount() {}
-  UserAccount(String email, Instant now) { id = UUID.randomUUID(); normalizedEmail = email; createdAt = now; lastLoginAt = now; }
+  UserAccount(String email, Instant now) {
+    id = UUID.randomUUID(); normalizedEmail = email; createdAt = now; lastLoginAt = now; emailVerifiedAt = now;
+  }
+  UserAccount(String email, String passwordHash, Instant now) {
+    id = UUID.randomUUID(); normalizedEmail = email; this.passwordHash = passwordHash; createdAt = now;
+  }
 }
 
 @Entity @Table(name = "profiles")
@@ -136,19 +143,35 @@ class Submission {
   }
 }
 
-@Entity @Table(name = "auth_magic_links")
-class MagicLink {
+enum AuthTokenPurpose { EMAIL_VERIFICATION, PASSWORD_RESET }
+
+@Entity @Table(name = "auth_action_tokens")
+class AuthActionToken {
   @Id UUID id;
-  @Column(name = "normalized_email", nullable = false) String normalizedEmail;
+  @Column(name = "user_id", nullable = false) UUID userId;
+  @Enumerated(EnumType.STRING) @Column(nullable = false) AuthTokenPurpose purpose;
   @Column(name = "token_hash", nullable = false, unique = true, length = 64) String tokenHash;
   @Column(name = "request_ip_hash", nullable = false, length = 64) String requestIpHash;
   @Column(name = "created_at", nullable = false) Instant createdAt;
   @Column(name = "expires_at", nullable = false) Instant expiresAt;
   @Column(name = "consumed_at") Instant consumedAt;
-  protected MagicLink() {}
-  MagicLink(String email, String tokenHash, String ipHash, Instant now, Instant expiresAt) {
-    id = UUID.randomUUID(); normalizedEmail = email; this.tokenHash = tokenHash; requestIpHash = ipHash;
+  protected AuthActionToken() {}
+  AuthActionToken(UUID userId, AuthTokenPurpose purpose, String tokenHash, String ipHash, Instant now, Instant expiresAt) {
+    id = UUID.randomUUID(); this.userId = userId; this.purpose = purpose;
+    this.tokenHash = tokenHash; requestIpHash = ipHash;
     createdAt = now; this.expiresAt = expiresAt;
+  }
+}
+
+@Entity @Table(name = "auth_login_attempts")
+class AuthLoginAttempt {
+  @Id UUID id;
+  @Column(name = "normalized_email_hash", nullable = false, length = 64) String normalizedEmailHash;
+  @Column(name = "request_ip_hash", nullable = false, length = 64) String requestIpHash;
+  @Column(name = "created_at", nullable = false) Instant createdAt;
+  protected AuthLoginAttempt() {}
+  AuthLoginAttempt(String emailHash, String ipHash, Instant now) {
+    id = UUID.randomUUID(); normalizedEmailHash = emailHash; requestIpHash = ipHash; createdAt = now;
   }
 }
 

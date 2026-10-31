@@ -44,16 +44,24 @@ class BrevoEmailClient {
     this.senderName = senderName;
   }
 
-  void sendMagicLink(String recipientEmail, String magicLink, int linkMinutes) {
-    String html = "<p>Use this link to sign in to Daily Club:</p><p><a href=\"" + magicLink
-        + "\">Sign in to Daily Club</a></p><p>This link expires in " + linkMinutes
-        + " minutes and can be used once.</p>";
-    EmailRequest request = new EmailRequest(
-        new Sender(senderEmail, senderName),
-        List.of(new Recipient(recipientEmail)),
-        "Your Daily Club sign-in link",
-        html,
-        List.of("magic-link"));
+  void sendVerification(String recipientEmail, String verificationLink, int linkHours) {
+    send(recipientEmail, "Verify your Daily Club email",
+        "<p>Verify your email to finish creating your Daily Club account:</p><p><a href=\"" + verificationLink
+            + "\">Verify email address</a></p><p>This link expires in " + linkHours
+            + " hours and can be used once.</p>", "email-verification");
+  }
+
+  void sendPasswordReset(String recipientEmail, String resetLink, int linkMinutes) {
+    send(recipientEmail, "Reset your Daily Club password",
+        "<p>Use this link to set a new Daily Club password:</p><p><a href=\"" + resetLink
+            + "\">Reset password</a></p><p>This link expires in " + linkMinutes
+            + " minutes and can be used once. If you did not request this, you can ignore this email.</p>",
+        "password-reset");
+  }
+
+  private void send(String recipientEmail, String subject, String html, String tag) {
+    EmailRequest request = new EmailRequest(new Sender(senderEmail, senderName),
+        List.of(new Recipient(recipientEmail)), subject, html, List.of(tag));
 
     try {
       client.post().uri(SEND_EMAIL_PATH).body(request).retrieve().toBodilessEntity();
@@ -67,7 +75,7 @@ class BrevoEmailClient {
   }
 
   private ApiException unavailable() {
-    return new ApiException(503, "EMAIL_UNAVAILABLE", "Sign-in email is temporarily unavailable. Please try again.");
+    return new ApiException(503, "EMAIL_UNAVAILABLE", "Account email is temporarily unavailable. Please try again.");
   }
 
   private record Sender(String email, String name) {}

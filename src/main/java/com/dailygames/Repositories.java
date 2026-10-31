@@ -37,18 +37,26 @@ import java.util.*;
   List<Submission> findByUserIdInAndGameId(Collection<UUID> userIds, UUID gameId);
   boolean existsByUserIdAndGameIdAndPuzzleKey(UUID userId, UUID gameId, String puzzleKey);
 }
-@Repository interface MagicLinkRepository extends JpaRepository<MagicLink, UUID> {
-  long countByNormalizedEmailAndCreatedAtAfter(String email, Instant after);
+@Repository interface AuthActionTokenRepository extends JpaRepository<AuthActionToken, UUID> {
+  long countByUserIdAndPurposeAndCreatedAtAfter(UUID userId, AuthTokenPurpose purpose, Instant after);
   long countByRequestIpHashAndCreatedAtAfter(String ipHash, Instant after);
-  Optional<MagicLink> findTopByNormalizedEmailOrderByCreatedAtDesc(String email);
-  @Lock(LockModeType.PESSIMISTIC_WRITE) Optional<MagicLink> findByTokenHash(String tokenHash);
-  @Modifying @Query("update MagicLink m set m.consumedAt = :now where m.normalizedEmail = :email and m.consumedAt is null")
-  int consumeOutstanding(@Param("email") String email, @Param("now") Instant now);
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  Optional<AuthActionToken> findByTokenHashAndPurposeAndConsumedAtIsNullAndExpiresAtAfter(
+      String tokenHash, AuthTokenPurpose purpose, Instant now);
+  @Modifying @Query("update AuthActionToken t set t.consumedAt = :now where t.userId = :userId and t.purpose = :purpose and t.consumedAt is null")
+  int consumeOutstanding(@Param("userId") UUID userId, @Param("purpose") AuthTokenPurpose purpose, @Param("now") Instant now);
   void deleteByExpiresAtBefore(Instant before);
+}
+@Repository interface AuthLoginAttemptRepository extends JpaRepository<AuthLoginAttempt, UUID> {
+  long countByNormalizedEmailHashAndCreatedAtAfter(String emailHash, Instant after);
+  long countByRequestIpHashAndCreatedAtAfter(String ipHash, Instant after);
+  void deleteByNormalizedEmailHash(String emailHash);
+  void deleteByCreatedAtBefore(Instant before);
 }
 @Repository interface AuthSessionRepository extends JpaRepository<AuthSession, UUID> {
   Optional<AuthSession> findByTokenHashAndExpiresAtAfter(String tokenHash, Instant now);
   void deleteByTokenHash(String tokenHash);
+  void deleteByUserId(UUID userId);
   void deleteByExpiresAtBefore(Instant before);
 }
 @Repository interface BillingAccountRepository extends JpaRepository<BillingAccount, UUID> {

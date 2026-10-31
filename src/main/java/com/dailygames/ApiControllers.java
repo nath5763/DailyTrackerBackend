@@ -27,24 +27,44 @@ class AuthController {
     this.auth = auth; this.baseUrl = baseUrl.replaceAll("/$", ""); this.secureCookie = secureCookie;
   }
 
-  @PostMapping("/magic-link")
-  ResponseEntity<MessageResponse> request(@Valid @RequestBody MagicLinkRequest request, HttpServletRequest servletRequest) {
-    auth.requestMagicLink(request.email(), clientIp(servletRequest));
-    return ResponseEntity.accepted().body(new MessageResponse("Check your inbox. Your sign-in link is on its way."));
+  @PostMapping("/register")
+  ResponseEntity<MessageResponse> register(@Valid @RequestBody CredentialsRequest request, HttpServletRequest servletRequest) {
+    auth.register(request.email(), request.password(), clientIp(servletRequest));
+    return ResponseEntity.accepted().body(new MessageResponse("Check your inbox to verify your email."));
   }
 
-  @GetMapping("/magic-link/consume")
-  ResponseEntity<Void> consume(@RequestParam String token) {
+  @PostMapping("/login")
+  ResponseEntity<AuthSessionResponse> login(@Valid @RequestBody CredentialsRequest request, HttpServletRequest servletRequest) {
+    return authenticated(auth.login(request.email(), request.password(), clientIp(servletRequest)));
+  }
+
+  @PostMapping("/verification/resend")
+  ResponseEntity<MessageResponse> resend(@Valid @RequestBody EmailRequest request, HttpServletRequest servletRequest) {
+    auth.resendVerification(request.email(), clientIp(servletRequest));
+    return ResponseEntity.accepted().body(new MessageResponse("If the account is awaiting verification, a new email is on its way."));
+  }
+
+  @GetMapping("/verification/consume")
+  ResponseEntity<Void> verify(@RequestParam String token) {
     try {
-      AuthService.LoginResult login = auth.consume(token);
-      ResponseCookie cookie = ResponseCookie.from(AuthService.COOKIE_NAME, login.sessionToken()).httpOnly(true)
-          .secure(secureCookie).sameSite("Lax").path("/").maxAge(auth.sessionSeconds()).build();
+      AuthService.LoginResult login = auth.verifyEmail(token);
       String destination = login.onboarded() ? "/dashboard" : "/onboarding";
       return ResponseEntity.status(HttpStatus.FOUND).location(URI.create(baseUrl + destination))
-          .header(HttpHeaders.SET_COOKIE, cookie.toString()).build();
+          .header(HttpHeaders.SET_COOKIE, sessionCookie(login.sessionToken()).toString()).build();
     } catch (ApiException exception) {
-      return ResponseEntity.status(HttpStatus.FOUND).location(URI.create(baseUrl + "/auth?error=invalid_or_expired")).build();
+      return ResponseEntity.status(HttpStatus.FOUND).location(URI.create(baseUrl + "/auth?error=invalid_verification")).build();
     }
+  }
+
+  @PostMapping("/password/forgot")
+  ResponseEntity<MessageResponse> forgot(@Valid @RequestBody EmailRequest request, HttpServletRequest servletRequest) {
+    auth.forgotPassword(request.email(), clientIp(servletRequest));
+    return ResponseEntity.accepted().body(new MessageResponse("If that account exists, a password reset email is on its way."));
+  }
+
+  @PostMapping("/password/reset")
+  ResponseEntity<AuthSessionResponse> reset(@Valid @RequestBody ResetPasswordRequest request) {
+    return authenticated(auth.resetPassword(request.token(), request.password()));
   }
 
   @PostMapping("/logout")
@@ -53,6 +73,16 @@ class AuthController {
     ResponseCookie cleared = ResponseCookie.from(AuthService.COOKIE_NAME, "").httpOnly(true).secure(secureCookie)
         .sameSite("Lax").path("/").maxAge(0).build();
     return ResponseEntity.noContent().header(HttpHeaders.SET_COOKIE, cleared.toString()).build();
+  }
+
+  private ResponseEntity<AuthSessionResponse> authenticated(AuthService.LoginResult login) {
+    return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, sessionCookie(login.sessionToken()).toString())
+        .body(new AuthSessionResponse(login.onboarded()));
+  }
+
+  private ResponseCookie sessionCookie(String token) {
+    return ResponseCookie.from(AuthService.COOKIE_NAME, token).httpOnly(true).secure(secureCookie)
+        .sameSite("Lax").path("/").maxAge(auth.sessionSeconds()).build();
   }
 
   private String cookie(HttpServletRequest request) {

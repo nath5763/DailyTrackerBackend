@@ -23,7 +23,7 @@ class BrevoEmailClientTest {
   }
 
   @Test
-  void sendsMagicLinkThroughBrevoApi() throws Exception {
+  void sendsVerificationThroughBrevoApi() throws Exception {
     AtomicReference<String> apiKey = new AtomicReference<>();
     AtomicReference<String> body = new AtomicReference<>();
     startServer(exchange -> {
@@ -32,14 +32,30 @@ class BrevoEmailClientTest {
       respond(exchange, 201, "{\"messageId\":\"test-message\"}");
     });
 
-    client("test-api-key").sendMagicLink("friend@example.com", "https://example.com/api/v1/auth/magic-link/consume?token=safe-token", 15);
+    client("test-api-key").sendVerification("friend@example.com", "https://example.com/api/v1/auth/verification/consume?token=safe-token", 24);
 
     assertEquals("test-api-key", apiKey.get());
     assertTrue(body.get().contains("\"sender\":{\"email\":\"noreply.dailyg@gmail.com\",\"name\":\"Daily Tracker\"}"));
     assertTrue(body.get().contains("\"to\":[{\"email\":\"friend@example.com\"}]"));
-    assertTrue(body.get().contains("\"subject\":\"Your Daily Club sign-in link\""));
+    assertTrue(body.get().contains("\"subject\":\"Verify your Daily Club email\""));
     assertTrue(body.get().contains("token=safe-token"));
-    assertTrue(body.get().contains("\"tags\":[\"magic-link\"]"));
+    assertTrue(body.get().contains("\"tags\":[\"email-verification\"]"));
+  }
+
+  @Test
+  void sendsPasswordResetThroughBrevoApi() throws Exception {
+    AtomicReference<String> body = new AtomicReference<>();
+    startServer(exchange -> {
+      body.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+      respond(exchange, 201, "{\"messageId\":\"test-message\"}");
+    });
+
+    client("test-api-key").sendPasswordReset("friend@example.com",
+        "https://example.com/auth/reset-password?token=safe-token", 30);
+
+    assertTrue(body.get().contains("\"subject\":\"Reset your Daily Club password\""));
+    assertTrue(body.get().contains("token=safe-token"));
+    assertTrue(body.get().contains("\"tags\":[\"password-reset\"]"));
   }
 
   @ParameterizedTest
@@ -48,11 +64,11 @@ class BrevoEmailClientTest {
     startServer(exchange -> respond(exchange, status, "{\"message\":\"provider error\"}"));
 
     ApiException exception = assertThrows(ApiException.class,
-        () -> client("bad-api-key").sendMagicLink("friend@example.com", "https://example.com/secret-token", 15));
+        () -> client("bad-api-key").sendVerification("friend@example.com", "https://example.com/secret-token", 24));
 
     assertEquals(503, exception.status);
     assertEquals("EMAIL_UNAVAILABLE", exception.code);
-    assertEquals("Sign-in email is temporarily unavailable. Please try again.", exception.getMessage());
+    assertEquals("Account email is temporarily unavailable. Please try again.", exception.getMessage());
   }
 
   @Test
