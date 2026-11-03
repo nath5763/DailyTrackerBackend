@@ -75,10 +75,18 @@ class OriginValidationFilter extends OncePerRequestFilter {
       throws ServletException, IOException {
     String method = request.getMethod();
     String origin = request.getHeader("Origin");
-    if (!(method.equals("GET") || method.equals("HEAD") || method.equals("OPTIONS")) && origin != null && !origin.equals(expectedOrigin)) {
-      response.sendError(403, "Invalid request origin");
+    if (!(method.equals("GET") || method.equals("HEAD") || method.equals("OPTIONS")) && origin != null
+        && !origin.equals(expectedOrigin) && !origin.equals(requestOrigin(request))) {
+      response.setStatus(HttpStatus.FORBIDDEN.value());
       return;
     }
     chain.doFilter(request, response);
+  }
+
+  private String requestOrigin(HttpServletRequest request) {
+    String scheme = request.getScheme();
+    int port = request.getServerPort();
+    boolean defaultPort = (scheme.equals("http") && port == 80) || (scheme.equals("https") && port == 443);
+    return scheme + "://" + request.getServerName() + (defaultPort ? "" : ":" + port);
   }
 }

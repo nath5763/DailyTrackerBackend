@@ -30,7 +30,7 @@ class AuthController {
   @PostMapping("/register")
   ResponseEntity<MessageResponse> register(@Valid @RequestBody CredentialsRequest request, HttpServletRequest servletRequest) {
     auth.register(request.email(), request.password(), clientIp(servletRequest));
-    return ResponseEntity.accepted().body(new MessageResponse("Check your inbox to verify your email."));
+    return ResponseEntity.accepted().body(new MessageResponse("Check your inbox for an email to verify or recover your account."));
   }
 
   @PostMapping("/login")

@@ -51,11 +51,13 @@ class AuthService {
   void register(String rawEmail, String password, String remoteIp) {
     String email = normalizeEmail(rawEmail);
     validatePassword(password);
-    String encodedPassword = passwordEncoder.encode(password);
     Instant now = Instant.now();
     UserAccount user = users.findByNormalizedEmail(email).orElse(null);
-    if (user != null && user.emailVerifiedAt != null) return;
-    if (user == null) user = users.save(new UserAccount(email, encodedPassword, now));
+    if (user != null && user.emailVerifiedAt != null) {
+      if (user.passwordHash == null) sendPasswordReset(user, email, remoteIp);
+      return;
+    }
+    if (user == null) user = users.save(new UserAccount(email, passwordEncoder.encode(password), now));
     issueToken(user, AuthTokenPurpose.EMAIL_VERIFICATION, remoteIp, Duration.ofHours(verificationHours), link ->
         emailClient.sendVerification(email, publicBaseUrl + "/api/v1/auth/verification/consume?token=" + link,
             verificationHours));
@@ -118,9 +120,13 @@ class AuthService {
   void forgotPassword(String rawEmail, String remoteIp) {
     String email = normalizeEmail(rawEmail);
     users.findByNormalizedEmail(email).filter(user -> user.emailVerifiedAt != null).ifPresent(user ->
-        issueToken(user, AuthTokenPurpose.PASSWORD_RESET, remoteIp, Duration.ofMinutes(resetMinutes), link ->
-            emailClient.sendPasswordReset(email, publicBaseUrl + "/auth/reset-password?token=" + link,
-                resetMinutes)));
+        sendPasswordReset(user, email, remoteIp));
+  }
+
+  private void sendPasswordReset(UserAccount user, String email, String remoteIp) {
+    issueToken(user, AuthTokenPurpose.PASSWORD_RESET, remoteIp, Duration.ofMinutes(resetMinutes), link ->
+        emailClient.sendPasswordReset(email, publicBaseUrl + "/auth/reset-password?token=" + link,
+            resetMinutes));
   }
 
   @Transactional

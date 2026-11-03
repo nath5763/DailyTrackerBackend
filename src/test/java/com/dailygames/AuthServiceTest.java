@@ -47,6 +47,33 @@ class AuthServiceTest {
   }
 
   @Test
+  void registeringMigratedAccountSendsPasswordSetupLinkWithoutChangingItsPassword() {
+    UserAccount account = new UserAccount("friend@example.com", Instant.now());
+    when(users.findByNormalizedEmail("friend@example.com")).thenReturn(Optional.of(account));
+
+    auth.register(" Friend@Example.com ", "a sufficiently long password", "127.0.0.1");
+
+    assertNull(account.passwordHash);
+    verify(users, never()).save(any());
+    verify(email).sendPasswordReset(eq("friend@example.com"),
+        contains("/auth/reset-password?token="), eq(30));
+    verify(tokens).save(argThat(token -> token.purpose == AuthTokenPurpose.PASSWORD_RESET));
+    verify(email, never()).sendVerification(anyString(), anyString(), anyInt());
+  }
+
+  @Test
+  void forgotPasswordSendsResetLinkForMigratedAccount() {
+    UserAccount account = new UserAccount("friend@example.com", Instant.now());
+    when(users.findByNormalizedEmail("friend@example.com")).thenReturn(Optional.of(account));
+
+    auth.forgotPassword(" Friend@Example.com ", "127.0.0.1");
+
+    verify(email).sendPasswordReset(eq("friend@example.com"),
+        contains("/auth/reset-password?token="), eq(30));
+    verify(tokens).save(argThat(token -> token.purpose == AuthTokenPurpose.PASSWORD_RESET));
+  }
+
+  @Test
   void logsInVerifiedAccountAndCreatesOpaqueSession() {
     UserAccount account = new UserAccount("friend@example.com", Instant.now());
     account.passwordHash = encoder.encode("a sufficiently long password");
