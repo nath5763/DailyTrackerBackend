@@ -191,10 +191,12 @@ class DailyGamesService {
     if (name.length() < 2 || name.length() > 48) throw new ApiException(400, "INVALID_NAME", "Use a name between 2 and 48 characters.");
     Instant now = Instant.now();
     BoardCreationBasis basis;
-    if (owner.freeLeaderboardClaimedAt == null) {
+    if (boards.countByOwnerIdAndCreationBasis(ownerId, BoardCreationBasis.FREE) < BillingService.FREE_LEADERBOARD_LIMIT) {
       basis = BoardCreationBasis.FREE;
-      owner.freeLeaderboardClaimedAt = now;
-      profiles.save(owner);
+      if (owner.freeLeaderboardClaimedAt == null) {
+        owner.freeLeaderboardClaimedAt = now;
+        profiles.save(owner);
+      }
     } else if (billing.hasUnlimitedLeaderboards(ownerId, now)) {
       basis = BoardCreationBasis.SUBSCRIPTION;
     } else {

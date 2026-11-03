@@ -47,8 +47,12 @@ class DailyGamesIntegrationTest {
     assertEquals(1, service.listBoards(current).size());
     assertEquals("krillion", service.listBoards(current).getFirst().game().slug());
     assertFalse(service.listBoards(current).getFirst().locked());
+    for (int index = 2; index <= 5; index++) {
+      service.createBoard(current, new CreateLeaderboardRequest("Board " + index, "fermi"));
+    }
+    assertEquals(5, service.listBoards(current).size());
     ApiException subscriptionRequired = assertThrows(ApiException.class,
-        () -> service.createBoard(current, new CreateLeaderboardRequest("Second board", "fermi")));
+        () -> service.createBoard(current, new CreateLeaderboardRequest("Sixth board", "fermi")));
     assertEquals(402, subscriptionRequired.status);
     assertEquals("SUBSCRIPTION_REQUIRED", subscriptionRequired.code);
 

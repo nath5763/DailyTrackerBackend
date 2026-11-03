@@ -18,10 +18,12 @@ import static com.dailygames.ApiModels.*;
 
 @Service
 class BillingService {
+  static final int FREE_LEADERBOARD_LIMIT = 5;
   private static final Set<String> ENTITLED_STATUSES = Set.of("active", "trialing");
   private final BillingAccountRepository accounts;
   private final ProcessedStripeEventRepository events;
   private final ProfileRepository profiles;
+  private final LeaderboardRepository boards;
   private final UserRepository users;
   private final StripeClient stripe;
   private final String secretKey;
@@ -29,19 +31,20 @@ class BillingService {
   private final String baseUrl;
 
   BillingService(BillingAccountRepository accounts, ProcessedStripeEventRepository events,
-                 ProfileRepository profiles, UserRepository users,
+                 ProfileRepository profiles, LeaderboardRepository boards, UserRepository users,
                  @Value("${app.stripe.secret-key:}") String secretKey,
                  @Value("${app.stripe.price-id:}") String priceId,
                  @Value("${app.public-base-url}") String baseUrl) {
-    this.accounts = accounts; this.events = events; this.profiles = profiles; this.users = users;
+    this.accounts = accounts; this.events = events; this.profiles = profiles; this.boards = boards; this.users = users;
     this.secretKey = secretKey; this.priceId = priceId; this.baseUrl = baseUrl.replaceAll("/$", "");
     stripe = new StripeClient(secretKey.isBlank() ? "sk_test_not_configured" : secretKey);
   }
 
   BillingStatusResponse status(UUID userId) {
-    Profile profile = profiles.findById(userId).orElseThrow(() -> new ApiException(409, "PROFILE_REQUIRED", "Finish setting up your profile."));
+    profiles.findById(userId).orElseThrow(() -> new ApiException(409, "PROFILE_REQUIRED", "Finish setting up your profile."));
     BillingAccount account = accounts.findById(userId).orElse(null);
-    return new BillingStatusResponse(isEntitled(account, Instant.now()), profile.freeLeaderboardClaimedAt == null,
+    return new BillingStatusResponse(isEntitled(account, Instant.now()),
+        boards.countByOwnerIdAndCreationBasis(userId, BoardCreationBasis.FREE) < FREE_LEADERBOARD_LIMIT,
         account == null ? null : account.subscriptionStatus,
         account != null && account.cancelAtPeriodEnd,
         account == null ? null : account.currentPeriodEnd,

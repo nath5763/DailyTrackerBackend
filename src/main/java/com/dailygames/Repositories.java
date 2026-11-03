@@ -20,6 +20,7 @@ import java.util.*;
   List<Game> findByActiveTrueOrderByNameAsc();
 }
 @Repository interface LeaderboardRepository extends JpaRepository<Leaderboard, UUID> {
+  long countByOwnerIdAndCreationBasis(UUID ownerId, BoardCreationBasis creationBasis);
   @Query("select l from Leaderboard l where l.id in (select m.id.leaderboardId from Membership m where m.id.userId = :userId) order by l.createdAt")
   List<Leaderboard> findForUser(@Param("userId") UUID userId);
   List<Leaderboard> findByOwnerIdOrderByCreatedAtAsc(UUID ownerId);

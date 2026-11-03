@@ -11,8 +11,10 @@ import static org.mockito.Mockito.*;
 
 class BillingServiceTest {
   private final BillingAccountRepository accounts = mock(BillingAccountRepository.class);
+  private final ProfileRepository profiles = mock(ProfileRepository.class);
+  private final LeaderboardRepository boards = mock(LeaderboardRepository.class);
   private final BillingService service = new BillingService(accounts, mock(ProcessedStripeEventRepository.class),
-      mock(ProfileRepository.class), mock(UserRepository.class), "", "", "http://localhost:3000");
+      profiles, boards, mock(UserRepository.class), "", "", "http://localhost:3000");
   private final UUID ownerId = UUID.randomUUID();
   private final Instant now = Instant.parse("2026-10-31T12:00:00Z");
 
@@ -20,6 +22,14 @@ class BillingServiceTest {
     Leaderboard board = board(BoardCreationBasis.FREE);
     assertTrue(service.isBoardAccessible(board, now));
     verifyNoInteractions(accounts);
+  }
+
+  @Test void freeLeaderboardAvailabilityEndsAtFive() {
+    when(profiles.findById(ownerId)).thenReturn(Optional.of(new Profile(ownerId, "Owner", "#dfff4f", now)));
+    when(boards.countByOwnerIdAndCreationBasis(ownerId, BoardCreationBasis.FREE)).thenReturn(4L, 5L);
+
+    assertTrue(service.status(ownerId).freeLeaderboardAvailable());
+    assertFalse(service.status(ownerId).freeLeaderboardAvailable());
   }
 
   @Test void grandfatheredBoardsLockOnlyAfterAFormerSubscriberLosesAccess() {
