@@ -132,6 +132,47 @@ class DailyGamesService {
       case "all" -> submissions.findByUserIdInAndGameId(memberIds, game.id);
       default -> throw new ApiException(400, "INVALID_RANGE", "Range must be today, 7d, 30d, or all.");
     };
+    List<RankingView> rankings = rankScores(memberProfiles, scores, game);
+    Set<UUID> ranked = rankings.stream().map(RankingView::userId).collect(Collectors.toSet());
+    List<MemberView> members = memberProfiles.stream().map(profile -> memberView(profile, board.ownerId)).toList();
+    List<MemberView> absent = range.equals("today") ? memberProfiles.stream().filter(profile -> !ranked.contains(profile.userId)).map(profile -> memberView(profile, board.ownerId)).toList() : List.of();
+    return new LeaderboardResponse(board.id, board.name, board.ownerId, gameView(game), boardType(board),
+        allowedGames.stream().map(this::gameView).toList(), range, board.ownerId.equals(current.id()),
+        members, rankings, absent);
+  }
+
+  LeaderboardInsightsResponse insights(CurrentUser current, UUID boardId, String gameSlug) {
+    requireMembership(boardId, current.id());
+    Leaderboard board = boards.findById(boardId).orElseThrow(this::notFound);
+    requireUnlocked(board);
+    Game game = selectGame(board, allowedGames(board), gameSlug);
+    List<Profile> memberProfiles = memberships.findByIdLeaderboardId(boardId).stream()
+        .map(member -> profiles.findById(member.id.userId).orElseThrow(this::notFound)).toList();
+    List<UUID> memberIds = memberProfiles.stream().map(profile -> profile.userId).toList();
+    LocalDate to = LocalDate.now(ZoneId.of(game.releaseTimezone));
+    LocalDate from = to.minusDays(29);
+    List<Submission> history = submissions.findByUserIdInAndGameIdAndPlayedOnBetween(memberIds, game.id,
+        from.minusDays(29), to);
+    Map<UUID, List<RankPoint>> points = new HashMap<>();
+    for (Profile profile : memberProfiles) points.put(profile.userId, new ArrayList<>());
+    for (LocalDate day = from; !day.isAfter(to); day = day.plusDays(1)) {
+      LocalDate start = day.minusDays(29);
+      LocalDate snapshot = day;
+      List<RankingView> daily = rankScores(memberProfiles, history.stream()
+          .filter(score -> !score.playedOn.isBefore(start) && !score.playedOn.isAfter(snapshot)).toList(), game);
+      Map<UUID, Integer> places = daily.stream().collect(Collectors.toMap(RankingView::userId, RankingView::rank));
+      for (Profile profile : memberProfiles) points.get(profile.userId).add(new RankPoint(day, places.get(profile.userId)));
+    }
+    List<RankSeries> ranks = memberProfiles.stream().map(profile -> new RankSeries(profile.userId,
+        profile.displayName, profile.avatarColor, points.get(profile.userId))).toList();
+    List<DailyPerformance> personal = history.stream().filter(score -> score.userId.equals(current.id()) &&
+        !score.playedOn.isBefore(from)).sorted(Comparator.comparing(score -> score.playedOn))
+        .map(score -> new DailyPerformance(score.playedOn, score.primaryScore, assistanceTier(List.of(score))))
+        .toList();
+    return new LeaderboardInsightsResponse(from, to, ranks, personal);
+  }
+
+  private List<RankingView> rankScores(List<Profile> memberProfiles, List<Submission> scores, Game game) {
     Map<UUID, List<Submission>> byUser = scores.stream().collect(Collectors.groupingBy(score -> score.userId));
     Comparator<RankingSeed> rankingOrder = Comparator.comparing(RankingSeed::assistanceTier);
     Comparator<RankingSeed> scoreOrder = Comparator.comparing(RankingSeed::average);
@@ -148,7 +189,7 @@ class DailyGamesService {
       int assisted = (int) values.stream().filter(value -> "assisted".equals(value.metrics.get("assistanceStatus")) ||
           metricCount(value, "hints") > 0 || metricCount(value, "mistakes") > 0 || metricCount(value, "beginnerAssists") > 0).count();
       int unknown = (int) values.stream().filter(value -> "unknown".equals(value.metrics.get("assistanceStatus"))).count();
-      return new RankingSeed(profile, average, values.size(), assisted > 0 ? 2 : unknown > 0 ? 1 : 0,
+      return new RankingSeed(profile, average, values.size(), assistanceTier(values),
           assisted, unknown, hints, mistakes, beginner);
     }).sorted(rankingOrder).toList();
     List<RankingView> rankings = new ArrayList<>();
@@ -158,12 +199,14 @@ class DailyGamesService {
           seed.average, seed.gamesPlayed, seed.assistedResults, seed.unknownAssistanceResults,
           seed.hints, seed.mistakes, seed.beginnerAssists));
     }
-    Set<UUID> ranked = seeds.stream().map(seed -> seed.profile.userId).collect(Collectors.toSet());
-    List<MemberView> members = memberProfiles.stream().map(profile -> memberView(profile, board.ownerId)).toList();
-    List<MemberView> absent = range.equals("today") ? memberProfiles.stream().filter(profile -> !ranked.contains(profile.userId)).map(profile -> memberView(profile, board.ownerId)).toList() : List.of();
-    return new LeaderboardResponse(board.id, board.name, board.ownerId, gameView(game), boardType(board),
-        allowedGames.stream().map(this::gameView).toList(), range, board.ownerId.equals(current.id()),
-        members, rankings, absent);
+    return rankings;
+  }
+
+  private int assistanceTier(List<Submission> scores) {
+    if (scores.stream().anyMatch(value -> "assisted".equals(value.metrics.get("assistanceStatus")) ||
+        metricCount(value, "hints") > 0 || metricCount(value, "mistakes") > 0 ||
+        metricCount(value, "beginnerAssists") > 0)) return 2;
+    return scores.stream().anyMatch(value -> "unknown".equals(value.metrics.get("assistanceStatus"))) ? 1 : 0;
   }
 
   @Transactional

@@ -92,6 +92,54 @@ class DailyGamesServiceTest {
     assertEquals(1, rankings.get(1).hints());
   }
   @Test
+  void insightsUseRollingRankingRulesAndOnlyExposeViewerScores() {
+    UUID ownerId = UUID.randomUUID(), friendId = UUID.randomUUID();
+    LocalDate today = LocalDate.now(ZoneOffset.UTC);
+    Game game = new Game(); game.id = UUID.randomUUID(); game.slug = "queens"; game.name = "Queens";
+    game.active = true; game.releaseTimezone = "UTC"; game.rankingDirection = "lower";
+    Leaderboard board = new Leaderboard(ownerId, "Queens club", game.id, BoardCreationBasis.FREE, Instant.now());
+    ProfileRepository profiles = mock(ProfileRepository.class);
+    GameRepository games = mock(GameRepository.class);
+    LeaderboardRepository boards = mock(LeaderboardRepository.class);
+    MembershipRepository memberships = mock(MembershipRepository.class);
+    SubmissionRepository submissions = mock(SubmissionRepository.class);
+    BillingService billing = mock(BillingService.class);
+    GameAdapterRegistry adapters = mock(GameAdapterRegistry.class);
+    GameAdapter adapter = mock(GameAdapter.class);
+    when(adapter.scoreFormat()).thenReturn(new ApiModels.ScoreFormatView("", "", 0, 0, "duration"));
+    when(adapters.require("queens")).thenReturn(adapter);
+    when(boards.findById(board.id)).thenReturn(Optional.of(board));
+    when(games.findById(game.id)).thenReturn(Optional.of(game));
+    when(billing.isBoardAccessible(eq(board), any())).thenReturn(true);
+    when(memberships.existsByIdLeaderboardIdAndIdUserId(board.id, ownerId)).thenReturn(true);
+    when(memberships.findByIdLeaderboardId(board.id)).thenReturn(List.of(
+        new Membership(board.id, ownerId, ownerId, Instant.now()),
+        new Membership(board.id, friendId, ownerId, Instant.now())));
+    when(profiles.findById(ownerId)).thenReturn(Optional.of(new Profile(ownerId, "Owner", "#dfff4f", Instant.now())));
+    when(profiles.findById(friendId)).thenReturn(Optional.of(new Profile(friendId, "Friend", "#ff8db6", Instant.now())));
+    Submission ownerOld = new Submission(ownerId, game.id, new ParsedSubmission("old", 1, today.minusDays(29),
+        BigDecimal.valueOf(80), Map.of(), 1), "share", Instant.now());
+    Submission ownerNew = new Submission(ownerId, game.id, new ParsedSubmission("new", 2, today,
+        BigDecimal.valueOf(80), Map.of(), 1), "share", Instant.now());
+    Submission friendAssisted = new Submission(friendId, game.id, new ParsedSubmission("old", 1, today.minusDays(30),
+        BigDecimal.valueOf(20), Map.of("hints", 1), 1), "share", Instant.now());
+    Submission friendNew = new Submission(friendId, game.id, new ParsedSubmission("new", 2, today,
+        BigDecimal.valueOf(10), Map.of(), 1), "share", Instant.now());
+    when(submissions.findByUserIdInAndGameIdAndPlayedOnBetween(any(), eq(game.id), any(), any()))
+        .thenReturn(List.of(ownerOld, ownerNew, friendAssisted, friendNew));
+    DailyGamesService service = service(profiles, games, boards, memberships, submissions, adapters, billing);
+    var insights = service.insights(new CurrentUser(ownerId, ""), board.id, "queens");
+    assertEquals(30, insights.ranks().getFirst().points().size());
+    assertEquals(1, insights.ranks().getFirst().points().getFirst().rank());
+    assertEquals(2, insights.ranks().getFirst().points().getLast().rank());
+    assertEquals(1, insights.ranks().get(1).points().getLast().rank());
+    assertEquals(2, insights.personalScores().size());
+    assertTrue(insights.personalScores().stream().allMatch(score -> score.score().compareTo(BigDecimal.valueOf(80)) == 0));
+    when(memberships.existsByIdLeaderboardIdAndIdUserId(board.id, ownerId)).thenReturn(false);
+    assertEquals("NOT_FOUND", assertThrows(ApiException.class,
+        () -> service.insights(new CurrentUser(ownerId, ""), board.id, "queens")).code);
+  }
+  @Test
   void allowsFiveFreeLeaderboardsAndRejectsTheSixth() {
     UUID ownerId = UUID.randomUUID();
     Profile owner = new Profile(ownerId, "Owner", "#dfff4f", Instant.now());
@@ -304,9 +352,13 @@ class DailyGamesServiceTest {
     when(memberships.existsByIdLeaderboardIdAndIdUserId(single.id, userId)).thenReturn(false);
     assertEquals("NOT_FOUND", assertThrows(ApiException.class,
         () -> service.board(current, single.id, "today", "fermi")).code);
+    assertEquals("NOT_FOUND", assertThrows(ApiException.class,
+        () -> service.insights(current, single.id, "fermi")).code);
     when(billing.isBoardAccessible(eq(multi), any())).thenReturn(false);
     assertEquals("OWNER_SUBSCRIPTION_REQUIRED", assertThrows(ApiException.class,
         () -> service.board(current, multi.id, "today", "fermi")).code);
+    assertEquals("OWNER_SUBSCRIPTION_REQUIRED", assertThrows(ApiException.class,
+        () -> service.insights(current, multi.id, "fermi")).code);
   }
 
   private DailyGamesService service(ProfileRepository profiles, GameRepository games, LeaderboardRepository boards,

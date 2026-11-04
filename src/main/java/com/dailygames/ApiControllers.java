@@ -127,6 +127,10 @@ class DailyGamesController {
                                                                @RequestParam(required = false) String game) {
     return service.board(current(authentication), id, range, game);
   }
+  @GetMapping("/leaderboards/{id}/insights") LeaderboardInsightsResponse insights(Authentication authentication,
+      @PathVariable UUID id, @RequestParam(required = false) String game) {
+    return service.insights(current(authentication), id, game);
+  }
   @PostMapping("/leaderboards/{id}/members") ResponseEntity<Void> addMember(Authentication authentication, @PathVariable UUID id,
                                                                               @Valid @RequestBody AddMemberRequest request) {
     service.addMember(current(authentication), id, request.shareId());

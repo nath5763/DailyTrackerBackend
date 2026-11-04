@@ -68,6 +68,11 @@ final class ApiModels {
   record LeaderboardResponse(UUID id, String name, UUID ownerId, GameView game, BoardType boardType,
                              List<GameView> games, String range, boolean owner, List<MemberView> members,
                              List<RankingView> rankings, List<MemberView> absent) {}
+  record RankPoint(LocalDate date, Integer rank) {}
+  record RankSeries(UUID userId, String displayName, String avatarColor, List<RankPoint> points) {}
+  record DailyPerformance(LocalDate date, BigDecimal score, int assistanceTier) {}
+  record LeaderboardInsightsResponse(LocalDate from, LocalDate to, List<RankSeries> ranks,
+                                     List<DailyPerformance> personalScores) {}
   record ProfileResponse(ProfileView profile, boolean self, StatsView stats, List<GameStatsView> statsByGame,
                          List<ScoreView> scores) {}
   record BillingStatusResponse(BillingTier tier, long singleGameCount, int singleGameLimit,
