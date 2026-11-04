@@ -45,6 +45,7 @@ class Profile {
 
 enum BoardCreationBasis { FREE, SUBSCRIPTION, GRANDFATHERED }
 enum BoardType { SINGLE_GAME, MULTI_GAME }
+enum BillingTier { FREE, STANDARD, PREMIUM }
 
 @Entity @Table(name = "games")
 class Game {
@@ -84,12 +85,14 @@ class BillingAccount {
   @Column(name = "stripe_customer_id", unique = true) String stripeCustomerId;
   @Column(name = "stripe_subscription_id", unique = true) String stripeSubscriptionId;
   @Column(name = "subscription_status") String subscriptionStatus;
+  @Column(name = "stripe_price_id") String stripePriceId;
   @Column(name = "current_period_end") Instant currentPeriodEnd;
   @Column(name = "cancel_at_period_end", nullable = false) boolean cancelAtPeriodEnd;
   @Column(name = "grace_until") Instant graceUntil;
   @Column(name = "ever_subscribed_at") Instant everSubscribedAt;
   @Column(name = "last_event_created_at") Instant lastEventCreatedAt;
   @Column(name = "pending_checkout_session_id") String pendingCheckoutSessionId;
+  @Column(name = "pending_checkout_price_id") String pendingCheckoutPriceId;
   @Column(name = "pending_checkout_url") String pendingCheckoutUrl;
   @Column(name = "pending_checkout_expires_at") Instant pendingCheckoutExpiresAt;
   @Column(name = "updated_at", nullable = false) Instant updatedAt;

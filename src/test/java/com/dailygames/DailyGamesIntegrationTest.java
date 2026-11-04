@@ -32,6 +32,7 @@ class DailyGamesIntegrationTest {
     properties.add("spring.datasource.password", POSTGRES::getPassword);
     properties.add("app.brevo.api-key", () -> "integration-test-key");
     properties.add("app.brevo.sender-email", () -> "sender@example.com");
+    properties.add("app.stripe.premium-price-id", () -> "price_premium");
   }
 
   @Autowired DailyGamesService service;
@@ -59,8 +60,8 @@ class DailyGamesIntegrationTest {
     assertEquals(5, service.listBoards(current).size());
     ApiException subscriptionRequired = assertThrows(ApiException.class,
         () -> service.createBoard(current, new CreateLeaderboardRequest("Sixth board", "fermi")));
-    assertEquals(402, subscriptionRequired.status);
-    assertEquals("SUBSCRIPTION_REQUIRED", subscriptionRequired.code);
+    assertEquals(409, subscriptionRequired.status);
+    assertEquals("SINGLE_GAME_LIMIT_REACHED", subscriptionRequired.code);
 
     UserAccount stranger = users.save(new UserAccount("stranger@example.com", Instant.now()));
     CurrentUser other = new CurrentUser(stranger.id, stranger.normalizedEmail);
@@ -105,6 +106,11 @@ class DailyGamesIntegrationTest {
     assertEquals(BoardCreationBasis.SUBSCRIPTION, converted.creationBasis);
     assertEquals(0, boards.countByOwnerIdAndCreationBasis(owner.id, BoardCreationBasis.FREE));
 
+    ApiException limit = assertThrows(ApiException.class, () -> service.createBoard(current,
+        new CreateLeaderboardRequest("Every Game", null, BoardType.MULTI_GAME)));
+    assertEquals("ALL_GAME_LIMIT_REACHED", limit.code);
+    account.stripePriceId = "price_premium";
+    billingAccounts.save(account);
     UUID multiId = service.createBoard(current,
         new CreateLeaderboardRequest("Every Game", null, BoardType.MULTI_GAME));
     BoardSummary summary = service.listBoards(current).stream().filter(value -> value.id().equals(multiId)).findFirst().orElseThrow();

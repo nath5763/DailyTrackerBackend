@@ -229,8 +229,8 @@ class DiscordService {
     if (!board.ownerId.equals(userId)) {
       throw new ApiException(403, "NOT_OWNER", "Only the leaderboard owner can connect it to a channel.");
     }
-    if (!billing.isBoardAccessible(board, now)) {
-      throw new ApiException(402, "OWNER_SUBSCRIPTION_REQUIRED", "That leaderboard is locked. Restore its owner's subscription first.");
+    if (billing.allGameLimit(board.ownerId, now) == 0) {
+      throw new ApiException(402, "OWNER_SUBSCRIPTION_REQUIRED", "The leaderboard owner needs an active paid tier to connect a channel.");
     }
     DiscordChannelLeaderboardId id = new DiscordChannelLeaderboardId(guildId, channelId);
     DiscordChannelLeaderboard mapping = channels.findById(id)
@@ -248,6 +248,7 @@ class DiscordService {
     UUID userId = linkedUser(discordUserId);
     DiscordChannelLeaderboard mapping = channels.findById(new DiscordChannelLeaderboardId(guildId, channelId))
         .orElseThrow(() -> new ApiException(404, "CHANNEL_NOT_CONFIGURED", "This channel is not connected to a leaderboard."));
+    requirePaidOwner(mapping.leaderboardId);
     DailyGamesService.DiscordSubmissionResult saved = gameSlug == null
         ? dailyGames.submitFromDiscord(userId, mapping.leaderboardId, rawText)
         : dailyGames.submitFromDiscord(userId, mapping.leaderboardId, gameSlug, rawText);
@@ -261,6 +262,7 @@ class DiscordService {
     UUID userId = linkedUser(discordUserId);
     DiscordChannelLeaderboard mapping = channels.findById(new DiscordChannelLeaderboardId(guildId, channelId))
         .orElseThrow(() -> new ApiException(404, "CHANNEL_NOT_CONFIGURED", "This channel is not connected to a leaderboard."));
+    requirePaidOwner(mapping.leaderboardId);
     String range = requestedRange == null ? "today" : requestedRange;
     if (!Set.of("today", "7d", "30d", "all").contains(range)) {
       throw new ApiException(400, "INVALID_RANGE", "Range must be today, 7d, 30d, or all.");
@@ -378,10 +380,19 @@ class DiscordService {
     return format.prefix() + display.toPlainString() + format.suffix();
   }
 
+  private void requirePaidOwner(UUID leaderboardId) {
+    Leaderboard board = boards.findById(leaderboardId)
+        .orElseThrow(() -> new ApiException(404, "LEADERBOARD_NOT_FOUND", "That leaderboard no longer exists."));
+    if (billing.allGameLimit(board.ownerId, clock.instant()) == 0) {
+      throw new ApiException(402, "OWNER_SUBSCRIPTION_REQUIRED",
+          "The leaderboard owner needs an active paid tier for this channel.");
+    }
+  }
+
   private String discordMessage(ApiException exception) {
     return switch (exception.code) {
       case "DISCORD_LINK_CODE_INVALID" -> "That link code is invalid or expired. Request a new one from Daily Tracker.";
-      case "OWNER_SUBSCRIPTION_REQUIRED" -> "This leaderboard is locked until its owner restores their subscription.";
+      case "OWNER_SUBSCRIPTION_REQUIRED" -> "The leaderboard owner needs an active paid tier for this channel.";
       default -> exception.getMessage();
     };
   }

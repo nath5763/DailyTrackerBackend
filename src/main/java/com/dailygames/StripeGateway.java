@@ -28,7 +28,7 @@ interface StripeGateway {
   record StripeCheckoutSession(String id, String url, Instant expiresAt) {}
   record StripePortalSession(String url) {}
   record StripeSubscription(String id, String customerId, String status, boolean cancelAtPeriodEnd,
-                            Instant currentPeriodEnd, Map<String, String> metadata) {}
+                            Instant currentPeriodEnd, String priceId, Map<String, String> metadata) {}
 }
 
 @Component
@@ -101,7 +101,10 @@ class StripeSdkGateway implements StripeGateway {
         .max(Long::compareTo)
         .map(Instant::ofEpochSecond)
         .orElse(null);
+    String priceId = subscription.getItems().getData().size() == 1 &&
+        subscription.getItems().getData().getFirst().getPrice() != null
+        ? subscription.getItems().getData().getFirst().getPrice().getId() : "";
     return new StripeSubscription(subscription.getId(), subscription.getCustomer(), subscription.getStatus(),
-        Boolean.TRUE.equals(subscription.getCancelAtPeriodEnd()), periodEnd, subscription.getMetadata());
+        Boolean.TRUE.equals(subscription.getCancelAtPeriodEnd()), periodEnd, priceId, subscription.getMetadata());
   }
 }

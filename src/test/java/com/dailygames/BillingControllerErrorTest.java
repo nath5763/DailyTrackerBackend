@@ -30,9 +30,10 @@ class BillingControllerErrorTest {
   void unexpectedCheckoutFailureReturnsJson500InsteadOf401() throws Exception {
     UUID userId = UUID.randomUUID();
     CurrentUser current = new CurrentUser(userId, "owner@example.com");
-    when(billing.createCheckout(userId)).thenThrow(new NullPointerException("test failure"));
+    when(billing.createCheckout(userId, BillingTier.STANDARD)).thenThrow(new NullPointerException("test failure"));
 
     mvc.perform(post("/api/v1/billing/checkout-session")
+            .contentType("application/json").content("{\"tier\":\"STANDARD\"}")
             .header("Origin", "http://localhost:3000")
             .with(authentication(new UsernamePasswordAuthenticationToken(current, "session", List.of()))))
         .andExpect(status().isInternalServerError())

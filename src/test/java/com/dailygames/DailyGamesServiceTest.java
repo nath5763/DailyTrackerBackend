@@ -28,7 +28,7 @@ class DailyGamesServiceTest {
     AtomicInteger freeCount = new AtomicInteger();
     when(profiles.findByIdForUpdate(ownerId)).thenReturn(Optional.of(owner));
     when(games.findBySlugAndActiveTrue("fermi")).thenReturn(Optional.of(game));
-    when(boards.countByOwnerIdAndCreationBasis(ownerId, BoardCreationBasis.FREE))
+    when(boards.countByOwnerIdAndBoardType(ownerId, BoardType.SINGLE_GAME))
         .thenAnswer(invocation -> (long) freeCount.get());
     when(boards.save(any(Leaderboard.class))).thenAnswer(invocation -> {
       Leaderboard board = invocation.getArgument(0);
@@ -44,8 +44,8 @@ class DailyGamesServiceTest {
     }
     ApiException exception = assertThrows(ApiException.class,
         () -> service.createBoard(current, new CreateLeaderboardRequest("Board 6", "fermi")));
-    assertEquals(402, exception.status);
-    assertEquals("SUBSCRIPTION_REQUIRED", exception.code);
+    assertEquals(409, exception.status);
+    assertEquals("SINGLE_GAME_LIMIT_REACHED", exception.code);
     verify(boards, times(5)).save(argThat(board -> board.creationBasis == BoardCreationBasis.FREE));
   }
 
@@ -58,7 +58,7 @@ class DailyGamesServiceTest {
     MembershipRepository memberships = mock(MembershipRepository.class);
     BillingService billing = mock(BillingService.class);
     when(profiles.findByIdForUpdate(ownerId)).thenReturn(Optional.of(owner));
-    when(billing.hasUnlimitedLeaderboards(eq(ownerId), any())).thenReturn(true);
+    when(billing.allGameLimit(eq(ownerId), any())).thenReturn(1);
     when(boards.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
     DailyGamesService service = service(profiles, mock(GameRepository.class), boards, memberships,
         mock(SubmissionRepository.class), mock(GameAdapterRegistry.class), billing);
@@ -67,18 +67,39 @@ class DailyGamesServiceTest {
         new CreateLeaderboardRequest("All Games", null, BoardType.MULTI_GAME));
 
     assertNotNull(id);
-    verify(boards, never()).countByOwnerIdAndCreationBasis(any(), any());
+    verify(boards, never()).countByOwnerIdAndBoardType(ownerId, BoardType.SINGLE_GAME);
     verify(boards).save(argThat(board -> board.boardType == BoardType.MULTI_GAME && board.gameId == null
         && board.creationBasis == BoardCreationBasis.SUBSCRIPTION));
     verify(memberships).save(argThat(member -> member.id.userId.equals(ownerId)));
 
     reset(boards, memberships);
-    when(billing.hasUnlimitedLeaderboards(eq(ownerId), any())).thenReturn(false);
+    when(billing.allGameLimit(eq(ownerId), any())).thenReturn(0);
     ApiException exception = assertThrows(ApiException.class, () -> service.createBoard(
         new CurrentUser(ownerId, "owner@example.com"),
         new CreateLeaderboardRequest("All Games", null, BoardType.MULTI_GAME)));
     assertEquals("SUBSCRIPTION_REQUIRED", exception.code);
     verify(boards, never()).save(any());
+  }
+
+  @Test
+  void premiumAllowsFiveAllGameBoardsAndStopsAtTheLimit() {
+    UUID ownerId = UUID.randomUUID();
+    ProfileRepository profiles = mock(ProfileRepository.class);
+    LeaderboardRepository boards = mock(LeaderboardRepository.class);
+    BillingService billing = mock(BillingService.class);
+    AtomicInteger count = new AtomicInteger();
+    when(profiles.findByIdForUpdate(ownerId)).thenReturn(Optional.of(new Profile(ownerId, "Owner", "#dfff4f", Instant.now())));
+    when(billing.allGameLimit(eq(ownerId), any())).thenReturn(5);
+    when(boards.countByOwnerIdAndBoardType(ownerId, BoardType.MULTI_GAME)).thenAnswer(value -> (long) count.get());
+    when(boards.save(any(Leaderboard.class))).thenAnswer(value -> { count.incrementAndGet(); return value.getArgument(0); });
+    DailyGamesService service = service(profiles, mock(GameRepository.class), boards, mock(MembershipRepository.class),
+        mock(SubmissionRepository.class), mock(GameAdapterRegistry.class), billing);
+    CurrentUser owner = new CurrentUser(ownerId, "owner@example.com");
+    for (int index = 0; index < 5; index++) {
+      service.createBoard(owner, new CreateLeaderboardRequest("All " + index, null, BoardType.MULTI_GAME));
+    }
+    assertEquals("ALL_GAME_LIMIT_REACHED", assertThrows(ApiException.class, () ->
+        service.createBoard(owner, new CreateLeaderboardRequest("Sixth", null, BoardType.MULTI_GAME))).code);
   }
 
   @Test
@@ -89,7 +110,7 @@ class DailyGamesServiceTest {
     MembershipRepository memberships = mock(MembershipRepository.class);
     BillingService billing = mock(BillingService.class);
     when(boards.findById(board.id)).thenReturn(Optional.of(board));
-    when(billing.hasUnlimitedLeaderboards(eq(ownerId), any())).thenReturn(true);
+    when(billing.allGameLimit(eq(ownerId), any())).thenReturn(1);
     DailyGamesService service = service(mock(ProfileRepository.class), mock(GameRepository.class), boards,
         memberships, mock(SubmissionRepository.class), mock(GameAdapterRegistry.class), billing);
 
@@ -106,7 +127,7 @@ class DailyGamesServiceTest {
     Leaderboard unsubscribed = new Leaderboard(ownerId, "Needs Access", UUID.randomUUID(),
         BoardCreationBasis.FREE, Instant.now());
     when(boards.findById(unsubscribed.id)).thenReturn(Optional.of(unsubscribed));
-    when(billing.hasUnlimitedLeaderboards(eq(ownerId), any())).thenReturn(false);
+    when(billing.allGameLimit(eq(ownerId), any())).thenReturn(0);
     ApiException paymentRequired = assertThrows(ApiException.class,
         () -> service.convertToMultiGame(new CurrentUser(ownerId, "owner@example.com"), unsubscribed.id));
     assertEquals("SUBSCRIPTION_REQUIRED", paymentRequired.code);

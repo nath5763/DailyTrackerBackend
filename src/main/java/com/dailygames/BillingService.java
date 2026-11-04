@@ -16,9 +16,9 @@ import static com.dailygames.ApiModels.*;
 
 @Service
 class BillingService {
-  static final int FREE_LEADERBOARD_LIMIT = 5;
+  static final int SINGLE_GAME_LIMIT = 5;
   private static final long CHECKOUT_WINDOW_SECONDS = Duration.ofMinutes(30).toSeconds();
-  private static final String CHECKOUT_IDEMPOTENCY_VERSION = "v2";
+  private static final String CHECKOUT_IDEMPOTENCY_VERSION = "v3";
   private static final Set<String> ENTITLED_STATUSES = Set.of("active", "trialing");
   private static final Set<String> MANAGED_SUBSCRIPTION_STATUSES =
       Set.of("active", "trialing", "past_due", "unpaid", "paused", "incomplete");
@@ -34,6 +34,7 @@ class BillingService {
   private final StripeGateway stripe;
   private final String secretKey;
   private final String priceId;
+  private final String premiumPriceId;
   private final String portalConfigurationId;
   private final String baseUrl;
 
@@ -42,40 +43,40 @@ class BillingService {
                  StripeGateway stripe,
                  @Value("${app.stripe.secret-key:}") String secretKey,
                  @Value("${app.stripe.price-id:}") String priceId,
+                 @Value("${app.stripe.premium-price-id:}") String premiumPriceId,
                  @Value("${app.stripe.portal-configuration-id:}") String portalConfigurationId,
                  @Value("${app.public-base-url}") String baseUrl) {
     this.accounts = accounts; this.events = events; this.profiles = profiles; this.boards = boards; this.users = users;
     this.stripe = stripe;
-    this.secretKey = secretKey; this.priceId = priceId; this.portalConfigurationId = portalConfigurationId;
+    this.secretKey = secretKey; this.priceId = priceId; this.premiumPriceId = premiumPriceId;
+    this.portalConfigurationId = portalConfigurationId;
     this.baseUrl = baseUrl.replaceAll("/$", "");
   }
 
   BillingStatusResponse status(UUID userId) {
     profiles.findById(userId).orElseThrow(() -> new ApiException(409, "PROFILE_REQUIRED", "Finish setting up your profile."));
     BillingAccount account = accounts.findById(userId).orElse(null);
-    return new BillingStatusResponse(isEntitled(account, Instant.now()),
-        boards.countByOwnerIdAndCreationBasis(userId, BoardCreationBasis.FREE) < FREE_LEADERBOARD_LIMIT,
+    BillingTier tier = tier(account, Instant.now());
+    return new BillingStatusResponse(tier,
+        boards.countByOwnerIdAndBoardType(userId, BoardType.SINGLE_GAME), SINGLE_GAME_LIMIT,
+        boards.countByOwnerIdAndBoardType(userId, BoardType.MULTI_GAME), allGameLimit(tier),
         account == null ? null : account.subscriptionStatus,
         account != null && account.cancelAtPeriodEnd,
         account == null ? null : account.currentPeriodEnd,
         account == null ? null : account.graceUntil);
   }
 
-  boolean hasUnlimitedLeaderboards(UUID userId, Instant now) {
-    return accounts.findById(userId).map(account -> isEntitled(account, now)).orElse(false);
+  int allGameLimit(UUID userId, Instant now) {
+    return accounts.findById(userId).map(account -> allGameLimit(tier(account, now))).orElse(0);
   }
 
   boolean isBoardAccessible(Leaderboard board, Instant now) {
-    if (board.creationBasis == BoardCreationBasis.FREE) return true;
-    BillingAccount account = accounts.findById(board.ownerId).orElse(null);
-    if (board.creationBasis == BoardCreationBasis.GRANDFATHERED &&
-        (account == null || account.everSubscribedAt == null)) return true;
-    return isEntitled(account, now);
+    return board.boardType != BoardType.MULTI_GAME || allGameLimit(board.ownerId, now) > 0;
   }
 
   @Transactional(noRollbackFor = ApiException.class)
-  UrlResponse createCheckout(UUID userId) {
-    requireCheckoutConfiguration();
+  UrlResponse createCheckout(UUID userId, BillingTier tier) {
+    String selectedPriceId = checkoutPrice(tier);
     profiles.findByIdForUpdate(userId).orElseThrow(() -> new ApiException(409, "PROFILE_REQUIRED", "Finish setting up your profile."));
     UserAccount user = users.findById(userId).orElseThrow(() -> new ApiException(401, "UNAUTHORIZED", "Sign in first."));
     Instant now = Instant.now();
@@ -85,7 +86,8 @@ class BillingService {
           "Manage your existing subscription before starting a new checkout.");
     }
     if (account.pendingCheckoutExpiresAt != null && account.pendingCheckoutExpiresAt.isAfter(now) &&
-        account.pendingCheckoutUrl != null) return new UrlResponse(account.pendingCheckoutUrl);
+        selectedPriceId.equals(account.pendingCheckoutPriceId) && account.pendingCheckoutUrl != null)
+      return new UrlResponse(account.pendingCheckoutUrl);
     try {
       if (account.stripeCustomerId == null) {
         account.stripeCustomerId = stripe.createCustomer(user.normalizedEmail, userId).id();
@@ -93,11 +95,12 @@ class BillingService {
         accounts.saveAndFlush(account);
         log.info("Created Stripe customer mapping for userId={}", userId);
       }
-      CheckoutAttempt attempt = checkoutAttempt(userId, now);
-      StripeGateway.StripeCheckoutSession session = stripe.createCheckout(account.stripeCustomerId, userId, priceId,
+      CheckoutAttempt attempt = checkoutAttempt(userId, tier, now);
+      StripeGateway.StripeCheckoutSession session = stripe.createCheckout(account.stripeCustomerId, userId, selectedPriceId,
           baseUrl + "/leaderboards?checkout=success", baseUrl + "/leaderboards?checkout=cancelled",
           attempt.expiresAt(), attempt.idempotencyKey());
       account.pendingCheckoutSessionId = session.id();
+      account.pendingCheckoutPriceId = selectedPriceId;
       account.pendingCheckoutUrl = session.url();
       account.pendingCheckoutExpiresAt = session.expiresAt();
       account.updatedAt = now;
@@ -109,6 +112,8 @@ class BillingService {
     }
   }
 
+  UrlResponse createCheckout(UUID userId) { return createCheckout(userId, BillingTier.STANDARD); }
+
   @Transactional
   UrlResponse createPortal(UUID userId) {
     requirePortalConfiguration();
@@ -118,7 +123,7 @@ class BillingService {
         .orElseThrow(() -> new ApiException(409, "BILLING_ACCOUNT_REQUIRED", "Start a subscription before opening billing settings."));
     try {
       StripeGateway.StripePortalSession session = stripe.createPortal(account.stripeCustomerId,
-          portalConfigurationId, baseUrl + "/leaderboards");
+          portalConfigurationId, baseUrl + "/leaderboards?billing=returned");
       log.info("Created Stripe portal session for userId={}", userId);
       return new UrlResponse(session.url());
     } catch (StripeException exception) {
@@ -159,6 +164,7 @@ class BillingService {
     account.stripeCustomerId = session.getCustomer();
     account.stripeSubscriptionId = session.getSubscription();
     account.pendingCheckoutSessionId = null;
+    account.pendingCheckoutPriceId = null;
     account.pendingCheckoutUrl = null;
     account.pendingCheckoutExpiresAt = null;
     account.lastEventCreatedAt = eventCreated;
@@ -172,6 +178,7 @@ class BillingService {
     account.stripeCustomerId = subscription.customerId();
     account.stripeSubscriptionId = subscription.id();
     account.subscriptionStatus = subscription.status();
+    account.stripePriceId = subscription.priceId();
     account.cancelAtPeriodEnd = subscription.cancelAtPeriodEnd();
     account.currentPeriodEnd = subscription.currentPeriodEnd();
     if (isEntitledStatus(account.subscriptionStatus)) {
@@ -183,6 +190,7 @@ class BillingService {
       account.graceUntil = null;
     }
     account.pendingCheckoutSessionId = null;
+    account.pendingCheckoutPriceId = null;
     account.pendingCheckoutUrl = null;
     account.pendingCheckoutExpiresAt = null;
     account.lastEventCreatedAt = eventCreated;
@@ -217,6 +225,19 @@ class BillingService {
     return "past_due".equals(account.subscriptionStatus) && account.graceUntil != null && account.graceUntil.isAfter(now);
   }
 
+  private BillingTier tier(BillingAccount account, Instant now) {
+    if (!isEntitled(account, now)) return BillingTier.FREE;
+    // Rows written before Price reconciliation represent the original $2 subscription.
+    if (account.stripePriceId == null || (!priceId.isBlank() && account.stripePriceId.equals(priceId)))
+      return BillingTier.STANDARD;
+    if (account.stripePriceId.equals(premiumPriceId) && !premiumPriceId.isBlank()) return BillingTier.PREMIUM;
+    return BillingTier.FREE;
+  }
+
+  private int allGameLimit(BillingTier tier) {
+    return switch (tier) { case FREE -> 0; case STANDARD -> 1; case PREMIUM -> 5; };
+  }
+
   private boolean isEntitledStatus(String status) {
     return status != null && ENTITLED_STATUSES.contains(status);
   }
@@ -226,9 +247,13 @@ class BillingService {
   }
 
   static CheckoutAttempt checkoutAttempt(UUID userId, Instant now) {
+    return checkoutAttempt(userId, BillingTier.STANDARD, now);
+  }
+
+  static CheckoutAttempt checkoutAttempt(UUID userId, BillingTier tier, Instant now) {
     long window = now.getEpochSecond() / CHECKOUT_WINDOW_SECONDS;
     Instant expiresAt = Instant.ofEpochSecond((window + 2) * CHECKOUT_WINDOW_SECONDS);
-    String key = "daily-tracker-checkout-" + CHECKOUT_IDEMPOTENCY_VERSION + "-" + userId + "-" + window;
+    String key = "daily-tracker-checkout-" + CHECKOUT_IDEMPOTENCY_VERSION + "-" + userId + "-" + tier + "-" + window;
     return new CheckoutAttempt(key, expiresAt);
   }
 
@@ -243,10 +268,15 @@ class BillingService {
     catch (RuntimeException exception) { throw new ApiException(400, "INVALID_STRIPE_EVENT", "Stripe event is missing its Daily Tracker account reference."); }
   }
 
-  private void requireCheckoutConfiguration() {
-    if (secretKey.isBlank() || priceId.isBlank()) {
+  private String checkoutPrice(BillingTier tier) {
+    if (tier == null || tier == BillingTier.FREE) {
+      throw new ApiException(400, "INVALID_BILLING_TIER", "Choose the $2 or $5 monthly tier.");
+    }
+    String selected = tier == BillingTier.PREMIUM ? premiumPriceId : priceId;
+    if (secretKey.isBlank() || selected.isBlank()) {
       throw new ApiException(503, "BILLING_UNAVAILABLE", "Billing has not been configured yet.");
     }
+    return selected;
   }
 
   private void requirePortalConfiguration() {

@@ -23,7 +23,7 @@ class BillingServiceTest {
   private final UserRepository users = mock(UserRepository.class);
   private final StripeGateway stripe = mock(StripeGateway.class);
   private final BillingService service = new BillingService(accounts, events, profiles, boards, users, stripe,
-      "sk_test_configured", "price_test", PORTAL_CONFIGURATION_ID, "http://localhost:3000");
+      "sk_test_configured", "price_test", "price_premium", PORTAL_CONFIGURATION_ID, "http://localhost:3000");
   private final UUID ownerId = UUID.randomUUID();
   private final Instant now = Instant.parse("2026-10-31T12:00:00Z");
 
@@ -33,15 +33,18 @@ class BillingServiceTest {
     verifyNoInteractions(accounts);
   }
 
-  @Test void freeLeaderboardAvailabilityEndsAtFive() {
+  @Test void billingStatusReportsCountsAndTierLimits() {
     when(profiles.findById(ownerId)).thenReturn(Optional.of(new Profile(ownerId, "Owner", "#dfff4f", now)));
-    when(boards.countByOwnerIdAndCreationBasis(ownerId, BoardCreationBasis.FREE)).thenReturn(4L, 5L);
-
-    assertTrue(service.status(ownerId).freeLeaderboardAvailable());
-    assertFalse(service.status(ownerId).freeLeaderboardAvailable());
+    when(boards.countByOwnerIdAndBoardType(ownerId, BoardType.SINGLE_GAME)).thenReturn(6L);
+    when(boards.countByOwnerIdAndBoardType(ownerId, BoardType.MULTI_GAME)).thenReturn(2L);
+    assertEquals(BillingTier.FREE, service.status(ownerId).tier());
+    assertEquals(6, service.status(ownerId).singleGameCount());
+    assertEquals(5, service.status(ownerId).singleGameLimit());
+    assertEquals(2, service.status(ownerId).allGameCount());
+    assertEquals(0, service.status(ownerId).allGameLimit());
   }
 
-  @Test void grandfatheredBoardsLockOnlyAfterAFormerSubscriberLosesAccess() {
+  @Test void allSingleGameBoardsStayReadableAfterCancellation() {
     Leaderboard board = board(BoardCreationBasis.GRANDFATHERED);
     when(accounts.findById(ownerId)).thenReturn(Optional.empty());
     assertTrue(service.isBoardAccessible(board, now));
@@ -50,11 +53,12 @@ class BillingServiceTest {
     canceled.everSubscribedAt = now.minusSeconds(50);
     canceled.subscriptionStatus = "canceled";
     when(accounts.findById(ownerId)).thenReturn(Optional.of(canceled));
-    assertFalse(service.isBoardAccessible(board, now));
+    assertTrue(service.isBoardAccessible(board, now));
   }
 
   @Test void subscriptionBoardsHonorTheSevenDayPaymentGracePeriod() {
-    Leaderboard board = board(BoardCreationBasis.SUBSCRIPTION);
+    Leaderboard board = new Leaderboard(ownerId, "All games", null, BoardType.MULTI_GAME,
+        BoardCreationBasis.SUBSCRIPTION, now.minusSeconds(100));
     BillingAccount account = new BillingAccount(ownerId, now.minusSeconds(100));
     account.subscriptionStatus = "past_due";
     account.graceUntil = now.plusSeconds(60);
@@ -69,12 +73,47 @@ class BillingServiceTest {
     BillingAccount account = new BillingAccount(ownerId, now);
     when(accounts.findById(ownerId)).thenReturn(Optional.of(account));
 
-    assertFalse(service.hasUnlimitedLeaderboards(ownerId, now));
+    assertEquals(0, service.allGameLimit(ownerId, now));
+  }
+
+  @Test void existingTwoDollarSubscribersAndPremiumDowngradesKeepTheirBoards() {
+    BillingAccount account = new BillingAccount(ownerId, now);
+    account.subscriptionStatus = "active";
+    when(accounts.findById(ownerId)).thenReturn(Optional.of(account));
+    assertEquals(1, service.allGameLimit(ownerId, now)); // legacy row without a stored Price
+    account.stripePriceId = "price_premium";
+    assertEquals(5, service.allGameLimit(ownerId, now));
+    account.stripePriceId = "price_test";
+    assertEquals(1, service.allGameLimit(ownerId, now));
+    account.stripePriceId = "price_unknown";
+    assertEquals(0, service.allGameLimit(ownerId, now));
+    account.subscriptionStatus = "canceled";
+    account.stripePriceId = "price_premium";
+    assertEquals(0, service.allGameLimit(ownerId, now));
+  }
+
+  @Test void checkoutSelectionUsesTheRequestedPriceAndSeparateRetryKeys() throws Exception {
+    UserAccount user = new UserAccount("owner@example.com", now);
+    user.id = ownerId;
+    BillingAccount account = new BillingAccount(ownerId, now);
+    account.stripeCustomerId = "cus_test";
+    when(profiles.findByIdForUpdate(ownerId)).thenReturn(Optional.of(new Profile(ownerId, "Owner", "#dfff4f", now)));
+    when(users.findById(ownerId)).thenReturn(Optional.of(user));
+    when(accounts.findById(ownerId)).thenReturn(Optional.of(account));
+    when(stripe.createCheckout(eq("cus_test"), eq(ownerId), eq("price_premium"), anyString(), anyString(),
+        any(Instant.class), anyString())).thenReturn(new StripeGateway.StripeCheckoutSession(
+            "cs_premium", "https://checkout.stripe.test/premium", now.plus(Duration.ofMinutes(30))));
+    assertEquals("https://checkout.stripe.test/premium", service.createCheckout(ownerId, BillingTier.PREMIUM).url());
+    assertEquals("price_premium", account.pendingCheckoutPriceId);
+    assertNotEquals(BillingService.checkoutAttempt(ownerId, BillingTier.STANDARD, now).idempotencyKey(),
+        BillingService.checkoutAttempt(ownerId, BillingTier.PREMIUM, now).idempotencyKey());
+    assertEquals("INVALID_BILLING_TIER", assertThrows(ApiException.class,
+        () -> service.createCheckout(ownerId, BillingTier.FREE)).code);
   }
 
   @Test void accountWithoutAStatusCanCreateCheckoutWithoutPortalConfiguration() throws Exception {
     BillingService checkoutService = new BillingService(accounts, events, profiles, boards, users, stripe,
-        "sk_test_configured", "price_test", "", "http://localhost:3000");
+        "sk_test_configured", "price_test", "price_premium", "", "http://localhost:3000");
     UserAccount user = new UserAccount("owner@example.com", now);
     user.id = ownerId;
     when(profiles.findByIdForUpdate(ownerId)).thenReturn(Optional.of(new Profile(ownerId, "Owner", "#dfff4f", now)));
@@ -128,22 +167,22 @@ class BillingServiceTest {
 
   @Test void portalUsesStoredCustomerConfiguredPortalAndLeaderboardReturnUrl() throws Exception {
     BillingService portalService = new BillingService(accounts, events, profiles, boards, users, stripe,
-        "sk_test_configured", "", PORTAL_CONFIGURATION_ID, "http://localhost:3000");
+        "sk_test_configured", "", "price_premium", PORTAL_CONFIGURATION_ID, "http://localhost:3000");
     BillingAccount account = new BillingAccount(ownerId, now);
     account.stripeCustomerId = "cus_test";
     when(profiles.findByIdForUpdate(ownerId)).thenReturn(Optional.of(new Profile(ownerId, "Owner", "#dfff4f", now)));
     when(accounts.findById(ownerId)).thenReturn(Optional.of(account));
-    when(stripe.createPortal("cus_test", PORTAL_CONFIGURATION_ID, "http://localhost:3000/leaderboards"))
+    when(stripe.createPortal("cus_test", PORTAL_CONFIGURATION_ID, "http://localhost:3000/leaderboards?billing=returned"))
         .thenReturn(new StripeGateway.StripePortalSession("https://billing.stripe.test/session"));
 
     assertEquals("https://billing.stripe.test/session", portalService.createPortal(ownerId).url());
 
-    verify(stripe).createPortal("cus_test", PORTAL_CONFIGURATION_ID, "http://localhost:3000/leaderboards");
+    verify(stripe).createPortal("cus_test", PORTAL_CONFIGURATION_ID, "http://localhost:3000/leaderboards?billing=returned");
   }
 
   @Test void missingPortalConfigurationReturnsUnavailableWithoutCallingStripe() {
     BillingService unconfiguredPortal = new BillingService(accounts, events, profiles, boards, users, stripe,
-        "sk_test_configured", "price_test", "", "http://localhost:3000");
+        "sk_test_configured", "price_test", "price_premium", "", "http://localhost:3000");
 
     ApiException exception = assertThrows(ApiException.class, () -> unconfiguredPortal.createPortal(ownerId));
 
@@ -169,7 +208,7 @@ class BillingServiceTest {
     StripeException stripeFailure = mock(StripeException.class);
     when(profiles.findByIdForUpdate(ownerId)).thenReturn(Optional.of(new Profile(ownerId, "Owner", "#dfff4f", now)));
     when(accounts.findById(ownerId)).thenReturn(Optional.of(account));
-    when(stripe.createPortal("cus_test", PORTAL_CONFIGURATION_ID, "http://localhost:3000/leaderboards"))
+    when(stripe.createPortal("cus_test", PORTAL_CONFIGURATION_ID, "http://localhost:3000/leaderboards?billing=returned"))
         .thenThrow(stripeFailure);
 
     ApiException exception = assertThrows(ApiException.class, () -> service.createPortal(ownerId));
@@ -189,7 +228,7 @@ class BillingServiceTest {
         eq(now), any(Instant.class))).thenReturn(1);
     when(stripe.retrieveSubscription("sub_test")).thenReturn(new StripeGateway.StripeSubscription(
         "sub_test", "cus_test", "active", false, now.plus(Duration.ofDays(30)),
-        Map.of("dailyTrackerUserId", ownerId.toString())));
+        "price_premium", Map.of("dailyTrackerUserId", ownerId.toString())));
     when(accounts.findByStripeSubscriptionId("sub_test")).thenReturn(Optional.empty());
     when(accounts.findByStripeCustomerId("cus_test")).thenReturn(Optional.empty());
     when(accounts.findById(ownerId)).thenReturn(Optional.empty());
@@ -199,6 +238,7 @@ class BillingServiceTest {
     verify(accounts).save(argThat(account -> "active".equals(account.subscriptionStatus)
         && "cus_test".equals(account.stripeCustomerId)
         && "sub_test".equals(account.stripeSubscriptionId)
+        && "price_premium".equals(account.stripePriceId)
         && account.everSubscribedAt.equals(now)));
   }
 
@@ -224,7 +264,7 @@ class BillingServiceTest {
     BillingService.CheckoutAttempt second = BillingService.checkoutAttempt(ownerId, retry);
 
     assertEquals(first, second);
-    assertTrue(first.idempotencyKey().startsWith("daily-tracker-checkout-v2-"));
+    assertTrue(first.idempotencyKey().startsWith("daily-tracker-checkout-v3-"));
     assertEquals(Instant.parse("2026-11-04T03:30:00Z"), first.expiresAt());
   }
 

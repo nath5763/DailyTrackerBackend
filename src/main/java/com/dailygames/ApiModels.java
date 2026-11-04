@@ -32,6 +32,7 @@ final class ApiModels {
                                  @NotNull ConfirmedSubmission confirmed) {}
   record IdResponse(UUID id) {}
   record UrlResponse(String url) {}
+  record CheckoutRequest(@NotNull BillingTier tier) {}
   record ErrorResponse(String error, String code) {}
 
   record UserView(UUID id, String email) {}
@@ -58,6 +59,7 @@ final class ApiModels {
                              List<RankingView> rankings, List<MemberView> absent) {}
   record ProfileResponse(ProfileView profile, boolean self, StatsView stats, List<GameStatsView> statsByGame,
                          List<ScoreView> scores) {}
-  record BillingStatusResponse(boolean unlimitedLeaderboards, boolean freeLeaderboardAvailable, String status,
+  record BillingStatusResponse(BillingTier tier, long singleGameCount, int singleGameLimit,
+                               long allGameCount, int allGameLimit, String status,
                                boolean cancelAtPeriodEnd, Instant currentPeriodEnd, Instant graceUntil) {}
 }

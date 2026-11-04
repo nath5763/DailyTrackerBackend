@@ -102,11 +102,8 @@ class DailyGamesService {
   @Transactional
   void convertToMultiGame(CurrentUser current, UUID boardId) {
     Leaderboard board = requireOwnedBoard(boardId, current.id());
-    if (!billing.hasUnlimitedLeaderboards(current.id(), Instant.now())) {
-      throw new ApiException(402, "SUBSCRIPTION_REQUIRED",
-          "Subscribe for $2 per month to create or convert a multi-game leaderboard.");
-    }
     if (boardType(board) != BoardType.MULTI_GAME) {
+      requireAllGameCapacity(current.id(), Instant.now());
       board.boardType = BoardType.MULTI_GAME;
       board.gameId = null;
       board.creationBasis = BoardCreationBasis.SUBSCRIPTION;
@@ -251,6 +248,17 @@ class DailyGamesService {
       throw new ApiException(402, "OWNER_SUBSCRIPTION_REQUIRED", "This leaderboard is locked until its owner restores their subscription.");
     }
   }
+  private void requireAllGameCapacity(UUID ownerId, Instant now) {
+    int limit = billing.allGameLimit(ownerId, now);
+    if (limit == 0) {
+      throw new ApiException(402, "SUBSCRIPTION_REQUIRED",
+          "Subscribe for $2 or $5 per month to create an all-game leaderboard.");
+    }
+    if (boards.countByOwnerIdAndBoardType(ownerId, BoardType.MULTI_GAME) >= limit) {
+      throw new ApiException(409, "ALL_GAME_LIMIT_REACHED",
+          "Your tier's all-game leaderboard limit has been reached. Upgrade to the $5 tier for up to five.");
+    }
+  }
   private UUID createBoard(UUID ownerId, String rawName, Game game, BoardType boardType, Collection<UUID> memberIds) {
     Profile owner = profiles.findByIdForUpdate(ownerId)
         .orElseThrow(() -> new ApiException(409, "PROFILE_REQUIRED", "Finish setting up your profile."));
@@ -259,22 +267,17 @@ class DailyGamesService {
     Instant now = Instant.now();
     BoardCreationBasis basis;
     if (boardType == BoardType.MULTI_GAME) {
-      if (!billing.hasUnlimitedLeaderboards(ownerId, now)) {
-        throw new ApiException(402, "SUBSCRIPTION_REQUIRED",
-            "Subscribe for $2 per month to create or convert a multi-game leaderboard.");
-      }
+      requireAllGameCapacity(ownerId, now);
       basis = BoardCreationBasis.SUBSCRIPTION;
-    } else if (boards.countByOwnerIdAndCreationBasis(ownerId, BoardCreationBasis.FREE) < BillingService.FREE_LEADERBOARD_LIMIT) {
+    } else if (boards.countByOwnerIdAndBoardType(ownerId, BoardType.SINGLE_GAME) < BillingService.SINGLE_GAME_LIMIT) {
       basis = BoardCreationBasis.FREE;
       if (owner.freeLeaderboardClaimedAt == null) {
         owner.freeLeaderboardClaimedAt = now;
         profiles.save(owner);
       }
-    } else if (billing.hasUnlimitedLeaderboards(ownerId, now)) {
-      basis = BoardCreationBasis.SUBSCRIPTION;
     } else {
-      throw new ApiException(402, "SUBSCRIPTION_REQUIRED",
-          "Subscribe for $2 per month to create unlimited and multi-game leaderboards.");
+      throw new ApiException(409, "SINGLE_GAME_LIMIT_REACHED",
+          "You already own five single-game leaderboards.");
     }
     Leaderboard board = boards.save(new Leaderboard(ownerId, name, game == null ? null : game.id, boardType, basis, now));
     LinkedHashSet<UUID> uniqueMembers = new LinkedHashSet<>(memberIds);

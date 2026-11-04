@@ -161,8 +161,8 @@ class BillingController {
   @GetMapping("/status") BillingStatusResponse status(Authentication authentication) {
     return billing.status(current(authentication).id());
   }
-  @PostMapping("/checkout-session") UrlResponse checkout(Authentication authentication) {
-    return billing.createCheckout(current(authentication).id());
+  @PostMapping("/checkout-session") UrlResponse checkout(Authentication authentication, @Valid @RequestBody CheckoutRequest request) {
+    return billing.createCheckout(current(authentication).id(), request.tier());
   }
   @PostMapping("/portal-session") UrlResponse portal(Authentication authentication) {
     return billing.createPortal(current(authentication).id());
