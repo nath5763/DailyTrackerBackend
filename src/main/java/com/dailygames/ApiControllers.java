@@ -5,6 +5,8 @@ import jakarta.validation.Valid;
 import com.stripe.exception.SignatureVerificationException;
 import com.stripe.model.*;
 import com.stripe.net.Webhook;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -170,6 +172,7 @@ class BillingController {
 
 @RestController
 class StripeWebhookController {
+  private static final Logger log = LoggerFactory.getLogger(StripeWebhookController.class);
   private final BillingService billing;
   private final String webhookSecret;
   StripeWebhookController(BillingService billing, @Value("${app.stripe.webhook-secret:}") String webhookSecret) {
@@ -179,15 +182,25 @@ class StripeWebhookController {
   @PostMapping(value = "/api/v1/billing/stripe/webhook", consumes = MediaType.APPLICATION_JSON_VALUE)
   ResponseEntity<Void> webhook(@RequestBody String payload, @RequestHeader("Stripe-Signature") String signature) {
     if (webhookSecret.isBlank()) throw new ApiException(503, "BILLING_UNAVAILABLE", "Billing has not been configured yet.");
+    Event event;
     try {
-      Event event = Webhook.constructEvent(payload, signature, webhookSecret);
-      StripeObject object = event.getDataObjectDeserializer().getObject()
-          .orElseThrow(() -> new ApiException(400, "INVALID_STRIPE_EVENT", "Stripe event could not be decoded."));
-      billing.process(event, object);
-      return ResponseEntity.noContent().build();
+      event = Webhook.constructEvent(payload, signature, webhookSecret);
     } catch (SignatureVerificationException exception) {
+      log.warn("Rejected Stripe webhook with an invalid signature");
       throw new ApiException(400, "INVALID_STRIPE_SIGNATURE", "Stripe signature is invalid.");
+    } catch (RuntimeException exception) {
+      log.warn("Rejected malformed Stripe webhook", exception);
+      throw new ApiException(400, "INVALID_STRIPE_EVENT", "Stripe event is malformed.");
     }
+    if (!billing.supports(event.getType())) {
+      billing.process(event, null);
+      return ResponseEntity.noContent().build();
+    }
+    StripeObject object = event.getDataObjectDeserializer().getObject()
+        .orElseThrow(() -> new ApiException(500, "STRIPE_EVENT_DECODING_FAILED",
+            "Stripe event could not be decoded and will be retried."));
+    billing.process(event, object);
+    return ResponseEntity.noContent().build();
   }
 }
 

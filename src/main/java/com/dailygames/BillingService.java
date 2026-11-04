@@ -1,12 +1,10 @@
 package com.dailygames;
 
-import com.stripe.StripeClient;
 import com.stripe.exception.StripeException;
 import com.stripe.model.*;
 import com.stripe.model.checkout.Session;
-import com.stripe.net.RequestOptions;
-import com.stripe.param.CustomerCreateParams;
-import com.stripe.param.checkout.SessionCreateParams;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,24 +18,31 @@ import static com.dailygames.ApiModels.*;
 class BillingService {
   static final int FREE_LEADERBOARD_LIMIT = 5;
   private static final Set<String> ENTITLED_STATUSES = Set.of("active", "trialing");
+  private static final Set<String> MANAGED_SUBSCRIPTION_STATUSES =
+      Set.of("active", "trialing", "past_due", "unpaid", "paused", "incomplete");
+  private static final Set<String> SUPPORTED_EVENTS = Set.of("checkout.session.completed",
+      "customer.subscription.created", "customer.subscription.updated", "customer.subscription.deleted",
+      "invoice.paid", "invoice.payment_succeeded", "invoice.payment_failed");
+  private static final Logger log = LoggerFactory.getLogger(BillingService.class);
   private final BillingAccountRepository accounts;
   private final ProcessedStripeEventRepository events;
   private final ProfileRepository profiles;
   private final LeaderboardRepository boards;
   private final UserRepository users;
-  private final StripeClient stripe;
+  private final StripeGateway stripe;
   private final String secretKey;
   private final String priceId;
   private final String baseUrl;
 
   BillingService(BillingAccountRepository accounts, ProcessedStripeEventRepository events,
                  ProfileRepository profiles, LeaderboardRepository boards, UserRepository users,
+                 StripeGateway stripe,
                  @Value("${app.stripe.secret-key:}") String secretKey,
                  @Value("${app.stripe.price-id:}") String priceId,
                  @Value("${app.public-base-url}") String baseUrl) {
     this.accounts = accounts; this.events = events; this.profiles = profiles; this.boards = boards; this.users = users;
+    this.stripe = stripe;
     this.secretKey = secretKey; this.priceId = priceId; this.baseUrl = baseUrl.replaceAll("/$", "");
-    stripe = new StripeClient(secretKey.isBlank() ? "sk_test_not_configured" : secretKey);
   }
 
   BillingStatusResponse status(UUID userId) {
@@ -63,47 +68,37 @@ class BillingService {
     return isEntitled(account, now);
   }
 
-  @Transactional
+  @Transactional(noRollbackFor = ApiException.class)
   UrlResponse createCheckout(UUID userId) {
     requireStripeConfiguration();
     profiles.findByIdForUpdate(userId).orElseThrow(() -> new ApiException(409, "PROFILE_REQUIRED", "Finish setting up your profile."));
     UserAccount user = users.findById(userId).orElseThrow(() -> new ApiException(401, "UNAUTHORIZED", "Sign in first."));
     Instant now = Instant.now();
     BillingAccount account = accounts.findById(userId).orElseGet(() -> new BillingAccount(userId, now));
-    if (isEntitled(account, now)) throw new ApiException(409, "ALREADY_SUBSCRIBED", "Your unlimited leaderboard subscription is already active.");
+    if (hasManagedSubscription(account.subscriptionStatus)) {
+      throw new ApiException(409, "BILLING_SUBSCRIPTION_REQUIRES_MANAGEMENT",
+          "Manage your existing subscription before starting a new checkout.");
+    }
     if (account.pendingCheckoutExpiresAt != null && account.pendingCheckoutExpiresAt.isAfter(now) &&
         account.pendingCheckoutUrl != null) return new UrlResponse(account.pendingCheckoutUrl);
     try {
       if (account.stripeCustomerId == null) {
-        CustomerCreateParams customerParams = CustomerCreateParams.builder()
-            .setEmail(user.normalizedEmail)
-            .putMetadata("dailyTrackerUserId", userId.toString())
-            .build();
-        RequestOptions options = RequestOptions.builder().setIdempotencyKey("daily-tracker-customer-" + userId).build();
-        Customer customer = stripe.v1().customers().create(customerParams, options);
-        account.stripeCustomerId = customer.getId();
+        account.stripeCustomerId = stripe.createCustomer(user.normalizedEmail, userId).id();
+        account.updatedAt = now;
+        accounts.saveAndFlush(account);
+        log.info("Created Stripe customer mapping for userId={}", userId);
       }
-      long expiresAt = now.plus(Duration.ofMinutes(30)).getEpochSecond();
-      SessionCreateParams params = SessionCreateParams.builder()
-          .setMode(SessionCreateParams.Mode.SUBSCRIPTION)
-          .setCustomer(account.stripeCustomerId)
-          .setClientReferenceId(userId.toString())
-          .setSuccessUrl(baseUrl + "/leaderboards?checkout=success")
-          .setCancelUrl(baseUrl + "/leaderboards?checkout=cancelled")
-          .setExpiresAt(expiresAt)
-          .addLineItem(SessionCreateParams.LineItem.builder().setPrice(priceId).setQuantity(1L).build())
-          .setSubscriptionData(SessionCreateParams.SubscriptionData.builder()
-              .putMetadata("dailyTrackerUserId", userId.toString()).build())
-          .build();
-      RequestOptions options = RequestOptions.builder()
-          .setIdempotencyKey("daily-tracker-checkout-" + userId + "-" + (now.getEpochSecond() / 1800)).build();
-      Session session = stripe.v1().checkout().sessions().create(params, options);
-      account.pendingCheckoutSessionId = session.getId();
-      account.pendingCheckoutUrl = session.getUrl();
-      account.pendingCheckoutExpiresAt = Instant.ofEpochSecond(session.getExpiresAt());
+      StripeGateway.StripeCheckoutSession session = stripe.createCheckout(account.stripeCustomerId, userId, priceId,
+          baseUrl + "/leaderboards?checkout=success", baseUrl + "/leaderboards?checkout=cancelled",
+          now.plus(Duration.ofMinutes(30)),
+          "daily-tracker-checkout-" + userId + "-" + (now.getEpochSecond() / 1800));
+      account.pendingCheckoutSessionId = session.id();
+      account.pendingCheckoutUrl = session.url();
+      account.pendingCheckoutExpiresAt = session.expiresAt();
       account.updatedAt = now;
       accounts.save(account);
-      return new UrlResponse(session.getUrl());
+      log.info("Created Stripe checkout session for userId={} sessionId={}", userId, session.id());
+      return new UrlResponse(session.url());
     } catch (StripeException exception) {
       throw stripeUnavailable(exception);
     }
@@ -117,12 +112,10 @@ class BillingService {
         .filter(value -> value.stripeCustomerId != null)
         .orElseThrow(() -> new ApiException(409, "BILLING_ACCOUNT_REQUIRED", "Start a subscription before opening billing settings."));
     try {
-      com.stripe.param.billingportal.SessionCreateParams params = com.stripe.param.billingportal.SessionCreateParams.builder()
-          .setCustomer(account.stripeCustomerId)
-          .setReturnUrl(baseUrl + "/leaderboards")
-          .build();
-      com.stripe.model.billingportal.Session session = stripe.v1().billingPortal().sessions().create(params);
-      return new UrlResponse(session.getUrl());
+      StripeGateway.StripePortalSession session = stripe.createPortal(account.stripeCustomerId,
+          baseUrl + "/leaderboards");
+      log.info("Created Stripe portal session for userId={}", userId);
+      return new UrlResponse(session.url());
     } catch (StripeException exception) {
       throw stripeUnavailable(exception);
     }
@@ -131,16 +124,28 @@ class BillingService {
   @Transactional
   void process(Event event, StripeObject object) {
     Instant eventCreated = Instant.ofEpochSecond(event.getCreated());
-    if (events.insertIfAbsent(event.getId(), event.getType(), eventCreated, Instant.now()) == 0) return;
-    switch (event.getType()) {
-      case "checkout.session.completed" -> applyCheckout((Session) object, eventCreated);
-      case "customer.subscription.created", "customer.subscription.updated", "customer.subscription.deleted" ->
-          applySubscription((Subscription) object, eventCreated);
-      case "invoice.paid", "invoice.payment_succeeded" -> applyInvoice((Invoice) object, eventCreated, true);
-      case "invoice.payment_failed" -> applyInvoice((Invoice) object, eventCreated, false);
-      default -> { }
+    if (events.insertIfAbsent(event.getId(), event.getType(), eventCreated, Instant.now()) == 0) {
+      log.info("Ignored duplicate Stripe event eventId={} eventType={}", event.getId(), event.getType());
+      return;
+    }
+    try {
+      switch (event.getType()) {
+        case "checkout.session.completed" -> applyCheckout((Session) object, eventCreated);
+        case "customer.subscription.created", "customer.subscription.updated", "customer.subscription.deleted" -> {
+          Subscription subscription = (Subscription) object;
+          applySubscription(stripe.retrieveSubscription(subscription.getId()), eventCreated);
+        }
+        case "invoice.paid", "invoice.payment_succeeded" -> applyInvoice((Invoice) object, eventCreated, true);
+        case "invoice.payment_failed" -> applyInvoice((Invoice) object, eventCreated, false);
+        default -> { }
+      }
+      log.info("Processed Stripe event eventId={} eventType={}", event.getId(), event.getType());
+    } catch (StripeException exception) {
+      throw stripeUnavailable(exception);
     }
   }
+
+  boolean supports(String eventType) { return SUPPORTED_EVENTS.contains(eventType); }
 
   private void applyCheckout(Session session, Instant eventCreated) {
     UUID userId = parseUserId(session.getClientReferenceId());
@@ -156,21 +161,21 @@ class BillingService {
     accounts.save(account);
   }
 
-  private void applySubscription(Subscription subscription, Instant eventCreated) {
-    BillingAccount account = findAccount(subscription.getId(), subscription.getCustomer(), subscription.getMetadata());
+  private void applySubscription(StripeGateway.StripeSubscription subscription, Instant eventCreated) {
+    BillingAccount account = findAccount(subscription.id(), subscription.customerId(), subscription.metadata());
     if (stale(account, eventCreated)) return;
-    account.stripeCustomerId = subscription.getCustomer();
-    account.stripeSubscriptionId = subscription.getId();
-    account.subscriptionStatus = subscription.getStatus();
-    account.cancelAtPeriodEnd = Boolean.TRUE.equals(subscription.getCancelAtPeriodEnd());
-    account.currentPeriodEnd = subscription.getItems().getData().stream()
-        .map(SubscriptionItem::getCurrentPeriodEnd).filter(Objects::nonNull).max(Long::compareTo)
-        .map(Instant::ofEpochSecond).orElse(null);
-    if (ENTITLED_STATUSES.contains(account.subscriptionStatus)) {
+    account.stripeCustomerId = subscription.customerId();
+    account.stripeSubscriptionId = subscription.id();
+    account.subscriptionStatus = subscription.status();
+    account.cancelAtPeriodEnd = subscription.cancelAtPeriodEnd();
+    account.currentPeriodEnd = subscription.currentPeriodEnd();
+    if (isEntitledStatus(account.subscriptionStatus)) {
       if (account.everSubscribedAt == null) account.everSubscribedAt = eventCreated;
       account.graceUntil = null;
     } else if ("past_due".equals(account.subscriptionStatus) && account.graceUntil == null) {
       account.graceUntil = Instant.now().plus(Duration.ofDays(7));
+    } else if (!"past_due".equals(account.subscriptionStatus)) {
+      account.graceUntil = null;
     }
     account.pendingCheckoutSessionId = null;
     account.pendingCheckoutUrl = null;
@@ -184,7 +189,7 @@ class BillingService {
     BillingAccount account = accounts.findByStripeCustomerId(invoice.getCustomer()).orElse(null);
     if (account == null || stale(account, eventCreated)) return;
     if (paid) {
-      if (ENTITLED_STATUSES.contains(account.subscriptionStatus)) account.graceUntil = null;
+      if (isEntitledStatus(account.subscriptionStatus)) account.graceUntil = null;
     } else if (account.graceUntil == null) {
       account.graceUntil = Instant.now().plus(Duration.ofDays(7));
     }
@@ -203,8 +208,16 @@ class BillingService {
 
   private boolean isEntitled(BillingAccount account, Instant now) {
     if (account == null) return false;
-    if (ENTITLED_STATUSES.contains(account.subscriptionStatus)) return true;
+    if (isEntitledStatus(account.subscriptionStatus)) return true;
     return "past_due".equals(account.subscriptionStatus) && account.graceUntil != null && account.graceUntil.isAfter(now);
+  }
+
+  private boolean isEntitledStatus(String status) {
+    return status != null && ENTITLED_STATUSES.contains(status);
+  }
+
+  private boolean hasManagedSubscription(String status) {
+    return status != null && MANAGED_SUBSCRIPTION_STATUSES.contains(status);
   }
 
   private boolean stale(BillingAccount account, Instant eventCreated) {
@@ -223,6 +236,8 @@ class BillingService {
   }
 
   private ApiException stripeUnavailable(StripeException exception) {
+    log.error("Stripe request failed requestId={} statusCode={} message={}", exception.getRequestId(),
+        exception.getStatusCode(), exception.getMessage(), exception);
     return new ApiException(502, "STRIPE_UNAVAILABLE", "Stripe could not complete the billing request. Try again shortly.");
   }
 }

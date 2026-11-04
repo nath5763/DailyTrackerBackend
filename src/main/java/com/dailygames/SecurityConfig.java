@@ -35,6 +35,8 @@ class SecurityConfig {
         .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .exceptionHandling(errors -> errors.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
         .authorizeHttpRequests(auth -> auth
+            .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
+            .requestMatchers("/error").permitAll()
             .requestMatchers("/api/health", "/actuator/health").permitAll()
             .requestMatchers(HttpMethod.POST, "/api/v1/auth/register", "/api/v1/auth/login",
                 "/api/v1/auth/verification/resend", "/api/v1/auth/password/forgot",

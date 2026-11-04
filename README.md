@@ -13,7 +13,7 @@ mvn spring-boot:run
 
 PostgreSQL listens on `localhost:5432`. Flyway applies database migrations automatically when Spring starts. Set `BREVO_API_KEY` and `BREVO_SENDER_EMAIL` before starting the API so verification and password-reset emails can be sent through Brevo's HTTPS API.
 
-For billing, create a recurring Stripe Price for $2 USD per month and configure `STRIPE_SECRET_KEY`, `STRIPE_LEADERBOARD_PRICE_ID`, and `STRIPE_WEBHOOK_SECRET`. The webhook destination is `https://<your-app>/api/v1/billing/stripe/webhook`; subscribe it to Checkout Session completion, customer subscription changes/deletion, and successful/failed invoice events. Enable subscription cancellation and payment-method updates in Stripe Customer Portal settings.
+For billing, create an active recurring Stripe Price for $2 USD per month and configure `STRIPE_SECRET_KEY`, `STRIPE_LEADERBOARD_PRICE_ID`, and `STRIPE_WEBHOOK_SECRET`. All three values must belong to the same Stripe test or live mode. The webhook destination is `https://<your-app>/api/v1/billing/stripe/webhook`; subscribe it to `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid`, and `invoice.payment_failed`. Enable subscription cancellation, invoice viewing, and payment-method updates in Stripe Customer Portal settings. Checkout currently accepts cards only.
 
 Environment overrides are documented in `.env.example`.
 
