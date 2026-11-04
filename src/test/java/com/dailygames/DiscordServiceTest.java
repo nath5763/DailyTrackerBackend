@@ -40,7 +40,7 @@ class DiscordServiceTest {
     adapters = mock(GameAdapterRegistry.class);
     DiscordSignatureVerifier configured = new DiscordSignatureVerifier("123", "00".repeat(32), clock);
     service = new DiscordService(profiles, links, codes, boards, channels, interactions, billing, dailyGames,
-        adapters, configured, clock, "test-pepper-that-is-never-logged");
+        adapters, configured, clock, "test-pepper-that-is-never-logged", "https://dailytracker.cc/");
     json = new ObjectMapper();
   }
 
@@ -165,6 +165,124 @@ class DiscordServiceTest {
     DiscordInteractionResult result = service.handle(json.readTree(commandWithPermissions("unlink", "0", null, null)));
     assertEquals("DUPLICATE_INTERACTION", result.outcome());
     verifyNoInteractions(links);
+  }
+
+  @Test void statusProvidesGuildInstallUrlWithoutRequiringLink() {
+    UUID userId = UUID.randomUUID();
+    DiscordStatus status = service.status(userId);
+    assertTrue(status.configured());
+    assertFalse(status.linked());
+    assertEquals("https://discord.com/oauth2/authorize?client_id=123&scope=applications.commands&integration_type=0",
+        status.installUrl());
+    when(links.findByUserId(userId)).thenReturn(Optional.of(new DiscordAccountLink("222222222222222222", userId, now)));
+    assertEquals(status.installUrl(), service.status(userId).installUrl());
+
+    DiscordSignatureVerifier unconfigured = new DiscordSignatureVerifier("", "", clock);
+    DiscordService disabled = new DiscordService(profiles, links, codes, boards, channels, interactions, billing,
+        dailyGames, adapters, unconfigured, clock, "pepper", "https://dailytracker.cc");
+    assertNull(disabled.status(userId).installUrl());
+    assertFalse(disabled.status(userId).configured());
+  }
+
+  @Test void leaderboardDefaultsToTodayAndPostsTenFormattedRanksWithoutMentions() throws Exception {
+    UUID userId = UUID.randomUUID(), boardId = UUID.randomUUID();
+    setupLeaderboardMocks(userId, boardId);
+    ApiModels.GameView game = game("fermi", "Fermi.gg");
+    List<ApiModels.RankingView> ranks = new ArrayList<>();
+    for (int index = 1; index <= 11; index++) {
+      ranks.add(new ApiModels.RankingView(index, UUID.randomUUID(), UUID.randomUUID(),
+          index == 1 ? "@everyone *winner*" : "Player " + index,
+          index == 1 ? new BigDecimal("1.3150") : new BigDecimal("1.3100"), 2));
+    }
+    when(dailyGames.board(any(), eq(boardId), eq("today"), eq("fermi")))
+        .thenReturn(board(boardId, "Friday [friends]", game, "today", ranks));
+
+    DiscordInteractionResult result = service.handle(json.readTree(commandWithPermissions("leaderboard", "0", "game", "fermi")));
+
+    assertEquals("SUCCESS", result.outcome());
+    @SuppressWarnings("unchecked") Map<String, Object> data = (Map<String, Object>) result.body().get("data");
+    String content = (String) data.get("content");
+    assertTrue(content.contains("Friday \\[friends\\]"));
+    assertTrue(content.contains("Fermi.gg · Today"));
+    assertTrue(content.contains("1.31× (2 scores)"));
+    assertTrue(content.contains("1.32× (2 scores)"));
+    assertTrue(content.contains("10. Player 10"));
+    assertFalse(content.contains("11. Player 11"));
+    assertTrue(content.contains("https://dailytracker.cc/leaderboards/" + boardId + "?game=fermi&range=today"));
+    assertTrue(content.length() <= 2_000);
+    assertFalse(data.containsKey("flags"));
+    assertEquals(Map.of("parse", List.of()), data.get("allowed_mentions"));
+  }
+
+  @Test void leaderboardSupportsEveryRangeAndEmptyMultiGameResults() throws Exception {
+    UUID userId = UUID.randomUUID(), boardId = UUID.randomUUID();
+    setupLeaderboardMocks(userId, boardId);
+    for (String range : List.of("7d", "30d", "all")) {
+      when(dailyGames.board(any(), eq(boardId), eq(range), eq("krillion")))
+          .thenReturn(board(boardId, "Mixed board", game("krillion", "Krillion"), range, List.of(),
+              BoardType.MULTI_GAME));
+      DiscordInteractionResult result = service.handle(json.readTree(command("leaderboard", "222222222222222222",
+          "111111111111111111", "333333333333333333", "range", range, "game", "krillion")));
+      assertEquals("SUCCESS", result.outcome());
+      @SuppressWarnings("unchecked") Map<String, Object> data = (Map<String, Object>) result.body().get("data");
+      assertTrue(((String) data.get("content")).contains("Nobody has posted a score for this range yet."));
+      assertTrue(((String) data.get("content")).contains("&range=" + range));
+    }
+    verify(dailyGames, times(3)).board(argThat(user -> user.id().equals(userId)), eq(boardId), anyString(), eq("krillion"));
+  }
+
+  @Test void leaderboardFailuresArePrivateAndNeverPublishRankings() throws Exception {
+    UUID userId = UUID.randomUUID(), boardId = UUID.randomUUID();
+    when(interactions.insertIfAbsent(anyString(), anyString(), eq(2), eq("leaderboard"), eq(now))).thenReturn(1);
+    String payload = commandWithPermissions("leaderboard", "0", "game", "fermi");
+    assertPrivateOutcome(service.handle(json.readTree(payload)), "NOT_LINKED");
+    when(links.findById("222222222222222222"))
+        .thenReturn(Optional.of(new DiscordAccountLink("222222222222222222", userId, now)));
+    assertPrivateOutcome(service.handle(json.readTree(payload)), "CHANNEL_NOT_CONFIGURED");
+    when(channels.findById(any())).thenReturn(Optional.of(new DiscordChannelLeaderboard(
+        "444444444444444444", "333333333333333333", boardId, userId, "222222222222222222", now)));
+    when(dailyGames.board(any(), eq(boardId), eq("today"), eq("fermi")))
+        .thenThrow(new ApiException(404, "NOT_FOUND", "Resource not found."),
+            new ApiException(402, "OWNER_SUBSCRIPTION_REQUIRED", "Locked"),
+            new ApiException(400, "GAME_NOT_ALLOWED", "That game is not available on this leaderboard."));
+    assertPrivateOutcome(service.handle(json.readTree(payload)), "NOT_FOUND");
+    assertPrivateOutcome(service.handle(json.readTree(payload)), "OWNER_SUBSCRIPTION_REQUIRED");
+    assertPrivateOutcome(service.handle(json.readTree(payload)), "GAME_NOT_ALLOWED");
+    assertPrivateOutcome(service.handle(json.readTree(commandWithPermissions("leaderboard", "0", "game", "unknown"))),
+        "GAME_NOT_ALLOWED");
+    assertPrivateOutcome(service.handle(json.readTree(command("leaderboard", "222222222222222222",
+        "111111111111111111", "333333333333333333", "game", "fermi", "range", "bad"))), "INVALID_RANGE");
+  }
+
+  private void setupLeaderboardMocks(UUID userId, UUID boardId) {
+    when(interactions.insertIfAbsent(anyString(), anyString(), eq(2), eq("leaderboard"), eq(now))).thenReturn(1);
+    when(links.findById("222222222222222222"))
+        .thenReturn(Optional.of(new DiscordAccountLink("222222222222222222", userId, now)));
+    when(channels.findById(any())).thenReturn(Optional.of(new DiscordChannelLeaderboard(
+        "444444444444444444", "333333333333333333", boardId, userId, "222222222222222222", now)));
+  }
+
+  private ApiModels.GameView game(String slug, String name) {
+    return new ApiModels.GameView(UUID.randomUUID(), slug, name, "", "higher",
+        new ApiModels.ScoreFormatView("", "×", 2, 2), null);
+  }
+
+  private ApiModels.LeaderboardResponse board(UUID id, String name, ApiModels.GameView game, String range,
+                                                List<ApiModels.RankingView> rankings) {
+    return board(id, name, game, range, rankings, BoardType.SINGLE_GAME);
+  }
+
+  private ApiModels.LeaderboardResponse board(UUID id, String name, ApiModels.GameView game, String range,
+                                                List<ApiModels.RankingView> rankings, BoardType type) {
+    return new ApiModels.LeaderboardResponse(id, name, UUID.randomUUID(), game, type,
+        List.of(game), range, false, List.of(), rankings, List.of());
+  }
+
+  private void assertPrivateOutcome(DiscordInteractionResult result, String outcome) {
+    assertEquals(outcome, result.outcome());
+    @SuppressWarnings("unchecked") Map<String, Object> data = (Map<String, Object>) result.body().get("data");
+    assertEquals(64, data.get("flags"));
+    assertEquals(Map.of("parse", List.of()), data.get("allowed_mentions"));
   }
 
   private String commandWithPermissions(String name, String permissions, String optionName, String optionValue) {

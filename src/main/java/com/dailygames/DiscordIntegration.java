@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.math.RoundingMode;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
@@ -49,6 +50,10 @@ class DiscordSignatureVerifier {
   }
 
   boolean configured() { return APPLICATION_ID.matcher(applicationId).matches() && verifier != null; }
+  String installUrl() {
+    return configured() ? "https://discord.com/oauth2/authorize?client_id=" + applicationId
+        + "&scope=applications.commands&integration_type=0" : null;
+  }
   boolean applicationMatches(JsonNode payload) {
     return payload.path("application_id").isTextual() && applicationId.equals(payload.path("application_id").textValue());
   }
@@ -97,20 +102,24 @@ class DiscordService {
   private final DiscordSignatureVerifier configuration;
   private final Clock clock;
   private final String pepper;
+  private final String publicBaseUrl;
 
   DiscordService(ProfileRepository profiles, DiscordAccountLinkRepository links, DiscordLinkCodeRepository codes,
                  LeaderboardRepository boards, DiscordChannelLeaderboardRepository channels,
                  ProcessedDiscordInteractionRepository interactions, BillingService billing,
                  DailyGamesService dailyGames, GameAdapterRegistry adapters, DiscordSignatureVerifier configuration,
-                 Clock clock, @Value("${app.token-pepper}") String pepper) {
+                 Clock clock, @Value("${app.token-pepper}") String pepper,
+                 @Value("${app.public-base-url}") String publicBaseUrl) {
     this.profiles = profiles; this.links = links; this.codes = codes; this.boards = boards; this.channels = channels;
     this.interactions = interactions; this.billing = billing; this.dailyGames = dailyGames; this.adapters = adapters;
     this.configuration = configuration; this.clock = clock; this.pepper = pepper;
+    this.publicBaseUrl = publicBaseUrl.replaceAll("/+$", "");
   }
 
   DiscordStatus status(UUID userId) {
     Optional<DiscordAccountLink> link = links.findByUserId(userId);
-    return new DiscordStatus(configuration.configured(), link.isPresent(), link.map(value -> value.linkedAt).orElse(null));
+    return new DiscordStatus(configuration.configured(), link.isPresent(), link.map(value -> value.linkedAt).orElse(null),
+        configuration.installUrl());
   }
 
   @Transactional
@@ -161,6 +170,8 @@ class DiscordService {
             option(payload, "leaderboard", 36), now);
         case "daily" -> daily(discordUserId, guildId, channelId,
             optionalOption(payload, "game", 80), option(payload, "result", 6_000));
+        case "leaderboard" -> leaderboard(discordUserId, guildId, channelId,
+            option(payload, "game", 80), optionalOption(payload, "range", 8));
         default -> throw new ApiException(400, "UNKNOWN_COMMAND", "That command is not supported.");
       };
     } catch (ApiException exception) {
@@ -245,6 +256,60 @@ class DiscordService {
         "SUCCESS", "daily");
   }
 
+  private DiscordInteractionResult leaderboard(String discordUserId, String guildId, String channelId,
+                                               String gameSlug, String requestedRange) {
+    UUID userId = linkedUser(discordUserId);
+    DiscordChannelLeaderboard mapping = channels.findById(new DiscordChannelLeaderboardId(guildId, channelId))
+        .orElseThrow(() -> new ApiException(404, "CHANNEL_NOT_CONFIGURED", "This channel is not connected to a leaderboard."));
+    String range = requestedRange == null ? "today" : requestedRange;
+    if (!Set.of("today", "7d", "30d", "all").contains(range)) {
+      throw new ApiException(400, "INVALID_RANGE", "Range must be today, 7d, 30d, or all.");
+    }
+    if (!Set.of("fermi", "krillion").contains(gameSlug)) {
+      throw new ApiException(400, "GAME_NOT_ALLOWED", "That game is not available on this leaderboard.");
+    }
+    ApiModels.LeaderboardResponse board = dailyGames.board(new CurrentUser(userId, ""), mapping.leaderboardId,
+        range, gameSlug);
+    String url = publicBaseUrl + "/leaderboards/" + board.id() + "?game=" + gameSlug + "&range=" + range;
+    String label = switch (range) {
+      case "7d" -> "Last 7 days";
+      case "30d" -> "Last 30 days";
+      case "all" -> "All time";
+      default -> "Today";
+    };
+    String footer = "[View the full leaderboard](<" + url + ">)";
+    if (footer.length() > 1_500) {
+      throw new ApiException(500, "DISCORD_MESSAGE_TOO_LONG", "The leaderboard link is too long to post in Discord.");
+    }
+    StringBuilder content = new StringBuilder("**").append(discordText(board.name(), 60)).append("** · ")
+        .append(discordText(board.game().name(), 40)).append(" · ").append(label).append('\n');
+    if (board.rankings().isEmpty()) {
+      content.append("Nobody has posted a score for this range yet.\n");
+    } else {
+      for (ApiModels.RankingView row : board.rankings().stream().limit(10).toList()) {
+        String score = formatScore(row.average(), board.game().scoreFormat());
+        String line = row.rank() + ". " + discordText(row.displayName(), 60) + " — " + discordText(score, 40)
+            + " (" + row.gamesPlayed() + (row.gamesPlayed() == 1 ? " score)\n" : " scores)\n");
+        if (content.length() + line.length() + footer.length() > 2_000) break;
+        content.append(line);
+      }
+    }
+    content.append(footer);
+    Map<String, Object> data = new LinkedHashMap<>();
+    data.put("content", content.toString());
+    data.put("allowed_mentions", Map.of("parse", List.of()));
+    return new DiscordInteractionResult(Map.of("type", 4, "data", data), "leaderboard", "SUCCESS");
+  }
+
+  private String discordText(String value, int maxLength) {
+    String clean = value.replaceAll("[\\p{Cntrl}]", " ");
+    if (clean.length() > maxLength) clean = clean.substring(0, maxLength - 1) + "…";
+    for (String character : List.of("\\", "*", "_", "~", "`", ">", "|", "[", "]", "(", ")")) {
+      clean = clean.replace(character, "\\" + character);
+    }
+    return clean;
+  }
+
   private UUID linkedUser(String discordUserId) {
     return links.findById(discordUserId).map(link -> link.userId)
         .orElseThrow(() -> new ApiException(403, "NOT_LINKED", "Link your Daily Tracker account first with /link."));
@@ -308,7 +373,7 @@ class DiscordService {
   }
 
   private String formatScore(BigDecimal score, ApiModels.ScoreFormatView format) {
-    BigDecimal display = score.stripTrailingZeros();
+    BigDecimal display = score.setScale(format.maximumDecimalPlaces(), RoundingMode.HALF_UP).stripTrailingZeros();
     if (display.scale() < format.minimumDecimalPlaces()) display = display.setScale(format.minimumDecimalPlaces());
     return format.prefix() + display.toPlainString() + format.suffix();
   }
@@ -449,6 +514,6 @@ class DiscordInteractionController {
   }
 }
 
-record DiscordStatus(boolean configured, boolean linked, Instant linkedAt) {}
+record DiscordStatus(boolean configured, boolean linked, Instant linkedAt, String installUrl) {}
 record DiscordLinkCodeResponse(String code, Instant expiresAt) {}
 record DiscordInteractionResult(Map<String, Object> body, String command, String outcome) {}

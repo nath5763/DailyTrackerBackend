@@ -159,6 +159,57 @@ class DailyGamesServiceTest {
     verify(adapter).parse("Krillion share");
   }
 
+  @Test
+  void boardViewEnforcesMembershipLockAndGameForSingleAndMultiGameBoards() {
+    UUID userId = UUID.randomUUID();
+    Profile profile = new Profile(userId, "Player", "#dfff4f", Instant.now());
+    Game fermi = new Game();
+    fermi.id = UUID.randomUUID(); fermi.slug = "fermi"; fermi.name = "Fermi";
+    fermi.active = true; fermi.releaseTimezone = "UTC"; fermi.rankingDirection = "higher";
+    Game krillion = new Game();
+    krillion.id = UUID.randomUUID(); krillion.slug = "krillion"; krillion.name = "Krillion";
+    krillion.active = true; krillion.releaseTimezone = "UTC"; krillion.rankingDirection = "higher";
+    Leaderboard single = new Leaderboard(userId, "Fermi board", fermi.id, BoardCreationBasis.FREE, Instant.now());
+    Leaderboard multi = new Leaderboard(userId, "All games", null, BoardType.MULTI_GAME,
+        BoardCreationBasis.SUBSCRIPTION, Instant.now());
+    ProfileRepository profiles = mock(ProfileRepository.class);
+    GameRepository games = mock(GameRepository.class);
+    LeaderboardRepository boards = mock(LeaderboardRepository.class);
+    MembershipRepository memberships = mock(MembershipRepository.class);
+    BillingService billing = mock(BillingService.class);
+    GameAdapterRegistry adapters = mock(GameAdapterRegistry.class);
+    when(boards.findById(single.id)).thenReturn(Optional.of(single));
+    when(boards.findById(multi.id)).thenReturn(Optional.of(multi));
+    when(billing.isBoardAccessible(eq(single), any())).thenReturn(true);
+    when(billing.isBoardAccessible(eq(multi), any())).thenReturn(true);
+    when(games.findById(fermi.id)).thenReturn(Optional.of(fermi));
+    when(games.findByActiveTrueOrderByNameAsc()).thenReturn(List.of(fermi, krillion));
+    when(profiles.findById(userId)).thenReturn(Optional.of(profile));
+    for (Game game : List.of(fermi, krillion)) {
+      GameAdapter adapter = mock(GameAdapter.class);
+      when(adapter.scoreFormat()).thenReturn(new ApiModels.ScoreFormatView("", "", 0, 0));
+      when(adapters.require(game.slug)).thenReturn(adapter);
+    }
+    for (UUID boardId : List.of(single.id, multi.id)) {
+      when(memberships.existsByIdLeaderboardIdAndIdUserId(boardId, userId)).thenReturn(true);
+      when(memberships.findByIdLeaderboardId(boardId)).thenReturn(List.of(new Membership(boardId, userId, userId, Instant.now())));
+    }
+    DailyGamesService service = service(profiles, games, boards, memberships,
+        mock(SubmissionRepository.class), adapters, billing);
+    CurrentUser current = new CurrentUser(userId, "");
+
+    assertEquals("fermi", service.board(current, single.id, "today", "fermi").game().slug());
+    assertEquals("krillion", service.board(current, multi.id, "7d", "krillion").game().slug());
+    assertEquals("GAME_NOT_ALLOWED", assertThrows(ApiException.class,
+        () -> service.board(current, single.id, "today", "krillion")).code);
+    when(memberships.existsByIdLeaderboardIdAndIdUserId(single.id, userId)).thenReturn(false);
+    assertEquals("NOT_FOUND", assertThrows(ApiException.class,
+        () -> service.board(current, single.id, "today", "fermi")).code);
+    when(billing.isBoardAccessible(eq(multi), any())).thenReturn(false);
+    assertEquals("OWNER_SUBSCRIPTION_REQUIRED", assertThrows(ApiException.class,
+        () -> service.board(current, multi.id, "today", "fermi")).code);
+  }
+
   private DailyGamesService service(ProfileRepository profiles, GameRepository games, LeaderboardRepository boards,
                                     MembershipRepository memberships, SubmissionRepository submissions,
                                     GameAdapterRegistry adapters, BillingService billing) {

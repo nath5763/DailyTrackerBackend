@@ -58,6 +58,34 @@ $commands = @(
       },
       @{ type = 3; name = "result"; description = "Complete Fermi or Krillion share text"; required = $true; min_length = 1; max_length = 6000 }
     )
+  },
+  @{
+    name = "leaderboard"
+    description = "Show this channel's leaderboard rankings"
+    options = @(
+      @{
+        type = 3
+        name = "game"
+        description = "Game to rank"
+        required = $true
+        choices = @(
+          @{ name = "Fermi"; value = "fermi" },
+          @{ name = "Krillion"; value = "krillion" }
+        )
+      },
+      @{
+        type = 3
+        name = "range"
+        description = "Period to rank (defaults to today)"
+        required = $false
+        choices = @(
+          @{ name = "Today"; value = "today" },
+          @{ name = "Last 7 days"; value = "7d" },
+          @{ name = "Last 30 days"; value = "30d" },
+          @{ name = "All time"; value = "all" }
+        )
+      }
+    )
   }
 )
 

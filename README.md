@@ -32,7 +32,7 @@ $env:DISCORD_TEST_GUILD_ID = "..."
 .\scripts\register-discord-commands.ps1 -Scope Guild
 ```
 
-The script bulk-replaces this application's commands in the selected scope. After test-guild smoke testing, global promotion requires the explicit `-Scope Global -ConfirmGlobal` arguments. The application should be installed with the `applications.commands` scope. `/link`, `/unlink`, `/setup`, and `/daily` are guild-context commands; `/setup` requires Manage Server and rechecks Daily Tracker leaderboard ownership. `/daily` requires both `game` and `result`; `game` uses fixed Fermi and Krillion choices. Adding another game therefore also requires updating this registrar and rerunning it in guild scope before global promotion.
+The script bulk-replaces this application's commands in the selected scope. After test-guild smoke testing, global promotion requires the explicit `-Scope Global -ConfirmGlobal` arguments. The Dashboard's **Add to Discord** button installs the application to a server with the `applications.commands` scope. `/link`, `/unlink`, `/setup`, `/daily`, and `/leaderboard` are guild-context commands; `/setup` requires Manage Server and rechecks Daily Tracker leaderboard ownership. `/daily` requires both `game` and `result`. `/leaderboard` uses the channel's `/setup` mapping, requires a linked member of an unlocked board, and posts up to ten rankings in the channel; `game` is required and `range` defaults to today (`7d`, `30d`, and `all` are available). Both game choices are fixed to Fermi and Krillion. Adding another game therefore also requires updating this registrar and rerunning it in guild scope before global promotion.
 
 ## Leaderboard types
 
