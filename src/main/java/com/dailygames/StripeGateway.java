@@ -65,7 +65,6 @@ class StripeSdkGateway implements StripeGateway {
       throws StripeException {
     SessionCreateParams params = SessionCreateParams.builder()
         .setMode(SessionCreateParams.Mode.SUBSCRIPTION)
-        .addAllowedPaymentMethodType(SessionCreateParams.AllowedPaymentMethodType.CARD)
         .setCustomer(customerId)
         .setClientReferenceId(userId.toString())
         .setSuccessUrl(successUrl)

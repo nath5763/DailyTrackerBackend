@@ -161,6 +161,28 @@ class BillingServiceTest {
     verifyNoInteractions(accounts);
   }
 
+  @Test void checkoutRetriesUseTheSameKeyAndExpirationWithinAWindow() {
+    Instant firstAttempt = Instant.parse("2026-11-04T02:31:05Z");
+    Instant retry = Instant.parse("2026-11-04T02:44:08Z");
+
+    BillingService.CheckoutAttempt first = BillingService.checkoutAttempt(ownerId, firstAttempt);
+    BillingService.CheckoutAttempt second = BillingService.checkoutAttempt(ownerId, retry);
+
+    assertEquals(first, second);
+    assertTrue(first.idempotencyKey().startsWith("daily-tracker-checkout-v2-"));
+    assertEquals(Instant.parse("2026-11-04T03:30:00Z"), first.expiresAt());
+  }
+
+  @Test void checkoutGetsANewKeyAfterTheRetryWindow() {
+    BillingService.CheckoutAttempt first = BillingService.checkoutAttempt(ownerId,
+        Instant.parse("2026-11-04T02:44:08Z"));
+    BillingService.CheckoutAttempt later = BillingService.checkoutAttempt(ownerId,
+        Instant.parse("2026-11-04T03:01:00Z"));
+
+    assertNotEquals(first.idempotencyKey(), later.idempotencyKey());
+    assertNotEquals(first.expiresAt(), later.expiresAt());
+  }
+
   private Leaderboard board(BoardCreationBasis basis) {
     return new Leaderboard(ownerId, "Friends", UUID.randomUUID(), basis, now.minusSeconds(100));
   }

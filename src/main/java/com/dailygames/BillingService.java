@@ -17,6 +17,8 @@ import static com.dailygames.ApiModels.*;
 @Service
 class BillingService {
   static final int FREE_LEADERBOARD_LIMIT = 5;
+  private static final long CHECKOUT_WINDOW_SECONDS = Duration.ofMinutes(30).toSeconds();
+  private static final String CHECKOUT_IDEMPOTENCY_VERSION = "v2";
   private static final Set<String> ENTITLED_STATUSES = Set.of("active", "trialing");
   private static final Set<String> MANAGED_SUBSCRIPTION_STATUSES =
       Set.of("active", "trialing", "past_due", "unpaid", "paused", "incomplete");
@@ -88,10 +90,10 @@ class BillingService {
         accounts.saveAndFlush(account);
         log.info("Created Stripe customer mapping for userId={}", userId);
       }
+      CheckoutAttempt attempt = checkoutAttempt(userId, now);
       StripeGateway.StripeCheckoutSession session = stripe.createCheckout(account.stripeCustomerId, userId, priceId,
           baseUrl + "/leaderboards?checkout=success", baseUrl + "/leaderboards?checkout=cancelled",
-          now.plus(Duration.ofMinutes(30)),
-          "daily-tracker-checkout-" + userId + "-" + (now.getEpochSecond() / 1800));
+          attempt.expiresAt(), attempt.idempotencyKey());
       account.pendingCheckoutSessionId = session.id();
       account.pendingCheckoutUrl = session.url();
       account.pendingCheckoutExpiresAt = session.expiresAt();
@@ -219,6 +221,15 @@ class BillingService {
   private boolean hasManagedSubscription(String status) {
     return status != null && MANAGED_SUBSCRIPTION_STATUSES.contains(status);
   }
+
+  static CheckoutAttempt checkoutAttempt(UUID userId, Instant now) {
+    long window = now.getEpochSecond() / CHECKOUT_WINDOW_SECONDS;
+    Instant expiresAt = Instant.ofEpochSecond((window + 2) * CHECKOUT_WINDOW_SECONDS);
+    String key = "daily-tracker-checkout-" + CHECKOUT_IDEMPOTENCY_VERSION + "-" + userId + "-" + window;
+    return new CheckoutAttempt(key, expiresAt);
+  }
+
+  record CheckoutAttempt(String idempotencyKey, Instant expiresAt) {}
 
   private boolean stale(BillingAccount account, Instant eventCreated) {
     return account.lastEventCreatedAt != null && eventCreated.isBefore(account.lastEventCreatedAt);
