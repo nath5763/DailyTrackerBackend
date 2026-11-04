@@ -38,6 +38,9 @@ app:
     portal-configuration-id: ${STRIPE_PORTAL_CONFIGURATION_ID:}
     connect-timeout-ms: ${STRIPE_CONNECT_TIMEOUT_MS:5000}
     read-timeout-ms: ${STRIPE_READ_TIMEOUT_MS:20000}
+  discord:
+    application-id: ${DISCORD_APPLICATION_ID:}
+    public-key: ${DISCORD_PUBLIC_KEY:}
   token-pepper: ${AUTH_TOKEN_PEPPER:local-development-only-change-me}
   secure-cookie: ${SECURE_COOKIE:false}
   verification-hours: 24

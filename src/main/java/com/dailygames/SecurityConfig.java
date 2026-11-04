@@ -20,11 +20,13 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.net.URI;
+import java.time.Clock;
 import java.util.Arrays;
 
 @Configuration
 class SecurityConfig {
   @Bean PasswordEncoder passwordEncoder() { return PasswordEncoderFactories.createDelegatingPasswordEncoder(); }
+  @Bean Clock clock() { return Clock.systemUTC(); }
 
   @Bean
   SecurityFilterChain securityFilterChain(HttpSecurity http, SessionAuthenticationFilter sessionFilter,
@@ -42,6 +44,7 @@ class SecurityConfig {
                 "/api/v1/auth/verification/resend", "/api/v1/auth/password/forgot",
                 "/api/v1/auth/password/reset", "/api/v1/auth/logout").permitAll()
             .requestMatchers(HttpMethod.POST, "/api/v1/billing/stripe/webhook").permitAll()
+            .requestMatchers(HttpMethod.POST, "/api/v1/discord/interactions").permitAll()
             .requestMatchers(HttpMethod.GET, "/api/v1/auth/verification/consume").permitAll()
             .anyRequest().authenticated())
         .addFilterBefore(originFilter, UsernamePasswordAuthenticationFilter.class)

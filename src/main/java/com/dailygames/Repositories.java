@@ -69,3 +69,36 @@ import java.util.*;
   int insertIfAbsent(@Param("eventId") String eventId, @Param("eventType") String eventType,
                      @Param("eventCreatedAt") Instant eventCreatedAt, @Param("processedAt") Instant processedAt);
 }
+
+@Repository interface DiscordAccountLinkRepository extends JpaRepository<DiscordAccountLink, String> {
+  Optional<DiscordAccountLink> findByUserId(UUID userId);
+  void deleteByUserId(UUID userId);
+}
+
+@Repository interface DiscordLinkCodeRepository extends JpaRepository<DiscordLinkCode, UUID> {
+  long countByUserIdAndCreatedAtAfter(UUID userId, Instant after);
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  Optional<DiscordLinkCode> findByCodeHashAndConsumedAtIsNullAndExpiresAtAfter(String codeHash, Instant now);
+  @Modifying
+  @Query("update DiscordLinkCode c set c.consumedAt = :now where c.userId = :userId and c.consumedAt is null")
+  int consumeOutstanding(@Param("userId") UUID userId, @Param("now") Instant now);
+  void deleteByExpiresAtBefore(Instant before);
+}
+
+@Repository interface DiscordChannelLeaderboardRepository
+    extends JpaRepository<DiscordChannelLeaderboard, DiscordChannelLeaderboardId> {}
+
+@Repository interface ProcessedDiscordInteractionRepository extends JpaRepository<ProcessedDiscordInteraction, String> {
+  @Modifying
+  @Query(value = "insert into processed_discord_interactions(interaction_id, discord_user_id, interaction_type, command_name, outcome, processed_at) " +
+      "values (:interactionId, :discordUserId, :interactionType, :commandName, 'PROCESSING', :processedAt) on conflict do nothing",
+      nativeQuery = true)
+  int insertIfAbsent(@Param("interactionId") String interactionId, @Param("discordUserId") String discordUserId,
+                     @Param("interactionType") int interactionType, @Param("commandName") String commandName,
+                     @Param("processedAt") Instant processedAt);
+  @Modifying
+  @Query("update ProcessedDiscordInteraction i set i.outcome = :outcome where i.interactionId = :interactionId")
+  int updateOutcome(@Param("interactionId") String interactionId, @Param("outcome") String outcome);
+  long countByDiscordUserIdAndCommandNameAndProcessedAtAfter(String discordUserId, String commandName, Instant after);
+  void deleteByProcessedAtBefore(Instant before);
+}

@@ -188,3 +188,71 @@ class AuthSession {
     id = UUID.randomUUID(); this.userId = userId; this.tokenHash = tokenHash; createdAt = now; this.expiresAt = expiresAt; lastSeenAt = now;
   }
 }
+
+@Entity @Table(name = "discord_account_links")
+class DiscordAccountLink {
+  @Id @Column(name = "discord_user_id", length = 20) String discordUserId;
+  @Column(name = "user_id", nullable = false, unique = true) UUID userId;
+  @Column(name = "linked_at", nullable = false) Instant linkedAt;
+  @Column(name = "updated_at", nullable = false) Instant updatedAt;
+  protected DiscordAccountLink() {}
+  DiscordAccountLink(String discordUserId, UUID userId, Instant now) {
+    this.discordUserId = discordUserId; this.userId = userId; linkedAt = now; updatedAt = now;
+  }
+}
+
+@Entity @Table(name = "discord_link_codes")
+class DiscordLinkCode {
+  @Id UUID id;
+  @Column(name = "user_id", nullable = false) UUID userId;
+  @Column(name = "code_hash", nullable = false, unique = true, length = 64) String codeHash;
+  @Column(name = "created_at", nullable = false) Instant createdAt;
+  @Column(name = "expires_at", nullable = false) Instant expiresAt;
+  @Column(name = "consumed_at") Instant consumedAt;
+  protected DiscordLinkCode() {}
+  DiscordLinkCode(UUID userId, String codeHash, Instant now, Instant expiresAt) {
+    id = UUID.randomUUID(); this.userId = userId; this.codeHash = codeHash;
+    createdAt = now; this.expiresAt = expiresAt;
+  }
+}
+
+@Embeddable
+class DiscordChannelLeaderboardId implements Serializable {
+  @Column(name = "guild_id", length = 20) String guildId;
+  @Column(name = "channel_id", length = 20) String channelId;
+  protected DiscordChannelLeaderboardId() {}
+  DiscordChannelLeaderboardId(String guildId, String channelId) { this.guildId = guildId; this.channelId = channelId; }
+  @Override public boolean equals(Object value) {
+    return value instanceof DiscordChannelLeaderboardId other && Objects.equals(guildId, other.guildId)
+        && Objects.equals(channelId, other.channelId);
+  }
+  @Override public int hashCode() { return Objects.hash(guildId, channelId); }
+}
+
+@Entity @Table(name = "discord_channel_leaderboards")
+class DiscordChannelLeaderboard {
+  @EmbeddedId DiscordChannelLeaderboardId id;
+  @Column(name = "leaderboard_id", nullable = false) UUID leaderboardId;
+  @Column(name = "configured_by_user_id", nullable = false) UUID configuredByUserId;
+  @Column(name = "configured_by_discord_user_id", nullable = false, length = 20) String configuredByDiscordUserId;
+  @Column(name = "created_at", nullable = false) Instant createdAt;
+  @Column(name = "updated_at", nullable = false) Instant updatedAt;
+  protected DiscordChannelLeaderboard() {}
+  DiscordChannelLeaderboard(String guildId, String channelId, UUID leaderboardId, UUID configuredByUserId,
+                            String configuredByDiscordUserId, Instant now) {
+    id = new DiscordChannelLeaderboardId(guildId, channelId); this.leaderboardId = leaderboardId;
+    this.configuredByUserId = configuredByUserId; this.configuredByDiscordUserId = configuredByDiscordUserId;
+    createdAt = now; updatedAt = now;
+  }
+}
+
+@Entity @Table(name = "processed_discord_interactions")
+class ProcessedDiscordInteraction {
+  @Id @Column(name = "interaction_id", length = 20) String interactionId;
+  @Column(name = "discord_user_id", nullable = false, length = 20) String discordUserId;
+  @Column(name = "interaction_type", nullable = false) int interactionType;
+  @Column(name = "command_name", nullable = false, length = 32) String commandName;
+  @Column(nullable = false, length = 64) String outcome;
+  @Column(name = "processed_at", nullable = false) Instant processedAt;
+  protected ProcessedDiscordInteraction() {}
+}

@@ -153,11 +153,34 @@ class DailyGamesService {
     requireProfile(current.id());
     Game game = requireGame(request.game());
     ParsedSubmission value = adapters.require(request.game()).validateConfirmed(request.confirmed(), request.rawText());
-    if (submissions.existsByUserIdAndGameIdAndPuzzleKey(current.id(), game.id, value.puzzleKey())) {
-      throw new ApiException(409, "DUPLICATE_SUBMISSION", "You already saved a result for this " + game.name + " puzzle.");
+    return persistSubmission(current.id(), game, value, request.rawText());
+  }
+
+  DiscordSubmissionResult submitFromDiscord(UUID userId, UUID leaderboardId, String rawText) {
+    requireProfile(userId);
+    Leaderboard board = boards.findById(leaderboardId)
+        .orElseThrow(() -> new ApiException(404, "LEADERBOARD_NOT_FOUND", "That leaderboard no longer exists."));
+    if (!memberships.existsByIdLeaderboardIdAndIdUserId(board.id, userId)) {
+      throw new ApiException(403, "NOT_MEMBER", "Your Daily Tracker account is not a member of this leaderboard.");
     }
-    try { return submissions.saveAndFlush(new Submission(current.id(), game.id, value, request.rawText(), Instant.now())).id; }
-    catch (DataIntegrityViolationException exception) { throw new ApiException(409, "DUPLICATE_SUBMISSION", "You already saved a result for this " + game.name + " puzzle."); }
+    requireUnlocked(board);
+    Game game = games.findById(board.gameId)
+        .orElseThrow(() -> new ApiException(404, "GAME_NOT_FOUND", "The leaderboard's game no longer exists."));
+    ParsedSubmission value = adapters.require(game.slug).parse(rawText);
+    UUID id = persistSubmission(userId, game, value, rawText);
+    return new DiscordSubmissionResult(id, game, value);
+  }
+
+  UUID persistSubmission(UUID userId, Game game, ParsedSubmission value, String rawText) {
+    // Serialize submissions for one profile so the existence check remains race-safe without poisoning
+    // the surrounding interaction transaction with a caught unique-constraint exception.
+    profiles.findByIdForUpdate(userId)
+        .orElseThrow(() -> new ApiException(409, "PROFILE_REQUIRED", "Finish setting up your profile."));
+    if (submissions.existsByUserIdAndGameIdAndPuzzleKey(userId, game.id, value.puzzleKey())) {
+      throw duplicate(game);
+    }
+    try { return submissions.saveAndFlush(new Submission(userId, game.id, value, rawText, Instant.now())).id; }
+    catch (DataIntegrityViolationException exception) { throw duplicate(game); }
   }
 
   ProfileResponse profile(CurrentUser current, UUID shareId) {
@@ -256,5 +279,9 @@ class DailyGamesService {
   }
   private ApiException unauthorized() { return new ApiException(401, "UNAUTHORIZED", "Sign in first."); }
   private ApiException notFound() { return new ApiException(404, "NOT_FOUND", "Resource not found."); }
+  private ApiException duplicate(Game game) {
+    return new ApiException(409, "DUPLICATE_SUBMISSION", "You already saved a result for this " + game.name + " puzzle.");
+  }
+  record DiscordSubmissionResult(UUID id, Game game, ParsedSubmission submission) {}
   private record RankingSeed(Profile profile, BigDecimal average, Integer gamesPlayed) {}
 }
