@@ -117,9 +117,15 @@ class DailyGamesController {
                                                                                @Valid @RequestBody CopyLeaderboardRequest request) {
     return ResponseEntity.status(HttpStatus.CREATED).body(new IdResponse(service.copyBoard(current(authentication), id, request)));
   }
+  @PostMapping("/leaderboards/{id}/convert-to-multi-game") ResponseEntity<Void> convertBoard(
+      Authentication authentication, @PathVariable UUID id) {
+    service.convertToMultiGame(current(authentication), id);
+    return ResponseEntity.noContent().build();
+  }
   @GetMapping("/leaderboards/{id}") LeaderboardResponse board(Authentication authentication, @PathVariable UUID id,
-                                                               @RequestParam(defaultValue = "today") String range) {
-    return service.board(current(authentication), id, range);
+                                                               @RequestParam(defaultValue = "today") String range,
+                                                               @RequestParam(required = false) String game) {
+    return service.board(current(authentication), id, range, game);
   }
   @PostMapping("/leaderboards/{id}/members") ResponseEntity<Void> addMember(Authentication authentication, @PathVariable UUID id,
                                                                               @Valid @RequestBody AddMemberRequest request) {

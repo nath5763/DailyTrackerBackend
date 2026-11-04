@@ -19,7 +19,9 @@ final class ApiModels {
   record MessageResponse(String message) {}
   record OnboardingRequest(@NotBlank @Size(min = 2, max = 32) String displayName, @NotBlank String avatarColor) {}
   record CreateLeaderboardRequest(@NotBlank @Size(min = 2, max = 48) String name,
-                                  @NotBlank @Size(max = 80) String gameSlug) {}
+                                  @Size(max = 80) String gameSlug, BoardType boardType) {
+    CreateLeaderboardRequest(String name, String gameSlug) { this(name, gameSlug, null); }
+  }
   record CopyLeaderboardRequest(@NotBlank @Size(min = 2, max = 48) String name,
                                 @NotBlank @Size(max = 80) String gameSlug) {}
   record AddMemberRequest(@NotNull UUID shareId) {}
@@ -40,7 +42,8 @@ final class ApiModels {
                               BigDecimal scoreMax, BigDecimal scoreStep, Set<String> editableFields) {}
   record GameView(UUID id, String slug, String name, String sourceUrl, String rankingDirection,
                   ScoreFormatView scoreFormat, SubmissionConfigView submission) {}
-  record BoardSummary(UUID id, String name, UUID ownerId, boolean owner, GameView game, boolean locked, Instant createdAt) {}
+  record BoardSummary(UUID id, String name, UUID ownerId, boolean owner, GameView game, BoardType boardType,
+                      List<GameView> games, boolean locked, Instant createdAt) {}
   record ScoreView(UUID id, String puzzleKey, LocalDate playedOn, BigDecimal primaryScore, String gameName, String gameSlug,
                    GameView game) {}
   record StatsView(BigDecimal average, BigDecimal best, int currentStreak, int results) {}
@@ -50,8 +53,9 @@ final class ApiModels {
   record PreviewResponse(ParsedSubmission submission) {}
   record MemberView(UUID userId, UUID shareId, String displayName, String avatarColor, boolean owner) {}
   record RankingView(int rank, UUID userId, UUID shareId, String displayName, BigDecimal average, int gamesPlayed) {}
-  record LeaderboardResponse(UUID id, String name, UUID ownerId, GameView game, String range, boolean owner,
-                             List<MemberView> members, List<RankingView> rankings, List<MemberView> absent) {}
+  record LeaderboardResponse(UUID id, String name, UUID ownerId, GameView game, BoardType boardType,
+                             List<GameView> games, String range, boolean owner, List<MemberView> members,
+                             List<RankingView> rankings, List<MemberView> absent) {}
   record ProfileResponse(ProfileView profile, boolean self, StatsView stats, List<GameStatsView> statsByGame,
                          List<ScoreView> scores) {}
   record BillingStatusResponse(boolean unlimitedLeaderboards, boolean freeLeaderboardAvailable, String status,

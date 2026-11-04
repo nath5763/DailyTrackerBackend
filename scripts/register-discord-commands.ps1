@@ -45,7 +45,19 @@ $commands = @(
   @{
     name = "daily"
     description = "Submit a daily-game share result to this channel's leaderboard"
-    options = @(@{ type = 3; name = "result"; description = "Complete Fermi or Krillion share text"; required = $true; min_length = 1; max_length = 6000 })
+    options = @(
+      @{
+        type = 3
+        name = "game"
+        description = "Game whose result you are submitting"
+        required = $true
+        choices = @(
+          @{ name = "Fermi"; value = "fermi" },
+          @{ name = "Krillion"; value = "krillion" }
+        )
+      },
+      @{ type = 3; name = "result"; description = "Complete Fermi or Krillion share text"; required = $true; min_length = 1; max_length = 6000 }
+    )
   }
 )
 

@@ -67,8 +67,18 @@ class DailyGamesService {
 
   @Transactional
   UUID createBoard(CurrentUser current, CreateLeaderboardRequest request) {
-    Game game = requireGame(request.gameSlug());
-    return createBoard(current.id(), request.name(), game, List.of(current.id()));
+    BoardType boardType = request.boardType() == null ? BoardType.SINGLE_GAME : request.boardType();
+    String gameSlug = request.gameSlug() == null ? null : request.gameSlug().trim();
+    if (boardType == BoardType.MULTI_GAME) {
+      if (gameSlug != null && !gameSlug.isBlank()) {
+        throw new ApiException(400, "GAME_NOT_ALLOWED", "Do not choose a game for a multi-game leaderboard.");
+      }
+      return createBoard(current.id(), request.name(), null, boardType, List.of(current.id()));
+    }
+    if (gameSlug == null || gameSlug.isBlank()) {
+      throw new ApiException(400, "GAME_REQUIRED", "Choose a game for a single-game leaderboard.");
+    }
+    return createBoard(current.id(), request.name(), requireGame(gameSlug), boardType, List.of(current.id()));
   }
 
   @Transactional
@@ -77,19 +87,43 @@ class DailyGamesService {
     requireMembership(sourceId, current.id());
     Leaderboard source = boards.findById(sourceId).orElseThrow(this::notFound);
     requireUnlocked(source);
+    if (boardType(source) == BoardType.MULTI_GAME) {
+      throw new ApiException(400, "MULTI_GAME_COPY_NOT_ALLOWED",
+          "Multi-game leaderboards already include every active game.");
+    }
     Game game = requireGame(request.gameSlug());
     if (source.gameId.equals(game.id)) {
       throw new ApiException(400, "SAME_GAME", "Choose a different game for the copied leaderboard.");
     }
     List<UUID> memberIds = memberships.findByIdLeaderboardId(sourceId).stream().map(member -> member.id.userId).toList();
-    return createBoard(current.id(), request.name(), game, memberIds);
+    return createBoard(current.id(), request.name(), game, BoardType.SINGLE_GAME, memberIds);
+  }
+
+  @Transactional
+  void convertToMultiGame(CurrentUser current, UUID boardId) {
+    Leaderboard board = requireOwnedBoard(boardId, current.id());
+    if (!billing.hasUnlimitedLeaderboards(current.id(), Instant.now())) {
+      throw new ApiException(402, "SUBSCRIPTION_REQUIRED",
+          "Subscribe for $2 per month to create or convert a multi-game leaderboard.");
+    }
+    if (boardType(board) != BoardType.MULTI_GAME) {
+      board.boardType = BoardType.MULTI_GAME;
+      board.gameId = null;
+      board.creationBasis = BoardCreationBasis.SUBSCRIPTION;
+      boards.save(board);
+    }
   }
 
   LeaderboardResponse board(CurrentUser current, UUID boardId, String range) {
+    return board(current, boardId, range, null);
+  }
+
+  LeaderboardResponse board(CurrentUser current, UUID boardId, String range, String gameSlug) {
     requireMembership(boardId, current.id());
     Leaderboard board = boards.findById(boardId).orElseThrow(this::notFound);
     requireUnlocked(board);
-    Game game = games.findById(board.gameId).orElseThrow(() -> new ApiException(404, "GAME_NOT_FOUND", "Game not found."));
+    List<Game> allowedGames = allowedGames(board);
+    Game game = selectGame(board, allowedGames, gameSlug);
     List<Profile> memberProfiles = memberships.findByIdLeaderboardId(boardId).stream()
         .map(member -> profiles.findById(member.id.userId).orElseThrow(this::notFound)).toList();
     List<UUID> memberIds = memberProfiles.stream().map(profile -> profile.userId).toList();
@@ -120,7 +154,9 @@ class DailyGamesService {
     Set<UUID> ranked = seeds.stream().map(seed -> seed.profile.userId).collect(Collectors.toSet());
     List<MemberView> members = memberProfiles.stream().map(profile -> memberView(profile, board.ownerId)).toList();
     List<MemberView> absent = range.equals("today") ? memberProfiles.stream().filter(profile -> !ranked.contains(profile.userId)).map(profile -> memberView(profile, board.ownerId)).toList() : List.of();
-    return new LeaderboardResponse(board.id, board.name, board.ownerId, gameView(game), range, board.ownerId.equals(current.id()), members, rankings, absent);
+    return new LeaderboardResponse(board.id, board.name, board.ownerId, gameView(game), boardType(board),
+        allowedGames.stream().map(this::gameView).toList(), range, board.ownerId.equals(current.id()),
+        members, rankings, absent);
   }
 
   @Transactional
@@ -157,6 +193,10 @@ class DailyGamesService {
   }
 
   DiscordSubmissionResult submitFromDiscord(UUID userId, UUID leaderboardId, String rawText) {
+    return submitFromDiscord(userId, leaderboardId, null, rawText);
+  }
+
+  DiscordSubmissionResult submitFromDiscord(UUID userId, UUID leaderboardId, String gameSlug, String rawText) {
     requireProfile(userId);
     Leaderboard board = boards.findById(leaderboardId)
         .orElseThrow(() -> new ApiException(404, "LEADERBOARD_NOT_FOUND", "That leaderboard no longer exists."));
@@ -164,8 +204,12 @@ class DailyGamesService {
       throw new ApiException(403, "NOT_MEMBER", "Your Daily Tracker account is not a member of this leaderboard.");
     }
     requireUnlocked(board);
-    Game game = games.findById(board.gameId)
-        .orElseThrow(() -> new ApiException(404, "GAME_NOT_FOUND", "The leaderboard's game no longer exists."));
+    if ((gameSlug == null || gameSlug.isBlank()) && boardType(board) == BoardType.MULTI_GAME) {
+      throw new ApiException(400, "GAME_REQUIRED",
+          "Choose a game when submitting to a multi-game leaderboard.");
+    }
+    List<Game> allowedGames = allowedGames(board);
+    Game game = selectGame(board, allowedGames, gameSlug);
     ParsedSubmission value = adapters.require(game.slug).parse(rawText);
     UUID id = persistSubmission(userId, game, value, rawText);
     return new DiscordSubmissionResult(id, game, value);
@@ -207,14 +251,20 @@ class DailyGamesService {
       throw new ApiException(402, "OWNER_SUBSCRIPTION_REQUIRED", "This leaderboard is locked until its owner restores their subscription.");
     }
   }
-  private UUID createBoard(UUID ownerId, String rawName, Game game, Collection<UUID> memberIds) {
+  private UUID createBoard(UUID ownerId, String rawName, Game game, BoardType boardType, Collection<UUID> memberIds) {
     Profile owner = profiles.findByIdForUpdate(ownerId)
         .orElseThrow(() -> new ApiException(409, "PROFILE_REQUIRED", "Finish setting up your profile."));
     String name = rawName.trim();
     if (name.length() < 2 || name.length() > 48) throw new ApiException(400, "INVALID_NAME", "Use a name between 2 and 48 characters.");
     Instant now = Instant.now();
     BoardCreationBasis basis;
-    if (boards.countByOwnerIdAndCreationBasis(ownerId, BoardCreationBasis.FREE) < BillingService.FREE_LEADERBOARD_LIMIT) {
+    if (boardType == BoardType.MULTI_GAME) {
+      if (!billing.hasUnlimitedLeaderboards(ownerId, now)) {
+        throw new ApiException(402, "SUBSCRIPTION_REQUIRED",
+            "Subscribe for $2 per month to create or convert a multi-game leaderboard.");
+      }
+      basis = BoardCreationBasis.SUBSCRIPTION;
+    } else if (boards.countByOwnerIdAndCreationBasis(ownerId, BoardCreationBasis.FREE) < BillingService.FREE_LEADERBOARD_LIMIT) {
       basis = BoardCreationBasis.FREE;
       if (owner.freeLeaderboardClaimedAt == null) {
         owner.freeLeaderboardClaimedAt = now;
@@ -223,9 +273,10 @@ class DailyGamesService {
     } else if (billing.hasUnlimitedLeaderboards(ownerId, now)) {
       basis = BoardCreationBasis.SUBSCRIPTION;
     } else {
-      throw new ApiException(402, "SUBSCRIPTION_REQUIRED", "Subscribe for $2 per month to create unlimited leaderboards.");
+      throw new ApiException(402, "SUBSCRIPTION_REQUIRED",
+          "Subscribe for $2 per month to create unlimited and multi-game leaderboards.");
     }
-    Leaderboard board = boards.save(new Leaderboard(ownerId, name, game.id, basis, now));
+    Leaderboard board = boards.save(new Leaderboard(ownerId, name, game == null ? null : game.id, boardType, basis, now));
     LinkedHashSet<UUID> uniqueMembers = new LinkedHashSet<>(memberIds);
     uniqueMembers.add(ownerId);
     uniqueMembers.forEach(memberId -> memberships.save(new Membership(board.id, memberId, ownerId, now)));
@@ -238,9 +289,35 @@ class DailyGamesService {
         adapter.scoreFormat(), adapter.submissionConfig());
   }
   private BoardSummary boardSummary(Leaderboard board, UUID viewer) {
-    Game game = games.findById(board.gameId).orElseThrow(this::notFound);
-    return new BoardSummary(board.id, board.name, board.ownerId, board.ownerId.equals(viewer), gameView(game),
+    List<Game> allowedGames = allowedGames(board);
+    if (allowedGames.isEmpty()) {
+      throw new ApiException(409, "NO_ACTIVE_GAMES", "No active games are available for this leaderboard.");
+    }
+    return new BoardSummary(board.id, board.name, board.ownerId, board.ownerId.equals(viewer),
+        gameView(allowedGames.getFirst()), boardType(board), allowedGames.stream().map(this::gameView).toList(),
         !billing.isBoardAccessible(board, Instant.now()), board.createdAt);
+  }
+
+  private BoardType boardType(Leaderboard board) {
+    return board.boardType == null ? BoardType.SINGLE_GAME : board.boardType;
+  }
+
+  private List<Game> allowedGames(Leaderboard board) {
+    if (boardType(board) == BoardType.MULTI_GAME) return games.findByActiveTrueOrderByNameAsc();
+    Game game = games.findById(board.gameId)
+        .orElseThrow(() -> new ApiException(404, "GAME_NOT_FOUND", "The leaderboard's game no longer exists."));
+    if (!game.active) throw new ApiException(400, "INACTIVE_GAME", "That game is not currently active.");
+    return List.of(game);
+  }
+
+  private Game selectGame(Leaderboard board, List<Game> allowedGames, String rawSlug) {
+    if (allowedGames.isEmpty()) {
+      throw new ApiException(409, "NO_ACTIVE_GAMES", "No active games are available for this leaderboard.");
+    }
+    if (rawSlug == null || rawSlug.isBlank()) return allowedGames.getFirst();
+    String slug = rawSlug.trim();
+    return allowedGames.stream().filter(game -> game.slug.equals(slug)).findFirst().orElseThrow(() ->
+        new ApiException(400, "GAME_NOT_ALLOWED", "That game is not available on this leaderboard."));
   }
   private MemberView memberView(Profile p, UUID ownerId) { return new MemberView(p.userId, p.shareId, p.displayName, p.avatarColor, p.userId.equals(ownerId)); }
   private ScoreView scoreView(Submission value) {

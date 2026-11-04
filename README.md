@@ -13,7 +13,7 @@ mvn spring-boot:run
 
 PostgreSQL listens on `localhost:5432`. Flyway applies database migrations automatically when Spring starts. Set `BREVO_API_KEY` and `BREVO_SENDER_EMAIL` before starting the API so verification and password-reset emails can be sent through Brevo's HTTPS API.
 
-For billing, create an active recurring Stripe Price for $2 USD per month and a Stripe Customer Portal configuration, then configure `STRIPE_SECRET_KEY`, `STRIPE_LEADERBOARD_PRICE_ID`, `STRIPE_PORTAL_CONFIGURATION_ID`, and `STRIPE_WEBHOOK_SECRET`. All four values must belong to the same Stripe test or live mode. The webhook destination is `https://<your-app>/api/v1/billing/stripe/webhook`; subscribe it to `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid`, and `invoice.payment_failed`. Enable subscription cancellation, invoice viewing, and payment-method updates in the selected Stripe Customer Portal configuration. Checkout leaves payment-method selection to Stripe Managed Payments and the account's Dashboard configuration.
+For billing, create an active recurring Stripe Price for $2 USD per month and a Stripe Customer Portal configuration, then configure `STRIPE_SECRET_KEY`, `STRIPE_LEADERBOARD_PRICE_ID`, `STRIPE_PORTAL_CONFIGURATION_ID`, and `STRIPE_WEBHOOK_SECRET`. A subscription unlocks unlimited leaderboards and subscription-only multi-game leaderboards. Multi-game leaderboards share one roster across every currently active game, add future active games automatically, and lock if the owner's subscription entitlement (including any grace period) ends. All four values must belong to the same Stripe test or live mode. The webhook destination is `https://<your-app>/api/v1/billing/stripe/webhook`; subscribe it to `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid`, and `invoice.payment_failed`. Enable subscription cancellation, invoice viewing, and payment-method updates in the selected Stripe Customer Portal configuration. Checkout leaves payment-method selection to Stripe Managed Payments and the account's Dashboard configuration.
 
 Stripe requests default to a 5-second connection timeout and a 20-second response timeout so an upstream failure returns a structured 502 before the hosting gateway times out. Override them with `STRIPE_CONNECT_TIMEOUT_MS` and `STRIPE_READ_TIMEOUT_MS` only when the hosting request timeout is longer.
 
@@ -32,7 +32,11 @@ $env:DISCORD_TEST_GUILD_ID = "..."
 .\scripts\register-discord-commands.ps1 -Scope Guild
 ```
 
-The script bulk-replaces this application's commands in the selected scope. After test-guild smoke testing, global promotion requires the explicit `-Scope Global -ConfirmGlobal` arguments. The application should be installed with the `applications.commands` scope. `/link`, `/unlink`, `/setup`, and `/daily` are guild-context commands; `/setup` requires Manage Server and rechecks Daily Tracker leaderboard ownership.
+The script bulk-replaces this application's commands in the selected scope. After test-guild smoke testing, global promotion requires the explicit `-Scope Global -ConfirmGlobal` arguments. The application should be installed with the `applications.commands` scope. `/link`, `/unlink`, `/setup`, and `/daily` are guild-context commands; `/setup` requires Manage Server and rechecks Daily Tracker leaderboard ownership. `/daily` requires both `game` and `result`; `game` uses fixed Fermi and Krillion choices. Adding another game therefore also requires updating this registrar and rerunning it in guild scope before global promotion.
+
+## Leaderboard types
+
+`POST /api/v1/leaderboards` accepts an optional `boardType` of `SINGLE_GAME` (the default) or `MULTI_GAME`. Single-game requests require `gameSlug`; multi-game requests must omit it and require an active subscription entitlement. `GET /api/v1/leaderboards/{id}` accepts an optional `game` slug. Multi-game boards default to the first active game by name, while rankings and ranges remain independent for the selected game. Owners can irreversibly convert a single-game board with `POST /api/v1/leaderboards/{id}/convert-to-multi-game`; its roster is preserved and a former free board no longer consumes a free-board slot.
 
 ## Verification
 

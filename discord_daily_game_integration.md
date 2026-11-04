@@ -1,6 +1,6 @@
 # Discord Daily Game Integration — Reconciled Technical Plan
 
-> Reconciled against the backend in this repository on 2026-11-03. This is an implementation plan, not functionality that exists today.
+> Historical implementation plan, reconciled against the backend on 2026-11-03. The shipped `/daily` command now requires a fixed `game` choice plus `result`, and mapped multi-game leaderboards accept every active game.
 
 ## 1. Objective
 

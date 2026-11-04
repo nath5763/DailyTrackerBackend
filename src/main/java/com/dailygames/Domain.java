@@ -44,6 +44,7 @@ class Profile {
 }
 
 enum BoardCreationBasis { FREE, SUBSCRIPTION, GRANDFATHERED }
+enum BoardType { SINGLE_GAME, MULTI_GAME }
 
 @Entity @Table(name = "games")
 class Game {
@@ -63,13 +64,17 @@ class Leaderboard {
   @Id UUID id;
   @Column(name = "owner_id", nullable = false) UUID ownerId;
   @Column(nullable = false) String name;
-  @Column(name = "game_id", nullable = false) UUID gameId;
+  @Column(name = "game_id") UUID gameId;
+  @Enumerated(EnumType.STRING) @Column(name = "board_type", nullable = false) BoardType boardType;
   @Enumerated(EnumType.STRING) @Column(name = "creation_basis", nullable = false) BoardCreationBasis creationBasis;
   @Column(name = "created_at", nullable = false) Instant createdAt;
   protected Leaderboard() {}
   Leaderboard(UUID ownerId, String name, UUID gameId, BoardCreationBasis creationBasis, Instant now) {
+    this(ownerId, name, gameId, BoardType.SINGLE_GAME, creationBasis, now);
+  }
+  Leaderboard(UUID ownerId, String name, UUID gameId, BoardType boardType, BoardCreationBasis creationBasis, Instant now) {
     id = UUID.randomUUID(); this.ownerId = ownerId; this.name = name; this.gameId = gameId;
-    this.creationBasis = creationBasis; createdAt = now;
+    this.boardType = boardType; this.creationBasis = creationBasis; createdAt = now;
   }
 }
 

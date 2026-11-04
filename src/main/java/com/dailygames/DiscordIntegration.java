@@ -159,7 +159,8 @@ class DiscordService {
         case "unlink" -> unlink(discordUserId);
         case "setup" -> setup(discordUserId, guildId, channelId, member,
             option(payload, "leaderboard", 36), now);
-        case "daily" -> daily(discordUserId, guildId, channelId, option(payload, "result", 6_000));
+        case "daily" -> daily(discordUserId, guildId, channelId,
+            optionalOption(payload, "game", 80), option(payload, "result", 6_000));
         default -> throw new ApiException(400, "UNKNOWN_COMMAND", "That command is not supported.");
       };
     } catch (ApiException exception) {
@@ -231,11 +232,14 @@ class DiscordService {
     return ephemeral("This channel is now connected to leaderboard `" + leaderboardId + "`.", "SUCCESS", "setup");
   }
 
-  private DiscordInteractionResult daily(String discordUserId, String guildId, String channelId, String rawText) {
+  private DiscordInteractionResult daily(String discordUserId, String guildId, String channelId,
+                                          String gameSlug, String rawText) {
     UUID userId = linkedUser(discordUserId);
     DiscordChannelLeaderboard mapping = channels.findById(new DiscordChannelLeaderboardId(guildId, channelId))
         .orElseThrow(() -> new ApiException(404, "CHANNEL_NOT_CONFIGURED", "This channel is not connected to a leaderboard."));
-    DailyGamesService.DiscordSubmissionResult saved = dailyGames.submitFromDiscord(userId, mapping.leaderboardId, rawText);
+    DailyGamesService.DiscordSubmissionResult saved = gameSlug == null
+        ? dailyGames.submitFromDiscord(userId, mapping.leaderboardId, rawText)
+        : dailyGames.submitFromDiscord(userId, mapping.leaderboardId, gameSlug, rawText);
     String score = formatScore(saved.submission().primaryScore(), adapters.require(saved.game().slug).scoreFormat());
     return ephemeral("Saved " + saved.game().name + " #" + saved.submission().puzzleKey() + " at " + score + ".",
         "SUCCESS", "daily");
@@ -247,16 +251,25 @@ class DiscordService {
   }
 
   private String option(JsonNode payload, String name, int maxLength) {
+    String value = optionalOption(payload, name, maxLength);
+    if (value != null) return value;
+    throw new ApiException(400, "INVALID_COMMAND", "A required command option is missing or invalid.");
+  }
+
+  private String optionalOption(JsonNode payload, String name, int maxLength) {
     JsonNode options = payload.path("data").path("options");
-    if (!options.isArray()) throw new ApiException(400, "INVALID_COMMAND", "A required command option is missing.");
+    if (!options.isArray()) return null;
     for (JsonNode option : options) {
-      if (name.equals(option.path("name").asText()) && option.path("type").asInt(-1) == 3
-          && option.path("value").isTextual()) {
+      if (name.equals(option.path("name").asText())) {
+        if (option.path("type").asInt(-1) != 3 || !option.path("value").isTextual()) {
+          throw new ApiException(400, "INVALID_COMMAND", "A command option is invalid.");
+        }
         String value = option.path("value").textValue();
         if (!value.isBlank() && value.length() <= maxLength) return value;
+        throw new ApiException(400, "INVALID_COMMAND", "A command option is invalid.");
       }
     }
-    throw new ApiException(400, "INVALID_COMMAND", "A required command option is missing or invalid.");
+    return null;
   }
 
   private String normalizeCode(String raw) {

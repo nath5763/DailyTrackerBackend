@@ -3,6 +3,8 @@ package com.dailygames;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -12,6 +14,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 
 import static com.dailygames.ApiModels.*;
 import static org.junit.jupiter.api.Assertions.*;
@@ -33,6 +36,9 @@ class DailyGamesIntegrationTest {
 
   @Autowired DailyGamesService service;
   @Autowired UserRepository users;
+  @Autowired BillingAccountRepository billingAccounts;
+  @Autowired LeaderboardRepository boards;
+  @Autowired JdbcTemplate jdbc;
 
   @Test void onboardingLeavesFreeLeaderboardForExplicitCreation() {
     UserAccount owner = users.save(new UserAccount("owner@example.com", Instant.now()));
@@ -75,6 +81,48 @@ class DailyGamesIntegrationTest {
     assertEquals("Stranger", leaderboard.rankings().getFirst().displayName());
     assertEquals(new BigDecimal("700.0000"), leaderboard.rankings().getFirst().average());
     assertEquals(new BigDecimal("180.0000"), service.dashboard(current).statsByGame().getFirst().average());
+  }
+
+  @Test void createsAndConvertsSubscriptionMultiGameBoardsAndEnforcesSchemaInvariants() {
+    UserAccount owner = users.save(new UserAccount("multi-owner@example.com", Instant.now()));
+    CurrentUser current = new CurrentUser(owner.id, owner.normalizedEmail);
+    service.onboard(current, new OnboardingRequest("Multi Owner", "#a8c7ff"));
+
+    UUID freeBoard = service.createBoard(current, new CreateLeaderboardRequest("Original", "fermi"));
+    Leaderboard original = boards.findById(freeBoard).orElseThrow();
+    assertEquals(BoardType.SINGLE_GAME, original.boardType);
+    assertEquals(BoardCreationBasis.FREE, original.creationBasis);
+
+    BillingAccount account = new BillingAccount(owner.id, Instant.now());
+    account.subscriptionStatus = "active";
+    account.currentPeriodEnd = Instant.now().plusSeconds(86_400);
+    billingAccounts.save(account);
+
+    service.convertToMultiGame(current, freeBoard);
+    Leaderboard converted = boards.findById(freeBoard).orElseThrow();
+    assertEquals(BoardType.MULTI_GAME, converted.boardType);
+    assertNull(converted.gameId);
+    assertEquals(BoardCreationBasis.SUBSCRIPTION, converted.creationBasis);
+    assertEquals(0, boards.countByOwnerIdAndCreationBasis(owner.id, BoardCreationBasis.FREE));
+
+    UUID multiId = service.createBoard(current,
+        new CreateLeaderboardRequest("Every Game", null, BoardType.MULTI_GAME));
+    BoardSummary summary = service.listBoards(current).stream().filter(value -> value.id().equals(multiId)).findFirst().orElseThrow();
+    assertEquals(BoardType.MULTI_GAME, summary.boardType());
+    assertEquals("fermi", summary.game().slug());
+    assertEquals(List.of("fermi", "krillion"), summary.games().stream().map(GameView::slug).toList());
+    assertEquals("krillion", service.board(current, multiId, "all", "krillion").game().slug());
+
+    UUID gameId = UUID.fromString("f0000000-0000-4000-8000-000000000001");
+    assertThrows(DataIntegrityViolationException.class, () -> jdbc.update(
+        "insert into leaderboards(id, owner_id, name, game_id, creation_basis, board_type, created_at) values (?, ?, ?, null, 'FREE', 'SINGLE_GAME', now())",
+        UUID.randomUUID(), owner.id, "Bad Single"));
+    assertThrows(DataIntegrityViolationException.class, () -> jdbc.update(
+        "insert into leaderboards(id, owner_id, name, game_id, creation_basis, board_type, created_at) values (?, ?, ?, ?, 'SUBSCRIPTION', 'MULTI_GAME', now())",
+        UUID.randomUUID(), owner.id, "Bad Multi Game", gameId));
+    assertThrows(DataIntegrityViolationException.class, () -> jdbc.update(
+        "insert into leaderboards(id, owner_id, name, game_id, creation_basis, board_type, created_at) values (?, ?, ?, null, 'FREE', 'MULTI_GAME', now())",
+        UUID.randomUUID(), owner.id, "Bad Multi Basis"));
   }
 
   private ConfirmedSubmission confirmed(ParsedSubmission parsed) {

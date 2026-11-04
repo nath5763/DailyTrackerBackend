@@ -136,6 +136,30 @@ class DiscordServiceTest {
     assertEquals(Map.of("parse", List.of()), data.get("allowed_mentions"));
   }
 
+  @Test void dailyPassesTheNamedGameChoiceEvenWhenOptionsAreReordered() throws Exception {
+    UUID userId = UUID.randomUUID();
+    UUID boardId = UUID.randomUUID();
+    when(interactions.insertIfAbsent(anyString(), anyString(), eq(2), eq("daily"), eq(now))).thenReturn(1);
+    when(links.findById("222222222222222222")).thenReturn(Optional.of(
+        new DiscordAccountLink("222222222222222222", userId, now)));
+    when(channels.findById(any())).thenReturn(Optional.of(new DiscordChannelLeaderboard(
+        "444444444444444444", "333333333333333333", boardId, userId, "222222222222222222", now)));
+    Game game = new Game(); game.id = UUID.randomUUID(); game.slug = "krillion"; game.name = "Krillion";
+    ParsedSubmission parsed = new ParsedSubmission("82", 82, LocalDate.of(2026, 11, 4),
+        new BigDecimal("700"), Map.of(), 1);
+    when(dailyGames.submitFromDiscord(userId, boardId, "krillion", "Krillion share")).thenReturn(
+        new DailyGamesService.DiscordSubmissionResult(UUID.randomUUID(), game, parsed));
+    GameAdapter adapter = mock(GameAdapter.class);
+    when(adapter.scoreFormat()).thenReturn(new ApiModels.ScoreFormatView("", "", 0, 0));
+    when(adapters.require("krillion")).thenReturn(adapter);
+
+    DiscordInteractionResult result = service.handle(json.readTree(command("daily", "222222222222222222",
+        "111111111111111111", "333333333333333333", "result", "Krillion share", "game", "krillion")));
+
+    assertEquals("SUCCESS", result.outcome());
+    verify(dailyGames).submitFromDiscord(userId, boardId, "krillion", "Krillion share");
+  }
+
   @Test void duplicateInteractionDoesNotRepeatMutation() throws Exception {
     when(interactions.insertIfAbsent(anyString(), anyString(), eq(2), eq("unlink"), eq(now))).thenReturn(0);
     DiscordInteractionResult result = service.handle(json.readTree(commandWithPermissions("unlink", "0", null, null)));
