@@ -97,7 +97,7 @@ class BillingService {
       }
       CheckoutAttempt attempt = checkoutAttempt(userId, tier, now);
       StripeGateway.StripeCheckoutSession session = stripe.createCheckout(account.stripeCustomerId, userId, selectedPriceId,
-          baseUrl + "/leaderboards?checkout=success", baseUrl + "/leaderboards?checkout=cancelled",
+          baseUrl + "/billing/return?checkout=success", baseUrl + "/billing/return?checkout=cancelled",
           attempt.expiresAt(), attempt.idempotencyKey());
       account.pendingCheckoutSessionId = session.id();
       account.pendingCheckoutPriceId = selectedPriceId;
@@ -123,7 +123,7 @@ class BillingService {
         .orElseThrow(() -> new ApiException(409, "BILLING_ACCOUNT_REQUIRED", "Start a subscription before opening billing settings."));
     try {
       StripeGateway.StripePortalSession session = stripe.createPortal(account.stripeCustomerId,
-          portalConfigurationId, baseUrl + "/leaderboards?billing=returned");
+          portalConfigurationId, baseUrl + "/billing/return?billing=returned");
       log.info("Created Stripe portal session for userId={}", userId);
       return new UrlResponse(session.url());
     } catch (StripeException exception) {

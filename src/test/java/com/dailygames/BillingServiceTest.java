@@ -104,6 +104,10 @@ class BillingServiceTest {
         any(Instant.class), anyString())).thenReturn(new StripeGateway.StripeCheckoutSession(
             "cs_premium", "https://checkout.stripe.test/premium", now.plus(Duration.ofMinutes(30))));
     assertEquals("https://checkout.stripe.test/premium", service.createCheckout(ownerId, BillingTier.PREMIUM).url());
+    verify(stripe).createCheckout(eq("cus_test"), eq(ownerId), eq("price_premium"),
+        eq("http://localhost:3000/billing/return?checkout=success"),
+        eq("http://localhost:3000/billing/return?checkout=cancelled"),
+        any(Instant.class), anyString());
     assertEquals("price_premium", account.pendingCheckoutPriceId);
     assertNotEquals(BillingService.checkoutAttempt(ownerId, BillingTier.STANDARD, now).idempotencyKey(),
         BillingService.checkoutAttempt(ownerId, BillingTier.PREMIUM, now).idempotencyKey());
@@ -172,12 +176,12 @@ class BillingServiceTest {
     account.stripeCustomerId = "cus_test";
     when(profiles.findByIdForUpdate(ownerId)).thenReturn(Optional.of(new Profile(ownerId, "Owner", "#dfff4f", now)));
     when(accounts.findById(ownerId)).thenReturn(Optional.of(account));
-    when(stripe.createPortal("cus_test", PORTAL_CONFIGURATION_ID, "http://localhost:3000/leaderboards?billing=returned"))
+    when(stripe.createPortal("cus_test", PORTAL_CONFIGURATION_ID, "http://localhost:3000/billing/return?billing=returned"))
         .thenReturn(new StripeGateway.StripePortalSession("https://billing.stripe.test/session"));
 
     assertEquals("https://billing.stripe.test/session", portalService.createPortal(ownerId).url());
 
-    verify(stripe).createPortal("cus_test", PORTAL_CONFIGURATION_ID, "http://localhost:3000/leaderboards?billing=returned");
+    verify(stripe).createPortal("cus_test", PORTAL_CONFIGURATION_ID, "http://localhost:3000/billing/return?billing=returned");
   }
 
   @Test void missingPortalConfigurationReturnsUnavailableWithoutCallingStripe() {
@@ -208,7 +212,7 @@ class BillingServiceTest {
     StripeException stripeFailure = mock(StripeException.class);
     when(profiles.findByIdForUpdate(ownerId)).thenReturn(Optional.of(new Profile(ownerId, "Owner", "#dfff4f", now)));
     when(accounts.findById(ownerId)).thenReturn(Optional.of(account));
-    when(stripe.createPortal("cus_test", PORTAL_CONFIGURATION_ID, "http://localhost:3000/leaderboards?billing=returned"))
+    when(stripe.createPortal("cus_test", PORTAL_CONFIGURATION_ID, "http://localhost:3000/billing/return?billing=returned"))
         .thenThrow(stripeFailure);
 
     ApiException exception = assertThrows(ApiException.class, () -> service.createPortal(ownerId));
