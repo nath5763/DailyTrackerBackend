@@ -35,8 +35,15 @@ interface StripeGateway {
 class StripeSdkGateway implements StripeGateway {
   private final StripeClient stripe;
 
-  StripeSdkGateway(@Value("${app.stripe.secret-key:}") String secretKey) {
-    stripe = new StripeClient(secretKey.isBlank() ? "sk_test_not_configured" : secretKey);
+  StripeSdkGateway(@Value("${app.stripe.secret-key:}") String secretKey,
+                   @Value("${app.stripe.connect-timeout-ms:5000}") int connectTimeoutMs,
+                   @Value("${app.stripe.read-timeout-ms:20000}") int readTimeoutMs) {
+    stripe = StripeClient.builder()
+        .setApiKey(secretKey.isBlank() ? "sk_test_not_configured" : secretKey)
+        .setConnectTimeout(connectTimeoutMs)
+        .setReadTimeout(readTimeoutMs)
+        .setMaxNetworkRetries(0)
+        .build();
   }
 
   @Override

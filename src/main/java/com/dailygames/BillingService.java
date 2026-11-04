@@ -100,7 +100,7 @@ class BillingService {
       log.info("Created Stripe checkout session for userId={} sessionId={}", userId, session.id());
       return new UrlResponse(session.url());
     } catch (StripeException exception) {
-      throw stripeUnavailable(exception);
+      throw stripeUnavailable("checkout", userId, exception);
     }
   }
 
@@ -117,7 +117,7 @@ class BillingService {
       log.info("Created Stripe portal session for userId={}", userId);
       return new UrlResponse(session.url());
     } catch (StripeException exception) {
-      throw stripeUnavailable(exception);
+      throw stripeUnavailable("portal", userId, exception);
     }
   }
 
@@ -141,7 +141,7 @@ class BillingService {
       }
       log.info("Processed Stripe event eventId={} eventType={}", event.getId(), event.getType());
     } catch (StripeException exception) {
-      throw stripeUnavailable(exception);
+      throw stripeUnavailable("webhook-reconciliation", null, exception);
     }
   }
 
@@ -235,8 +235,9 @@ class BillingService {
     }
   }
 
-  private ApiException stripeUnavailable(StripeException exception) {
-    log.error("Stripe request failed requestId={} statusCode={} message={}", exception.getRequestId(),
+  private ApiException stripeUnavailable(String operation, UUID userId, StripeException exception) {
+    log.error("Stripe request failed operation={} userId={} exceptionType={} requestId={} statusCode={} message={}",
+        operation, userId, exception.getClass().getSimpleName(), exception.getRequestId(),
         exception.getStatusCode(), exception.getMessage(), exception);
     return new ApiException(502, "STRIPE_UNAVAILABLE", "Stripe could not complete the billing request. Try again shortly.");
   }

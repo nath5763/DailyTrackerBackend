@@ -15,6 +15,8 @@ PostgreSQL listens on `localhost:5432`. Flyway applies database migrations autom
 
 For billing, create an active recurring Stripe Price for $2 USD per month and configure `STRIPE_SECRET_KEY`, `STRIPE_LEADERBOARD_PRICE_ID`, and `STRIPE_WEBHOOK_SECRET`. All three values must belong to the same Stripe test or live mode. The webhook destination is `https://<your-app>/api/v1/billing/stripe/webhook`; subscribe it to `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid`, and `invoice.payment_failed`. Enable subscription cancellation, invoice viewing, and payment-method updates in Stripe Customer Portal settings. Checkout currently accepts cards only.
 
+Stripe requests default to a 5-second connection timeout and a 20-second response timeout so an upstream failure returns a structured 502 before the hosting gateway times out. Override them with `STRIPE_CONNECT_TIMEOUT_MS` and `STRIPE_READ_TIMEOUT_MS` only when the hosting request timeout is longer.
+
 Environment overrides are documented in `.env.example`.
 
 ## Verification

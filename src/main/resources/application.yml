@@ -35,6 +35,8 @@ app:
     secret-key: ${STRIPE_SECRET_KEY:}
     webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
     price-id: ${STRIPE_LEADERBOARD_PRICE_ID:}
+    connect-timeout-ms: ${STRIPE_CONNECT_TIMEOUT_MS:5000}
+    read-timeout-ms: ${STRIPE_READ_TIMEOUT_MS:20000}
   token-pepper: ${AUTH_TOKEN_PEPPER:local-development-only-change-me}
   secure-cookie: ${SECURE_COOKIE:false}
   verification-hours: 24
