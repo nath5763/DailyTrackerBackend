@@ -34,6 +34,7 @@ class BillingService {
   private final StripeGateway stripe;
   private final String secretKey;
   private final String priceId;
+  private final String portalConfigurationId;
   private final String baseUrl;
 
   BillingService(BillingAccountRepository accounts, ProcessedStripeEventRepository events,
@@ -41,10 +42,12 @@ class BillingService {
                  StripeGateway stripe,
                  @Value("${app.stripe.secret-key:}") String secretKey,
                  @Value("${app.stripe.price-id:}") String priceId,
+                 @Value("${app.stripe.portal-configuration-id:}") String portalConfigurationId,
                  @Value("${app.public-base-url}") String baseUrl) {
     this.accounts = accounts; this.events = events; this.profiles = profiles; this.boards = boards; this.users = users;
     this.stripe = stripe;
-    this.secretKey = secretKey; this.priceId = priceId; this.baseUrl = baseUrl.replaceAll("/$", "");
+    this.secretKey = secretKey; this.priceId = priceId; this.portalConfigurationId = portalConfigurationId;
+    this.baseUrl = baseUrl.replaceAll("/$", "");
   }
 
   BillingStatusResponse status(UUID userId) {
@@ -72,7 +75,7 @@ class BillingService {
 
   @Transactional(noRollbackFor = ApiException.class)
   UrlResponse createCheckout(UUID userId) {
-    requireStripeConfiguration();
+    requireCheckoutConfiguration();
     profiles.findByIdForUpdate(userId).orElseThrow(() -> new ApiException(409, "PROFILE_REQUIRED", "Finish setting up your profile."));
     UserAccount user = users.findById(userId).orElseThrow(() -> new ApiException(401, "UNAUTHORIZED", "Sign in first."));
     Instant now = Instant.now();
@@ -108,14 +111,14 @@ class BillingService {
 
   @Transactional
   UrlResponse createPortal(UUID userId) {
-    requireStripeConfiguration();
+    requirePortalConfiguration();
     profiles.findByIdForUpdate(userId).orElseThrow(() -> new ApiException(409, "PROFILE_REQUIRED", "Finish setting up your profile."));
     BillingAccount account = accounts.findById(userId)
         .filter(value -> value.stripeCustomerId != null)
         .orElseThrow(() -> new ApiException(409, "BILLING_ACCOUNT_REQUIRED", "Start a subscription before opening billing settings."));
     try {
       StripeGateway.StripePortalSession session = stripe.createPortal(account.stripeCustomerId,
-          baseUrl + "/leaderboards");
+          portalConfigurationId, baseUrl + "/leaderboards");
       log.info("Created Stripe portal session for userId={}", userId);
       return new UrlResponse(session.url());
     } catch (StripeException exception) {
@@ -240,8 +243,14 @@ class BillingService {
     catch (RuntimeException exception) { throw new ApiException(400, "INVALID_STRIPE_EVENT", "Stripe event is missing its Daily Tracker account reference."); }
   }
 
-  private void requireStripeConfiguration() {
+  private void requireCheckoutConfiguration() {
     if (secretKey.isBlank() || priceId.isBlank()) {
+      throw new ApiException(503, "BILLING_UNAVAILABLE", "Billing has not been configured yet.");
+    }
+  }
+
+  private void requirePortalConfiguration() {
+    if (secretKey.isBlank() || portalConfigurationId.isBlank()) {
       throw new ApiException(503, "BILLING_UNAVAILABLE", "Billing has not been configured yet.");
     }
   }

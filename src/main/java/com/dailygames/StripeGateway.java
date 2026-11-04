@@ -21,7 +21,7 @@ interface StripeGateway {
   StripeCustomer createCustomer(String email, UUID userId) throws StripeException;
   StripeCheckoutSession createCheckout(String customerId, UUID userId, String priceId, String successUrl,
                                        String cancelUrl, Instant expiresAt, String idempotencyKey) throws StripeException;
-  StripePortalSession createPortal(String customerId, String returnUrl) throws StripeException;
+  StripePortalSession createPortal(String customerId, String configurationId, String returnUrl) throws StripeException;
   StripeSubscription retrieveSubscription(String subscriptionId) throws StripeException;
 
   record StripeCustomer(String id) {}
@@ -80,10 +80,12 @@ class StripeSdkGateway implements StripeGateway {
   }
 
   @Override
-  public StripePortalSession createPortal(String customerId, String returnUrl) throws StripeException {
+  public StripePortalSession createPortal(String customerId, String configurationId, String returnUrl)
+      throws StripeException {
     com.stripe.param.billingportal.SessionCreateParams params =
         com.stripe.param.billingportal.SessionCreateParams.builder()
             .setCustomer(customerId)
+            .setConfiguration(configurationId)
             .setReturnUrl(returnUrl)
             .build();
     com.stripe.model.billingportal.Session session = stripe.v1().billingPortal().sessions().create(params);

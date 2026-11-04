@@ -15,6 +15,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class BillingServiceTest {
+  private static final String PORTAL_CONFIGURATION_ID = "bpc_1UXucYFCEcsTxLHRcDhmBYgJ";
   private final BillingAccountRepository accounts = mock(BillingAccountRepository.class);
   private final ProcessedStripeEventRepository events = mock(ProcessedStripeEventRepository.class);
   private final ProfileRepository profiles = mock(ProfileRepository.class);
@@ -22,7 +23,7 @@ class BillingServiceTest {
   private final UserRepository users = mock(UserRepository.class);
   private final StripeGateway stripe = mock(StripeGateway.class);
   private final BillingService service = new BillingService(accounts, events, profiles, boards, users, stripe,
-      "sk_test_configured", "price_test", "http://localhost:3000");
+      "sk_test_configured", "price_test", PORTAL_CONFIGURATION_ID, "http://localhost:3000");
   private final UUID ownerId = UUID.randomUUID();
   private final Instant now = Instant.parse("2026-10-31T12:00:00Z");
 
@@ -71,7 +72,9 @@ class BillingServiceTest {
     assertFalse(service.hasUnlimitedLeaderboards(ownerId, now));
   }
 
-  @Test void accountWithoutAStatusCanCreateCheckout() throws Exception {
+  @Test void accountWithoutAStatusCanCreateCheckoutWithoutPortalConfiguration() throws Exception {
+    BillingService checkoutService = new BillingService(accounts, events, profiles, boards, users, stripe,
+        "sk_test_configured", "price_test", "", "http://localhost:3000");
     UserAccount user = new UserAccount("owner@example.com", now);
     user.id = ownerId;
     when(profiles.findByIdForUpdate(ownerId)).thenReturn(Optional.of(new Profile(ownerId, "Owner", "#dfff4f", now)));
@@ -83,7 +86,7 @@ class BillingServiceTest {
         any(Instant.class), anyString())).thenReturn(new StripeGateway.StripeCheckoutSession(
             "cs_test", "https://checkout.stripe.test/session", now.plus(Duration.ofMinutes(30))));
 
-    assertEquals("https://checkout.stripe.test/session", service.createCheckout(ownerId).url());
+    assertEquals("https://checkout.stripe.test/session", checkoutService.createCheckout(ownerId).url());
     verify(accounts).saveAndFlush(argThat(account -> "cus_test".equals(account.stripeCustomerId)));
     verify(accounts).save(argThat(account -> "cs_test".equals(account.pendingCheckoutSessionId)));
   }
@@ -121,6 +124,58 @@ class BillingServiceTest {
     assertEquals(502, exception.status);
     assertEquals("STRIPE_UNAVAILABLE", exception.code);
     verify(accounts).saveAndFlush(argThat(account -> "cus_test".equals(account.stripeCustomerId)));
+  }
+
+  @Test void portalUsesStoredCustomerConfiguredPortalAndLeaderboardReturnUrl() throws Exception {
+    BillingService portalService = new BillingService(accounts, events, profiles, boards, users, stripe,
+        "sk_test_configured", "", PORTAL_CONFIGURATION_ID, "http://localhost:3000");
+    BillingAccount account = new BillingAccount(ownerId, now);
+    account.stripeCustomerId = "cus_test";
+    when(profiles.findByIdForUpdate(ownerId)).thenReturn(Optional.of(new Profile(ownerId, "Owner", "#dfff4f", now)));
+    when(accounts.findById(ownerId)).thenReturn(Optional.of(account));
+    when(stripe.createPortal("cus_test", PORTAL_CONFIGURATION_ID, "http://localhost:3000/leaderboards"))
+        .thenReturn(new StripeGateway.StripePortalSession("https://billing.stripe.test/session"));
+
+    assertEquals("https://billing.stripe.test/session", portalService.createPortal(ownerId).url());
+
+    verify(stripe).createPortal("cus_test", PORTAL_CONFIGURATION_ID, "http://localhost:3000/leaderboards");
+  }
+
+  @Test void missingPortalConfigurationReturnsUnavailableWithoutCallingStripe() {
+    BillingService unconfiguredPortal = new BillingService(accounts, events, profiles, boards, users, stripe,
+        "sk_test_configured", "price_test", "", "http://localhost:3000");
+
+    ApiException exception = assertThrows(ApiException.class, () -> unconfiguredPortal.createPortal(ownerId));
+
+    assertEquals(503, exception.status);
+    assertEquals("BILLING_UNAVAILABLE", exception.code);
+    verifyNoInteractions(stripe);
+  }
+
+  @Test void portalRequiresAnExistingStripeCustomer() {
+    when(profiles.findByIdForUpdate(ownerId)).thenReturn(Optional.of(new Profile(ownerId, "Owner", "#dfff4f", now)));
+    when(accounts.findById(ownerId)).thenReturn(Optional.of(new BillingAccount(ownerId, now)));
+
+    ApiException exception = assertThrows(ApiException.class, () -> service.createPortal(ownerId));
+
+    assertEquals(409, exception.status);
+    assertEquals("BILLING_ACCOUNT_REQUIRED", exception.code);
+    verifyNoInteractions(stripe);
+  }
+
+  @Test void portalStripeFailureReturnsStructuredBadGateway() throws Exception {
+    BillingAccount account = new BillingAccount(ownerId, now);
+    account.stripeCustomerId = "cus_test";
+    StripeException stripeFailure = mock(StripeException.class);
+    when(profiles.findByIdForUpdate(ownerId)).thenReturn(Optional.of(new Profile(ownerId, "Owner", "#dfff4f", now)));
+    when(accounts.findById(ownerId)).thenReturn(Optional.of(account));
+    when(stripe.createPortal("cus_test", PORTAL_CONFIGURATION_ID, "http://localhost:3000/leaderboards"))
+        .thenThrow(stripeFailure);
+
+    ApiException exception = assertThrows(ApiException.class, () -> service.createPortal(ownerId));
+
+    assertEquals(502, exception.status);
+    assertEquals("STRIPE_UNAVAILABLE", exception.code);
   }
 
   @Test void subscriptionWebhookUsesCurrentStripeStateInsteadOfTheEventSnapshot() throws Exception {
