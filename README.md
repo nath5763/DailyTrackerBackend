@@ -1,6 +1,6 @@
 # DailyGamesBackend
 
-Spring Boot API for Daily Tracker. It provides verified email/password authentication, game-specific private leaderboards, Stripe subscription entitlements, Discord HTTP interactions, interchangeable score parsers, and PostgreSQL persistence. Supported daily games include Fermi and Krillion.
+Spring Boot API for Daily Club. It provides verified email/password authentication, game-specific private leaderboards, Stripe subscription entitlements, Discord HTTP interactions, interchangeable score parsers, and PostgreSQL persistence. Website score adapters cover Fermi, Krillion, Wordle, Pinpoint, Queens, Crossclimb, Tango, and Zip. The public `GET /api/v1/catalog/games` directory is separate from the authenticated tracked-game API. See [catalog_audit.md](catalog_audit.md) for launch link decisions and share fixture sources.
 
 ## Local development
 
@@ -38,7 +38,7 @@ The script bulk-replaces this application's commands in the selected scope. Afte
 
 `POST /api/v1/leaderboards` accepts an optional `boardType` of `SINGLE_GAME` (the default) or `MULTI_GAME`. Single-game requests require `gameSlug` and count toward the five-board limit. Multi-game requests must omit it and count toward the owner's tier limit. `GET /api/v1/leaderboards/{id}` accepts an optional `game` slug. Multi-game boards default to the first active game by name, while rankings and ranges remain independent for the selected game. Owners can irreversibly convert a single-game board with `POST /api/v1/leaderboards/{id}/convert-to-multi-game` if their all-game limit has room; its roster is preserved. `POST /api/v1/billing/checkout-session` accepts `{ "tier": "STANDARD" }` or `{ "tier": "PREMIUM" }`. `GET /api/v1/billing/status` returns tier, owned board counts, limits, and subscription state.
 
-Deploy the backend with Flyway V7 before the frontend. Configure the $5 Price and portal switching, then verify both checkout choices and webhook-driven upgrades, downgrades, cancellations, and payment grace in Stripe test mode before enabling live mode.
+Deploy the backend with Flyway V8 before the frontend game directory and score options. Configure the $5 Price and portal switching, then verify both checkout choices and webhook-driven upgrades, downgrades, cancellations, and payment grace in Stripe test mode before enabling live mode.
 
 ## Verification
 

@@ -133,20 +133,30 @@ class DailyGamesService {
       default -> throw new ApiException(400, "INVALID_RANGE", "Range must be today, 7d, 30d, or all.");
     };
     Map<UUID, List<Submission>> byUser = scores.stream().collect(Collectors.groupingBy(score -> score.userId));
-    Comparator<RankingSeed> rankingOrder = Comparator.comparing(RankingSeed::average);
-    if ("higher".equals(game.rankingDirection)) rankingOrder = rankingOrder.reversed();
-    rankingOrder = rankingOrder.thenComparing(RankingSeed::gamesPlayed, Comparator.reverseOrder())
+    Comparator<RankingSeed> rankingOrder = Comparator.comparing(RankingSeed::assistanceTier);
+    Comparator<RankingSeed> scoreOrder = Comparator.comparing(RankingSeed::average);
+    if ("higher".equals(game.rankingDirection)) scoreOrder = scoreOrder.reversed();
+    rankingOrder = rankingOrder.thenComparing(scoreOrder).thenComparing(RankingSeed::gamesPlayed, Comparator.reverseOrder())
         .thenComparing(seed -> seed.profile.displayName, String.CASE_INSENSITIVE_ORDER);
     List<RankingSeed> seeds = memberProfiles.stream().filter(profile -> byUser.containsKey(profile.userId)).map(profile -> {
       List<Submission> values = byUser.get(profile.userId);
       BigDecimal average = values.stream().map(value -> value.primaryScore).reduce(BigDecimal.ZERO, BigDecimal::add)
           .divide(BigDecimal.valueOf(values.size()), 4, RoundingMode.HALF_UP);
-      return new RankingSeed(profile, average, values.size());
+      int hints = values.stream().mapToInt(value -> metricCount(value, "hints")).sum();
+      int mistakes = values.stream().mapToInt(value -> metricCount(value, "mistakes")).sum();
+      int beginner = values.stream().mapToInt(value -> metricCount(value, "beginnerAssists")).sum();
+      int assisted = (int) values.stream().filter(value -> "assisted".equals(value.metrics.get("assistanceStatus")) ||
+          metricCount(value, "hints") > 0 || metricCount(value, "mistakes") > 0 || metricCount(value, "beginnerAssists") > 0).count();
+      int unknown = (int) values.stream().filter(value -> "unknown".equals(value.metrics.get("assistanceStatus"))).count();
+      return new RankingSeed(profile, average, values.size(), assisted > 0 ? 2 : unknown > 0 ? 1 : 0,
+          assisted, unknown, hints, mistakes, beginner);
     }).sorted(rankingOrder).toList();
     List<RankingView> rankings = new ArrayList<>();
     for (int index = 0; index < seeds.size(); index++) {
       RankingSeed seed = seeds.get(index);
-      rankings.add(new RankingView(index + 1, seed.profile.userId, seed.profile.shareId, seed.profile.displayName, seed.average, seed.gamesPlayed));
+      rankings.add(new RankingView(index + 1, seed.profile.userId, seed.profile.shareId, seed.profile.displayName,
+          seed.average, seed.gamesPlayed, seed.assistedResults, seed.unknownAssistanceResults,
+          seed.hints, seed.mistakes, seed.beginnerAssists));
     }
     Set<UUID> ranked = seeds.stream().map(seed -> seed.profile.userId).collect(Collectors.toSet());
     List<MemberView> members = memberProfiles.stream().map(profile -> memberView(profile, board.ownerId)).toList();
@@ -325,7 +335,8 @@ class DailyGamesService {
   private MemberView memberView(Profile p, UUID ownerId) { return new MemberView(p.userId, p.shareId, p.displayName, p.avatarColor, p.userId.equals(ownerId)); }
   private ScoreView scoreView(Submission value) {
     Game game = games.findById(value.gameId).orElseThrow(this::notFound);
-    return new ScoreView(value.id, value.puzzleKey, value.playedOn, value.primaryScore, game.name, game.slug, gameView(game));
+    return new ScoreView(value.id, value.puzzleKey, value.playedOn, value.primaryScore, game.name, game.slug,
+        gameView(game), value.metrics);
   }
   private List<GameStatsView> statsByGame(List<Submission> values) {
     return values.stream().collect(Collectors.groupingBy(value -> value.gameId)).entrySet().stream().map(entry -> {
@@ -363,5 +374,10 @@ class DailyGamesService {
     return new ApiException(409, "DUPLICATE_SUBMISSION", "You already saved a result for this " + game.name + " puzzle.");
   }
   record DiscordSubmissionResult(UUID id, Game game, ParsedSubmission submission) {}
-  private record RankingSeed(Profile profile, BigDecimal average, Integer gamesPlayed) {}
+  private int metricCount(Submission value, String key) {
+    Object metric = value.metrics.get(key);
+    return metric instanceof Number number ? number.intValue() : 0;
+  }
+  private record RankingSeed(Profile profile, BigDecimal average, Integer gamesPlayed, int assistanceTier,
+                             int assistedResults, int unknownAssistanceResults, int hints, int mistakes, int beginnerAssists) {}
 }

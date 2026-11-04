@@ -60,6 +60,18 @@ class Game {
   protected Game() {}
 }
 
+@Entity @Table(name = "game_catalog")
+class CatalogGame {
+  @Id String slug;
+  @Column(nullable = false) String name;
+  @Column(nullable = false) String description;
+  @Column(nullable = false) String category;
+  @Column(name = "source_url", nullable = false) String sourceUrl;
+  @Column(name = "tracked_game_slug") String trackedGameSlug;
+  @Column(name = "display_order", nullable = false) int displayOrder;
+  protected CatalogGame() {}
+}
+
 @Entity @Table(name = "leaderboards")
 class Leaderboard {
   @Id UUID id;

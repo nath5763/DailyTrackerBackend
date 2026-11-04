@@ -19,6 +19,9 @@ import java.util.*;
   Optional<Game> findBySlugAndActiveTrue(String slug);
   List<Game> findByActiveTrueOrderByNameAsc();
 }
+@Repository interface CatalogGameRepository extends JpaRepository<CatalogGame, String> {
+  List<CatalogGame> findAllByOrderByDisplayOrderAsc();
+}
 @Repository interface LeaderboardRepository extends JpaRepository<Leaderboard, UUID> {
   long countByOwnerIdAndCreationBasis(UUID ownerId, BoardCreationBasis creationBasis);
   long countByOwnerIdAndBoardType(UUID ownerId, BoardType boardType);

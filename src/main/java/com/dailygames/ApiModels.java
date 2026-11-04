@@ -38,22 +38,33 @@ final class ApiModels {
   record UserView(UUID id, String email) {}
   record ProfileView(UUID userId, UUID shareId, String displayName, String avatarColor, Instant createdAt) {}
   record MeResponse(UserView user, ProfileView profile) {}
-  record ScoreFormatView(String prefix, String suffix, int minimumDecimalPlaces, int maximumDecimalPlaces) {}
+  record ScoreFormatView(String prefix, String suffix, int minimumDecimalPlaces, int maximumDecimalPlaces, String kind) {
+    ScoreFormatView(String prefix, String suffix, int minimumDecimalPlaces, int maximumDecimalPlaces) {
+      this(prefix, suffix, minimumDecimalPlaces, maximumDecimalPlaces, "number");
+    }
+  }
   record SubmissionConfigView(String exampleShareText, String puzzleLabel, String scoreLabel, BigDecimal scoreMin,
                               BigDecimal scoreMax, BigDecimal scoreStep, Set<String> editableFields) {}
   record GameView(UUID id, String slug, String name, String sourceUrl, String rankingDirection,
                   ScoreFormatView scoreFormat, SubmissionConfigView submission) {}
+  record CatalogGameView(String slug, String name, String description, String category, String sourceUrl,
+                         boolean scoreTrackingAvailable) {}
   record BoardSummary(UUID id, String name, UUID ownerId, boolean owner, GameView game, BoardType boardType,
                       List<GameView> games, boolean locked, Instant createdAt) {}
   record ScoreView(UUID id, String puzzleKey, LocalDate playedOn, BigDecimal primaryScore, String gameName, String gameSlug,
-                   GameView game) {}
+                   GameView game, Map<String, Object> metrics) {}
   record StatsView(BigDecimal average, BigDecimal best, int currentStreak, int results) {}
   record GameStatsView(GameView game, BigDecimal average, BigDecimal best, int currentStreak, int results) {}
   record DashboardResponse(ProfileView profile, StatsView stats, List<GameStatsView> statsByGame,
                            List<ScoreView> recentScores, List<BoardSummary> leaderboards) {}
   record PreviewResponse(ParsedSubmission submission) {}
   record MemberView(UUID userId, UUID shareId, String displayName, String avatarColor, boolean owner) {}
-  record RankingView(int rank, UUID userId, UUID shareId, String displayName, BigDecimal average, int gamesPlayed) {}
+  record RankingView(int rank, UUID userId, UUID shareId, String displayName, BigDecimal average, int gamesPlayed,
+                     int assistedResults, int unknownAssistanceResults, int hints, int mistakes, int beginnerAssists) {
+    RankingView(int rank, UUID userId, UUID shareId, String displayName, BigDecimal average, int gamesPlayed) {
+      this(rank, userId, shareId, displayName, average, gamesPlayed, 0, 0, 0, 0, 0);
+    }
+  }
   record LeaderboardResponse(UUID id, String name, UUID ownerId, GameView game, BoardType boardType,
                              List<GameView> games, String range, boolean owner, List<MemberView> members,
                              List<RankingView> rankings, List<MemberView> absent) {}

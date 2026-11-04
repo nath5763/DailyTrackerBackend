@@ -153,6 +153,22 @@ class DailyGamesController {
 }
 
 @RestController
+@RequestMapping("/api/v1/catalog/games")
+class CatalogController {
+  private final CatalogGameRepository catalog;
+  private final GameRepository games;
+  CatalogController(CatalogGameRepository catalog, GameRepository games) {
+    this.catalog = catalog; this.games = games;
+  }
+  @GetMapping List<CatalogGameView> games() {
+    Set<String> tracked = games.findByActiveTrueOrderByNameAsc().stream().map(game -> game.slug).collect(java.util.stream.Collectors.toSet());
+    return catalog.findAllByOrderByDisplayOrderAsc().stream().map(game -> new CatalogGameView(
+        game.slug, game.name, game.description, game.category, game.sourceUrl,
+        game.trackedGameSlug != null && tracked.contains(game.trackedGameSlug))).toList();
+  }
+}
+
+@RestController
 @RequestMapping("/api/v1/billing")
 class BillingController {
   private final BillingService billing;

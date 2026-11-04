@@ -48,7 +48,7 @@ class DailyGamesIntegrationTest {
     assertNotNull(profile.shareId());
     assertTrue(service.listBoards(current).isEmpty());
 
-    assertEquals(List.of("fermi", "krillion"), service.listGames().stream().map(GameView::slug).sorted().toList());
+    assertEquals(List.of("crossclimb", "fermi", "krillion", "pinpoint", "queens", "tango", "wordle", "zip"), service.listGames().stream().map(GameView::slug).sorted().toList());
 
     var boardId = service.createBoard(current, new CreateLeaderboardRequest("My Friends", "krillion"));
     assertEquals(1, service.listBoards(current).size());
@@ -115,8 +115,8 @@ class DailyGamesIntegrationTest {
         new CreateLeaderboardRequest("Every Game", null, BoardType.MULTI_GAME));
     BoardSummary summary = service.listBoards(current).stream().filter(value -> value.id().equals(multiId)).findFirst().orElseThrow();
     assertEquals(BoardType.MULTI_GAME, summary.boardType());
-    assertEquals("fermi", summary.game().slug());
-    assertEquals(List.of("fermi", "krillion"), summary.games().stream().map(GameView::slug).toList());
+    assertEquals("crossclimb", summary.game().slug());
+    assertEquals(List.of("crossclimb", "fermi", "krillion", "pinpoint", "queens", "tango", "wordle", "zip"), summary.games().stream().map(GameView::slug).toList());
     assertEquals("krillion", service.board(current, multiId, "all", "krillion").game().slug());
 
     UUID gameId = UUID.fromString("f0000000-0000-4000-8000-000000000001");
