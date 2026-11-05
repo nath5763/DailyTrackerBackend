@@ -3,8 +3,6 @@ package com.dailygames;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
-import java.time.Instant;
-
 @Repository
 class DiscordCommandRegistrationStore {
   private final JdbcTemplate jdbc;
@@ -19,9 +17,9 @@ class DiscordCommandRegistrationStore {
 
   void markCurrent(String applicationId, String scopeId, String name, String hash) {
     jdbc.update("insert into discord_command_registrations(application_id, scope_id, command_name, definition_hash, registered_at) " +
-        "values (?, ?, ?, ?, ?) on conflict (application_id, scope_id, command_name) do update " +
+        "values (?, ?, ?, ?, current_timestamp) on conflict (application_id, scope_id, command_name) do update " +
         "set definition_hash = excluded.definition_hash, registered_at = excluded.registered_at",
-        applicationId, scopeId, name, hash, Instant.now());
+        applicationId, scopeId, name, hash);
   }
 
   void pruneUnmappedGuilds() {

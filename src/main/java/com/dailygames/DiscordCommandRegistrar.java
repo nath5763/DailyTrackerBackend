@@ -117,7 +117,16 @@ class DiscordCommandRegistrar {
                 "rateLimitRemaining={} rateLimitResetAfter={}", scopeId, name, response.statusCode(),
             hash.substring(0, 12), header(response, "x-ratelimit-remaining"),
             header(response, "x-ratelimit-reset-after"));
-        registrations.markCurrent(applicationId, scopeId, name, hash);
+        try {
+          registrations.markCurrent(applicationId, scopeId, name, hash);
+        } catch (RuntimeException exception) {
+          log.error("Discord accepted command registration but its fingerprint could not be persisted " +
+              "scope={} command={} definitionHash={} exceptionType={} message={}", scopeId, name,
+              hash.substring(0, 12), exception.getClass().getName(),
+              sanitizeDiagnostic(exception.getMessage(), botToken), exception);
+          throw new ApiException(500, "DISCORD_REGISTRATION_STATE_FAILED",
+              "Discord accepted the command, but its registration state could not be saved.");
+        }
         changed = true;
       } catch (ApiException exception) {
         throw exception;
