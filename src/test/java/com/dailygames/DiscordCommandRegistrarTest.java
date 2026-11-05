@@ -51,18 +51,19 @@ class DiscordCommandRegistrarTest {
   @Test void registersGlobalAndExistingGuildCommandsWithoutReplacingOtherCommands() {
     when(mappings.findDistinctGuildIds()).thenReturn(List.of(GUILD_ID));
     registrar.reconcile();
-    assertEquals(12, paths.size());
-    assertEquals(6, paths.stream().filter(path -> path.endsWith("/applications/123456789012345678/commands")).count());
-    assertEquals(6, paths.stream().filter(path -> path.endsWith("/guilds/" + GUILD_ID + "/commands")).count());
-    assertEquals(List.of("help", "link", "unlink", "setup", "daily", "leaderboard"),
-        bodies.subList(0, 6).stream().map(body -> body.path("name").asText()).toList());
-    assertEquals("32", bodies.get(3).path("default_member_permissions").asText());
-    assertEquals("result", bodies.get(4).path("options").get(1).path("name").asText());
-    assertEquals(0, bodies.get(4).path("contexts").get(0).asInt());
-    assertTrue(bodies.get(10).path("contexts").isMissingNode());
+    assertEquals(18, paths.size());
+    assertEquals(9, paths.stream().filter(path -> path.endsWith("/applications/123456789012345678/commands")).count());
+    assertEquals(9, paths.stream().filter(path -> path.endsWith("/guilds/" + GUILD_ID + "/commands")).count());
+    assertEquals(List.of("help", "signup", "my-id", "add-member", "link", "unlink", "setup", "daily", "leaderboard"),
+        bodies.subList(0, 9).stream().map(body -> body.path("name").asText()).toList());
+    assertEquals("32", bodies.get(6).path("default_member_permissions").asText());
+    assertEquals("result", bodies.get(7).path("options").get(1).path("name").asText());
+    assertTrue(bodies.get(7).path("options").get(0).path("autocomplete").asBoolean());
+    assertEquals(0, bodies.get(7).path("contexts").get(0).asInt());
+    assertTrue(bodies.get(16).path("contexts").isMissingNode());
     registrar.reconcile();
     registrar.registerGuild(GUILD_ID);
-    assertEquals(12, paths.size());
+    assertEquals(18, paths.size());
   }
 
   @Test void failedRegistrationIsRetried() {
@@ -71,6 +72,6 @@ class DiscordCommandRegistrarTest {
         () -> registrar.registerGuild(GUILD_ID)).code);
     status = 201;
     registrar.registerGuild(GUILD_ID);
-    assertEquals(7, paths.size());
+    assertEquals(10, paths.size());
   }
 }

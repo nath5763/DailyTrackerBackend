@@ -98,6 +98,7 @@ class DiscordService {
   private final ProcessedDiscordInteractionRepository interactions;
   private final BillingService billing;
   private final DailyGamesService dailyGames;
+  private final DiscordSignupService signup;
   private final GameAdapterRegistry adapters;
   private final DiscordSignatureVerifier configuration;
   private final Clock clock;
@@ -107,11 +108,11 @@ class DiscordService {
   DiscordService(ProfileRepository profiles, DiscordAccountLinkRepository links, DiscordLinkCodeRepository codes,
                  LeaderboardRepository boards, DiscordChannelLeaderboardRepository channels,
                  ProcessedDiscordInteractionRepository interactions, BillingService billing,
-                 DailyGamesService dailyGames, GameAdapterRegistry adapters, DiscordSignatureVerifier configuration,
+                 DailyGamesService dailyGames, DiscordSignupService signup, GameAdapterRegistry adapters, DiscordSignatureVerifier configuration,
                  Clock clock, @Value("${app.token-pepper}") String pepper,
                  @Value("${app.public-base-url}") String publicBaseUrl) {
     this.profiles = profiles; this.links = links; this.codes = codes; this.boards = boards; this.channels = channels;
-    this.interactions = interactions; this.billing = billing; this.dailyGames = dailyGames; this.adapters = adapters;
+    this.interactions = interactions; this.billing = billing; this.dailyGames = dailyGames; this.signup = signup; this.adapters = adapters;
     this.configuration = configuration; this.clock = clock; this.pepper = pepper;
     this.publicBaseUrl = publicBaseUrl.replaceAll("/+$", "");
   }
@@ -149,6 +150,7 @@ class DiscordService {
   @Transactional
   DiscordInteractionResult handle(JsonNode payload) {
     int type = requiredInt(payload, "type");
+    if (type == 4) return autocomplete(payload);
     if (type != 2) return ephemeral("This interaction type is not supported.", "UNSUPPORTED_INTERACTION", null);
     String interactionId = snowflake(payload, "id");
     JsonNode member = payload.path("member");
@@ -165,6 +167,10 @@ class DiscordService {
       String channelId = snowflake(payload, "channel_id");
       result = switch (command) {
         case "help" -> help();
+        case "signup" -> ephemeral("Finish creating or signing in to your account: <" + signup.issue(discordUserId, guildId, channelId)
+            + ">\nThis private link expires in 24 hours.", "SUCCESS", "signup");
+        case "my-id" -> myId(discordUserId);
+        case "add-member" -> addMember(discordUserId, guildId, channelId, option(payload, "uuid", 36));
         case "link" -> link(discordUserId, option(payload, "code", 32), now);
         case "unlink" -> unlink(discordUserId);
         case "setup" -> setup(discordUserId, guildId, channelId, member,
@@ -184,11 +190,56 @@ class DiscordService {
 
   private DiscordInteractionResult help() {
     return ephemeral("**Daily Tracker help**\n"
+        + "Run `/signup` to create or connect your account and join this channel's leaderboard.\n"
         + "1. **Link your account:** Sign in at " + publicBaseUrl + "/dashboard, generate a link code in the Discord section, then run `/link` and enter the code. Codes expire after 10 minutes.\n"
         + "2. **Submit a game result:** In a connected channel, run `/daily`, choose a game, and paste the complete game share text into `result`.\n"
         + "3. **See rankings:** In a connected channel, run `/leaderboard`, choose a game, and optionally choose a range (today, 7 days, 30 days, or all time).\n"
         + "Each player links their own account. `/daily` and `/leaderboard` work in channels connected to a leaderboard.",
         "SUCCESS", "help");
+  }
+
+  private DiscordInteractionResult myId(String discordUserId) {
+    UUID userId = linkedUser(discordUserId);
+    Profile profile = profiles.findById(userId)
+        .orElseThrow(() -> new ApiException(409, "PROFILE_REQUIRED", "Finish setting up your profile."));
+    return ephemeral("Your shareable profile UUID is `" + profile.shareId + "`.", "SUCCESS", "my-id");
+  }
+
+  private DiscordInteractionResult addMember(String discordUserId, String guildId, String channelId, String rawId) {
+    UUID userId = linkedUser(discordUserId);
+    DiscordChannelLeaderboard mapping = channels.findById(new DiscordChannelLeaderboardId(guildId, channelId))
+        .orElseThrow(() -> new ApiException(404, "CHANNEL_NOT_CONFIGURED", "This channel is not connected to a leaderboard."));
+    UUID shareId;
+    try { shareId = UUID.fromString(rawId); }
+    catch (IllegalArgumentException exception) { throw new ApiException(400, "INVALID_PROFILE_ID", "Enter a valid profile UUID."); }
+    dailyGames.addMember(new CurrentUser(userId, ""), mapping.leaderboardId, shareId);
+    return ephemeral("Member added to this channel's leaderboard.", "SUCCESS", "add-member");
+  }
+
+  private DiscordInteractionResult autocomplete(JsonNode payload) {
+    String command = requiredText(payload.path("data"), "name", 32);
+    if (!Set.of("daily", "leaderboard").contains(command)) return emptyChoices(command);
+    JsonNode options = payload.path("data").path("options");
+    if (!options.isArray()) return emptyChoices(command);
+    String query = null;
+    for (JsonNode option : options) {
+      if ("game".equals(option.path("name").asText()) && option.path("focused").asBoolean(false)
+          && option.path("value").isTextual()) query = option.path("value").asText();
+    }
+    if (query == null || query.length() > 80) return emptyChoices(command);
+    String guildId = snowflake(payload, "guild_id");
+    String channelId = snowflake(payload, "channel_id");
+    DiscordChannelLeaderboard mapping = channels.findById(new DiscordChannelLeaderboardId(guildId, channelId)).orElse(null);
+    if (mapping == null) return emptyChoices(command);
+    try {
+      List<Map<String, String>> choices = dailyGames.searchDiscordGames(mapping.leaderboardId, query).stream()
+          .map(game -> Map.of("name", game.name(), "value", game.slug())).toList();
+      return new DiscordInteractionResult(Map.of("type", 8, "data", Map.of("choices", choices)), command, "SUCCESS");
+    } catch (ApiException exception) { return emptyChoices(command); }
+  }
+
+  private DiscordInteractionResult emptyChoices(String command) {
+    return new DiscordInteractionResult(Map.of("type", 8, "data", Map.of("choices", List.of())), command, "SUCCESS");
   }
 
   private DiscordInteractionResult link(String discordUserId, String rawCode, Instant now) {
@@ -276,9 +327,6 @@ class DiscordService {
     String range = requestedRange == null ? "today" : requestedRange;
     if (!Set.of("today", "7d", "30d", "all").contains(range)) {
       throw new ApiException(400, "INVALID_RANGE", "Range must be today, 7d, 30d, or all.");
-    }
-    if (!Set.of("fermi", "krillion").contains(gameSlug)) {
-      throw new ApiException(400, "GAME_NOT_ALLOWED", "That game is not available on this leaderboard.");
     }
     ApiModels.LeaderboardResponse board = dailyGames.board(new CurrentUser(userId, ""), mapping.leaderboardId,
         range, gameSlug);

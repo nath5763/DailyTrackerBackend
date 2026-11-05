@@ -22,16 +22,19 @@ import static com.dailygames.ApiModels.*;
 @RequestMapping("/api/v1/auth")
 class AuthController {
   private final AuthService auth;
+  private final DiscordSignupService signup;
   private final String baseUrl;
   private final boolean secureCookie;
-  AuthController(AuthService auth, @Value("${app.public-base-url}") String baseUrl,
+  AuthController(AuthService auth, DiscordSignupService signup, @Value("${app.public-base-url}") String baseUrl,
                  @Value("${app.secure-cookie}") boolean secureCookie) {
-    this.auth = auth; this.baseUrl = baseUrl.replaceAll("/$", ""); this.secureCookie = secureCookie;
+    this.auth = auth; this.signup = signup; this.baseUrl = baseUrl.replaceAll("/$", ""); this.secureCookie = secureCookie;
   }
 
   @PostMapping("/register")
-  ResponseEntity<MessageResponse> register(@Valid @RequestBody CredentialsRequest request, HttpServletRequest servletRequest) {
-    auth.register(request.email(), request.password(), clientIp(servletRequest));
+  ResponseEntity<MessageResponse> register(@Valid @RequestBody CredentialsRequest request,
+      @RequestParam(required = false) String signupIntent, HttpServletRequest servletRequest) {
+    if (signupIntent != null && !signup.valid(signupIntent)) throw new ApiException(410, "SIGNUP_EXPIRED", "This Discord signup link has expired.");
+    auth.register(request.email(), request.password(), clientIp(servletRequest), signupIntent);
     return ResponseEntity.accepted().body(new MessageResponse("Check your inbox for an email to verify or recover your account."));
   }
 
@@ -41,16 +44,19 @@ class AuthController {
   }
 
   @PostMapping("/verification/resend")
-  ResponseEntity<MessageResponse> resend(@Valid @RequestBody EmailRequest request, HttpServletRequest servletRequest) {
-    auth.resendVerification(request.email(), clientIp(servletRequest));
+  ResponseEntity<MessageResponse> resend(@Valid @RequestBody EmailRequest request,
+      @RequestParam(required = false) String signupIntent, HttpServletRequest servletRequest) {
+    if (signupIntent != null && !signup.valid(signupIntent)) throw new ApiException(410, "SIGNUP_EXPIRED", "This Discord signup link has expired.");
+    auth.resendVerification(request.email(), clientIp(servletRequest), signupIntent);
     return ResponseEntity.accepted().body(new MessageResponse("If the account is awaiting verification, a new email is on its way."));
   }
 
   @GetMapping("/verification/consume")
-  ResponseEntity<Void> verify(@RequestParam String token) {
+  ResponseEntity<Void> verify(@RequestParam String token, @RequestParam(required = false) String signupIntent) {
     try {
       AuthService.LoginResult login = auth.verifyEmail(token);
-      String destination = login.onboarded() ? "/dashboard" : "/onboarding";
+      String next = signupIntent != null && signup.valid(signupIntent) ? "/discord/signup?intent=" + signupIntent : "/dashboard";
+      String destination = login.onboarded() ? next : "/onboarding?next=" + java.net.URLEncoder.encode(next, java.nio.charset.StandardCharsets.UTF_8);
       return ResponseEntity.status(HttpStatus.FOUND).location(URI.create(baseUrl + destination))
           .header(HttpHeaders.SET_COOKIE, sessionCookie(login.sessionToken()).toString()).build();
     } catch (ApiException exception) {

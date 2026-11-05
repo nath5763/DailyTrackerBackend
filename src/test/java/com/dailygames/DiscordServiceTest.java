@@ -24,6 +24,7 @@ class DiscordServiceTest {
   private ProcessedDiscordInteractionRepository interactions;
   private BillingService billing;
   private DailyGamesService dailyGames;
+  private DiscordSignupService signup;
   private GameAdapterRegistry adapters;
   private DiscordService service;
   private ObjectMapper json;
@@ -37,9 +38,10 @@ class DiscordServiceTest {
     interactions = mock(ProcessedDiscordInteractionRepository.class);
     billing = mock(BillingService.class);
     dailyGames = mock(DailyGamesService.class);
+    signup = mock(DiscordSignupService.class);
     adapters = mock(GameAdapterRegistry.class);
     DiscordSignatureVerifier configured = new DiscordSignatureVerifier("123", "00".repeat(32), clock);
-    service = new DiscordService(profiles, links, codes, boards, channels, interactions, billing, dailyGames,
+    service = new DiscordService(profiles, links, codes, boards, channels, interactions, billing, dailyGames, signup,
         adapters, configured, clock, "test-pepper-that-is-never-logged", "https://dailytracker.cc/");
     json = new ObjectMapper();
   }
@@ -230,7 +232,7 @@ class DiscordServiceTest {
 
     DiscordSignatureVerifier unconfigured = new DiscordSignatureVerifier("", "", clock);
     DiscordService disabled = new DiscordService(profiles, links, codes, boards, channels, interactions, billing,
-        dailyGames, adapters, unconfigured, clock, "pepper", "https://dailytracker.cc");
+        dailyGames, signup, adapters, unconfigured, clock, "pepper", "https://dailytracker.cc");
     assertNull(disabled.status(userId).installUrl());
     assertFalse(disabled.status(userId).configured());
   }
@@ -247,6 +249,46 @@ class DiscordServiceTest {
     assertTrue(content.contains("/daily"));
     assertTrue(content.contains("/leaderboard"));
     verifyNoInteractions(links, channels, boards, billing, dailyGames);
+  }
+
+  @Test void signupIsPrivateAndUsesCurrentChannelWithoutLink() throws Exception {
+    when(interactions.insertIfAbsent(anyString(), anyString(), eq(2), eq("signup"), eq(now))).thenReturn(1);
+    when(signup.issue("222222222222222222", "444444444444444444", "333333333333333333"))
+        .thenReturn("https://dailytracker.cc/discord/signup?intent=token");
+    DiscordInteractionResult result = service.handle(json.readTree(commandWithPermissions("signup", "0", null, null)));
+    assertPrivateOutcome(result, "SUCCESS");
+    verify(signup).issue("222222222222222222", "444444444444444444", "333333333333333333");
+  }
+
+  @Test void myIdAndAddMemberUseLinkedProfileAndChannelBoard() throws Exception {
+    UUID userId = UUID.randomUUID(), boardId = UUID.randomUUID(), shareId = UUID.randomUUID();
+    when(interactions.insertIfAbsent(anyString(), anyString(), eq(2), anyString(), eq(now))).thenReturn(1);
+    when(links.findById("222222222222222222"))
+        .thenReturn(Optional.of(new DiscordAccountLink("222222222222222222", userId, now)));
+    Profile profile = new Profile(userId, "Player", "#dfff4f", now);
+    when(profiles.findById(userId)).thenReturn(Optional.of(profile));
+    assertPrivateOutcome(service.handle(json.readTree(commandWithPermissions("my-id", "0", null, null))), "SUCCESS");
+    when(channels.findById(any())).thenReturn(Optional.of(new DiscordChannelLeaderboard(
+        "444444444444444444", "333333333333333333", boardId, userId, "222222222222222222", now)));
+    assertPrivateOutcome(service.handle(json.readTree(commandWithPermissions("add-member", "0", "uuid", shareId.toString()))), "SUCCESS");
+    verify(dailyGames).addMember(argThat(current -> current.id().equals(userId)), eq(boardId), eq(shareId));
+  }
+
+  @Test void autocompleteLimitsResultsAndDoesNotRequireLink() throws Exception {
+    UUID boardId = UUID.randomUUID();
+    when(channels.findById(any())).thenReturn(Optional.of(new DiscordChannelLeaderboard(
+        "444444444444444444", "333333333333333333", boardId, UUID.randomUUID(), "222222222222222222", now)));
+    List<ApiModels.GameView> games = new ArrayList<>();
+    for (int i = 0; i < 25; i++) games.add(game("game" + i, "Game " + i));
+    when(dailyGames.searchDiscordGames(boardId, "ga")).thenReturn(games);
+    String payload = commandWithPermissions("daily", "0", "game", "ga")
+        .replace("\"type\":2", "\"type\":4")
+        .replace("\"name\":\"game\",\"value\"", "\"name\":\"game\",\"focused\":true,\"value\"");
+    DiscordInteractionResult result = service.handle(json.readTree(payload));
+    assertEquals(8, result.body().get("type"));
+    @SuppressWarnings("unchecked") Map<String, Object> data = (Map<String, Object>) result.body().get("data");
+    assertEquals(25, ((List<?>) data.get("choices")).size());
+    verifyNoInteractions(links);
   }
 
   @Test void leaderboardDefaultsToTodayAndPostsTenFormattedRanksWithoutMentions() throws Exception {
@@ -316,6 +358,8 @@ class DiscordServiceTest {
     assertPrivateOutcome(service.handle(json.readTree(payload)), "NOT_FOUND");
     assertPrivateOutcome(service.handle(json.readTree(payload)), "OWNER_SUBSCRIPTION_REQUIRED");
     assertPrivateOutcome(service.handle(json.readTree(payload)), "GAME_NOT_ALLOWED");
+    when(dailyGames.board(any(), eq(boardId), eq("today"), eq("unknown")))
+        .thenThrow(new ApiException(400, "GAME_NOT_ALLOWED", "That game is not available on this leaderboard."));
     assertPrivateOutcome(service.handle(json.readTree(commandWithPermissions("leaderboard", "0", "game", "unknown"))),
         "GAME_NOT_ALLOWED");
     assertPrivateOutcome(service.handle(json.readTree(command("leaderboard", "222222222222222222",

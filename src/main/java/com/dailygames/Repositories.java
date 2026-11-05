@@ -107,6 +107,14 @@ import java.util.*;
   void deleteByExpiresAtBefore(Instant before);
 }
 
+@Repository interface DiscordSignupIntentRepository extends JpaRepository<DiscordSignupIntent, UUID> {
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  Optional<DiscordSignupIntent> findByTokenHash(String tokenHash);
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  Optional<DiscordSignupIntent> findByOauthStateHash(String oauthStateHash);
+  void deleteByExpiresAtBefore(Instant before);
+}
+
 @Repository interface ProcessedDiscordInteractionRepository extends JpaRepository<ProcessedDiscordInteraction, String> {
   @Modifying
   @Query(value = "insert into processed_discord_interactions(interaction_id, discord_user_id, interaction_type, command_name, outcome, processed_at) " +

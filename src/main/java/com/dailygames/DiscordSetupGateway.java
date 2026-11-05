@@ -49,6 +49,11 @@ class DiscordSetupGateway {
         + "&redirect_uri=" + enc(callbackUrl) + "&state=" + enc(state);
   }
 
+  String identityAuthorizationUrl(String state) {
+    return "https://discord.com/oauth2/authorize?response_type=code&client_id=" + applicationId
+        + "&scope=identify&redirect_uri=" + enc(callbackUrl) + "&state=" + enc(state);
+  }
+
   JsonNode exchange(String code) {
     String body = "grant_type=authorization_code&code=" + enc(code) + "&redirect_uri=" + enc(callbackUrl);
     String credentials = Base64.getEncoder().encodeToString(

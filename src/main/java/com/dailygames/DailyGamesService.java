@@ -218,6 +218,26 @@ class DailyGamesService {
     catch (DataIntegrityViolationException exception) { throw new ApiException(409, "ALREADY_MEMBER", "That account is already a member."); }
   }
 
+  void addSignupMember(UUID boardId, UUID userId) {
+    Leaderboard board = boards.findById(boardId)
+        .orElseThrow(() -> new ApiException(404, "LEADERBOARD_NOT_FOUND", "That leaderboard no longer exists."));
+    requireUnlocked(board);
+    requireProfile(userId);
+    if (!memberships.existsByIdLeaderboardIdAndIdUserId(boardId, userId)) {
+      memberships.saveAndFlush(new Membership(boardId, userId, board.ownerId, Instant.now()));
+    }
+  }
+
+  List<GameView> searchDiscordGames(UUID boardId, String query) {
+    Leaderboard board = boards.findById(boardId)
+        .orElseThrow(() -> new ApiException(404, "LEADERBOARD_NOT_FOUND", "That leaderboard no longer exists."));
+    requireUnlocked(board);
+    String term = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
+    return allowedGames(board).stream()
+        .filter(game -> game.name.toLowerCase(Locale.ROOT).contains(term) || game.slug.toLowerCase(Locale.ROOT).contains(term))
+        .limit(25).map(this::gameView).toList();
+  }
+
   @Transactional
   void removeMember(CurrentUser current, UUID boardId, UUID userId) {
     Leaderboard board = requireOwnedBoard(boardId, current.id());

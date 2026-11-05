@@ -17,7 +17,8 @@ import java.util.UUID;
 class DiscordSetupController {
   private static final Logger log = LoggerFactory.getLogger(DiscordSetupController.class);
   private final DiscordSetupService setup;
-  DiscordSetupController(DiscordSetupService setup) { this.setup = setup; }
+  private final DiscordSignupService signup;
+  DiscordSetupController(DiscordSetupService setup, DiscordSignupService signup) { this.setup = setup; this.signup = signup; }
 
   @GetMapping("/setup-status")
   ResponseEntity<Map<String, Boolean>> status() {
@@ -35,13 +36,31 @@ class DiscordSetupController {
       @RequestParam(name = "guild_id", required = false) String guildId) {
     UUID userId = authentication != null && authentication.getPrincipal() instanceof CurrentUser user ? user.id() : null;
     String location;
-    try { location = setup.callback(userId, state, code, error, guildId); }
-    catch (ApiException exception) { location = setup.failureRedirect(state, exception); }
+    try {
+      location = signup.callback(userId, state, code, error);
+      if (location != null && location.endsWith("status=pending")) location = signup.join(userId, state);
+      if (location == null) location = setup.callback(userId, state, code, error, guildId);
+    }
+    catch (ApiException exception) {
+      location = signup.failureRedirect(state);
+      if (location == null) location = setup.failureRedirect(state, exception);
+    }
     catch (RuntimeException exception) {
       log.error("Discord OAuth callback failed", exception);
-      location = "/leaderboards?discord=failed";
+      location = signup.failureRedirect(state);
+      if (location == null) location = "/leaderboards?discord=failed";
     }
     return ResponseEntity.status(303).location(URI.create(location)).cacheControl(CacheControl.noStore()).build();
+  }
+
+  @GetMapping("/signup-intents/{token}")
+  ResponseEntity<Map<String, Boolean>> signupIntent(@PathVariable String token) {
+    return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(Map.of("valid", signup.valid(token)));
+  }
+
+  @PostMapping("/signup-intents/{token}/authorization")
+  ResponseEntity<Map<String, String>> signupAuthorization(Authentication authentication, @PathVariable String token) {
+    return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(signup.authorize(current(authentication), token));
   }
 
   @GetMapping("/leaderboards/{boardId}/channels")

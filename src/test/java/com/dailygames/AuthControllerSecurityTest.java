@@ -19,6 +19,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class AuthControllerSecurityTest {
   @Autowired MockMvc mvc;
   @MockitoBean AuthService auth;
+  @MockitoBean DiscordSignupService signup;
 
   @Test
   void forgotPasswordIsPublicWithoutASession() throws Exception {

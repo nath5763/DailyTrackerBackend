@@ -49,6 +49,11 @@ class AuthService {
 
   @Transactional
   void register(String rawEmail, String password, String remoteIp) {
+    register(rawEmail, password, remoteIp, null);
+  }
+
+  @Transactional
+  void register(String rawEmail, String password, String remoteIp, String signupIntent) {
     String email = normalizeEmail(rawEmail);
     validatePassword(password);
     Instant now = Instant.now();
@@ -59,7 +64,8 @@ class AuthService {
     }
     if (user == null) user = users.save(new UserAccount(email, passwordEncoder.encode(password), now));
     issueToken(user, AuthTokenPurpose.EMAIL_VERIFICATION, remoteIp, Duration.ofHours(verificationHours), link ->
-        emailClient.sendVerification(email, publicBaseUrl + "/api/v1/auth/verification/consume?token=" + link,
+        emailClient.sendVerification(email, publicBaseUrl + "/api/v1/auth/verification/consume?token=" + link
+            + (signupIntent == null ? "" : "&signupIntent=" + signupIntent),
             verificationHours));
   }
 
@@ -97,10 +103,16 @@ class AuthService {
 
   @Transactional
   void resendVerification(String rawEmail, String remoteIp) {
+    resendVerification(rawEmail, remoteIp, null);
+  }
+
+  @Transactional
+  void resendVerification(String rawEmail, String remoteIp, String signupIntent) {
     String email = normalizeEmail(rawEmail);
     users.findByNormalizedEmail(email).filter(user -> user.emailVerifiedAt == null).ifPresent(user ->
         issueToken(user, AuthTokenPurpose.EMAIL_VERIFICATION, remoteIp, Duration.ofHours(verificationHours), link ->
-            emailClient.sendVerification(email, publicBaseUrl + "/api/v1/auth/verification/consume?token=" + link,
+            emailClient.sendVerification(email, publicBaseUrl + "/api/v1/auth/verification/consume?token=" + link
+                + (signupIntent == null ? "" : "&signupIntent=" + signupIntent),
                 verificationHours)));
   }
 

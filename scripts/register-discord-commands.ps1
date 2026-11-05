@@ -31,6 +31,13 @@ $commands = @(
     name = "help"
     description = "How to link your account, submit games, and view rankings"
   },
+  @{ name = "signup"; description = "Create or connect your account and join this channel's leaderboard" },
+  @{ name = "my-id"; description = "Show your shareable profile UUID privately" },
+  @{
+    name = "add-member"
+    description = "Add a profile to this channel's leaderboard"
+    options = @(@{ type = 3; name = "uuid"; description = "Shareable profile UUID"; required = $true; min_length = 36; max_length = 36 })
+  },
   @{
     name = "link"
     description = "Link your Discord identity to your Daily Tracker profile"
@@ -55,12 +62,11 @@ $commands = @(
         name = "game"
         description = "Game whose result you are submitting"
         required = $true
-        choices = @(
-          @{ name = "Fermi"; value = "fermi" },
-          @{ name = "Krillion"; value = "krillion" }
-        )
+        min_length = 1
+        max_length = 80
+        autocomplete = $true
       },
-      @{ type = 3; name = "result"; description = "Complete Fermi or Krillion share text"; required = $true; min_length = 1; max_length = 6000 }
+      @{ type = 3; name = "result"; description = "Complete game share text"; required = $true; min_length = 1; max_length = 6000 }
     )
   },
   @{
@@ -72,10 +78,9 @@ $commands = @(
         name = "game"
         description = "Game to rank"
         required = $true
-        choices = @(
-          @{ name = "Fermi"; value = "fermi" },
-          @{ name = "Krillion"; value = "krillion" }
-        )
+        min_length = 1
+        max_length = 80
+        autocomplete = $true
       },
       @{
         type = 3

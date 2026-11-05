@@ -296,3 +296,24 @@ class DiscordSetup {
     this.stateHash = stateHash; this.expiresAt = expiresAt;
   }
 }
+
+@Entity @Table(name = "discord_signup_intents")
+class DiscordSignupIntent {
+  @Id UUID id;
+  @Column(name = "token_hash", nullable = false, unique = true, length = 64) String tokenHash;
+  @Column(name = "oauth_state_hash", unique = true, length = 64) String oauthStateHash;
+  @Column(name = "discord_user_id", nullable = false, length = 20) String discordUserId;
+  @Column(name = "guild_id", nullable = false, length = 20) String guildId;
+  @Column(name = "channel_id", nullable = false, length = 20) String channelId;
+  @Column(name = "leaderboard_id") UUID leaderboardId;
+  @Column(name = "user_id") UUID userId;
+  @Column(name = "expires_at", nullable = false) Instant expiresAt;
+  @Column(name = "consumed_at") Instant consumedAt;
+  protected DiscordSignupIntent() {}
+  DiscordSignupIntent(String tokenHash, String discordUserId, String guildId, String channelId,
+                      UUID leaderboardId, Instant expiresAt) {
+    id = UUID.randomUUID(); this.tokenHash = tokenHash; this.discordUserId = discordUserId;
+    this.guildId = guildId; this.channelId = channelId; this.leaderboardId = leaderboardId;
+    this.expiresAt = expiresAt;
+  }
+}

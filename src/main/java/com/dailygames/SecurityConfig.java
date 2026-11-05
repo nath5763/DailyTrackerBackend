@@ -46,6 +46,7 @@ class SecurityConfig {
             .requestMatchers(HttpMethod.POST, "/api/v1/billing/stripe/webhook").permitAll()
             .requestMatchers(HttpMethod.POST, "/api/v1/discord/interactions").permitAll()
             .requestMatchers(HttpMethod.GET, "/api/v1/discord/oauth/callback").permitAll()
+            .requestMatchers(HttpMethod.GET, "/api/v1/discord/signup-intents/*").permitAll()
             .requestMatchers(HttpMethod.GET, "/api/v1/auth/verification/consume", "/api/v1/catalog/games").permitAll()
             .anyRequest().authenticated())
         .addFilterBefore(originFilter, UsernamePasswordAuthenticationFilter.class)

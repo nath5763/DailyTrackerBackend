@@ -47,6 +47,16 @@ class AuthServiceTest {
   }
 
   @Test
+  void verificationEmailCarriesSignupIntentAcrossBrowsers() {
+    String intent = "a".repeat(43);
+    when(users.findByNormalizedEmail("friend@example.com")).thenReturn(Optional.empty());
+    when(users.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+    auth.register("friend@example.com", "a sufficiently long password", "127.0.0.1", intent);
+    verify(email).sendVerification(eq("friend@example.com"),
+        contains("&signupIntent=" + intent), eq(24));
+  }
+
+  @Test
   void registeringMigratedAccountSendsPasswordSetupLinkWithoutChangingItsPassword() {
     UserAccount account = new UserAccount("friend@example.com", Instant.now());
     when(users.findByNormalizedEmail("friend@example.com")).thenReturn(Optional.of(account));

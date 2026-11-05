@@ -14,6 +14,34 @@ import static org.mockito.Mockito.*;
 
 class DailyGamesServiceTest {
   @Test
+  void discordGameSearchUsesLiveBoardGamesAndLimitsChoices() {
+    UUID ownerId = UUID.randomUUID();
+    Leaderboard board = new Leaderboard(ownerId, "All games", null, BoardType.MULTI_GAME,
+        BoardCreationBasis.SUBSCRIPTION, Instant.now());
+    LeaderboardRepository boards = mock(LeaderboardRepository.class);
+    GameRepository games = mock(GameRepository.class);
+    GameAdapterRegistry adapters = mock(GameAdapterRegistry.class);
+    BillingService billing = mock(BillingService.class);
+    when(boards.findById(board.id)).thenReturn(Optional.of(board));
+    when(billing.isBoardAccessible(eq(board), any())).thenReturn(true);
+    List<Game> active = new ArrayList<>();
+    for (int i = 0; i < 30; i++) {
+      Game game = new Game(); game.id = UUID.randomUUID(); game.slug = "new-game-" + i;
+      game.name = "New Game " + i; game.active = true;
+      active.add(game);
+      GameAdapter adapter = mock(GameAdapter.class);
+      when(adapters.require(game.slug)).thenReturn(adapter);
+    }
+    when(games.findByActiveTrueOrderByNameAsc()).thenReturn(active);
+    DailyGamesService service = service(mock(ProfileRepository.class), games, boards,
+        mock(MembershipRepository.class), mock(SubmissionRepository.class), adapters, billing);
+    assertEquals(25, service.searchDiscordGames(board.id, "new").size());
+    assertEquals("new-game-29", service.searchDiscordGames(board.id, "29").getFirst().slug());
+    when(billing.isBoardAccessible(eq(board), any())).thenReturn(false);
+    assertEquals("OWNER_SUBSCRIPTION_REQUIRED", assertThrows(ApiException.class,
+        () -> service.searchDiscordGames(board.id, "new")).code);
+  }
+  @Test
   void catalogOnlyGameCannotCreateBoardOrAcceptAScore() {
     UUID userId = UUID.randomUUID();
     Profile owner = new Profile(userId, "Owner", "#dfff4f", Instant.now());
