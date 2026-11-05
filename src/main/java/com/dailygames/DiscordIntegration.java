@@ -164,6 +164,7 @@ class DiscordService {
       String guildId = snowflake(payload, "guild_id");
       String channelId = snowflake(payload, "channel_id");
       result = switch (command) {
+        case "help" -> help();
         case "link" -> link(discordUserId, option(payload, "code", 32), now);
         case "unlink" -> unlink(discordUserId);
         case "setup" -> setup(discordUserId, guildId, channelId, member,
@@ -179,6 +180,15 @@ class DiscordService {
     }
     interactions.updateOutcome(interactionId, result.outcome());
     return result;
+  }
+
+  private DiscordInteractionResult help() {
+    return ephemeral("**Daily Tracker help**\n"
+        + "1. **Link your account:** Sign in at " + publicBaseUrl + "/dashboard, generate a link code in the Discord section, then run `/link` and enter the code. Codes expire after 10 minutes.\n"
+        + "2. **Submit a game result:** In a connected channel, run `/daily`, choose a game, and paste the complete game share text into `result`.\n"
+        + "3. **See rankings:** In a connected channel, run `/leaderboard`, choose a game, and optionally choose a range (today, 7 days, 30 days, or all time).\n"
+        + "Each player links their own account. `/daily` and `/leaderboard` work in channels connected to a leaderboard.",
+        "SUCCESS", "help");
   }
 
   private DiscordInteractionResult link(String discordUserId, String rawCode, Instant now) {

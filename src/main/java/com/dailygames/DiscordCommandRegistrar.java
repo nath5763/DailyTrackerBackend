@@ -110,6 +110,7 @@ class DiscordCommandRegistrar {
 
   static List<Map<String, Object>> definitions(boolean global) {
     List<Map<String, Object>> commands = new ArrayList<>();
+    commands.add(command("help", "How to link your account, submit games, and view rankings", List.of()));
     commands.add(command("link", "Link your Discord identity to your Daily Tracker profile",
         List.of(stringOption("code", "One-time code from your Daily Tracker dashboard", true, 12, 14))));
     commands.add(command("unlink", "Unlink your Discord identity from Daily Tracker", List.of()));

@@ -28,6 +28,10 @@ if ($Scope -eq "Guild") {
 
 $commands = @(
   @{
+    name = "help"
+    description = "How to link your account, submit games, and view rankings"
+  },
+  @{
     name = "link"
     description = "Link your Discord identity to your Daily Tracker profile"
     options = @(@{ type = 3; name = "code"; description = "One-time code from your Daily Tracker dashboard"; required = $true; min_length = 12; max_length = 14 })

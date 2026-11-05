@@ -235,6 +235,20 @@ class DiscordServiceTest {
     assertFalse(disabled.status(userId).configured());
   }
 
+  @Test void helpIsPrivateAndWorksWithoutLinkOrConnectedChannel() throws Exception {
+    when(interactions.insertIfAbsent(anyString(), anyString(), eq(2), eq("help"), eq(now))).thenReturn(1);
+    DiscordInteractionResult result = service.handle(json.readTree(commandWithPermissions("help", "0", null, null)));
+    assertPrivateOutcome(result, "SUCCESS");
+    assertEquals("help", result.command());
+    @SuppressWarnings("unchecked") Map<String, Object> data = (Map<String, Object>) result.body().get("data");
+    String content = (String) data.get("content");
+    assertTrue(content.contains("https://dailytracker.cc/dashboard"));
+    assertTrue(content.contains("/link"));
+    assertTrue(content.contains("/daily"));
+    assertTrue(content.contains("/leaderboard"));
+    verifyNoInteractions(links, channels, boards, billing, dailyGames);
+  }
+
   @Test void leaderboardDefaultsToTodayAndPostsTenFormattedRanksWithoutMentions() throws Exception {
     UUID userId = UUID.randomUUID(), boardId = UUID.randomUUID();
     setupLeaderboardMocks(userId, boardId);
