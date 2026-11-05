@@ -23,18 +23,21 @@ import static com.dailygames.ApiModels.*;
 class AuthController {
   private final AuthService auth;
   private final DiscordSignupService signup;
+  private final LeaderboardInviteService invites;
   private final String baseUrl;
   private final boolean secureCookie;
-  AuthController(AuthService auth, DiscordSignupService signup, @Value("${app.public-base-url}") String baseUrl,
+  AuthController(AuthService auth, DiscordSignupService signup, LeaderboardInviteService invites, @Value("${app.public-base-url}") String baseUrl,
                  @Value("${app.secure-cookie}") boolean secureCookie) {
-    this.auth = auth; this.signup = signup; this.baseUrl = baseUrl.replaceAll("/$", ""); this.secureCookie = secureCookie;
+    this.auth = auth; this.signup = signup; this.invites = invites; this.baseUrl = baseUrl.replaceAll("/$", ""); this.secureCookie = secureCookie;
   }
 
   @PostMapping("/register")
   ResponseEntity<MessageResponse> register(@Valid @RequestBody CredentialsRequest request,
-      @RequestParam(required = false) String signupIntent, HttpServletRequest servletRequest) {
+      @RequestParam(required = false) String signupIntent, @RequestParam(required = false) String joinInvite,
+      HttpServletRequest servletRequest) {
     if (signupIntent != null && !signup.valid(signupIntent)) throw new ApiException(410, "SIGNUP_EXPIRED", "This Discord signup link has expired.");
-    auth.register(request.email(), request.password(), clientIp(servletRequest), signupIntent);
+    if (joinInvite != null) invites.preview(joinInvite);
+    auth.register(request.email(), request.password(), clientIp(servletRequest), signupIntent, joinInvite);
     return ResponseEntity.accepted().body(new MessageResponse("Check your inbox for an email to verify or recover your account."));
   }
 
@@ -45,17 +48,22 @@ class AuthController {
 
   @PostMapping("/verification/resend")
   ResponseEntity<MessageResponse> resend(@Valid @RequestBody EmailRequest request,
-      @RequestParam(required = false) String signupIntent, HttpServletRequest servletRequest) {
+      @RequestParam(required = false) String signupIntent, @RequestParam(required = false) String joinInvite,
+      HttpServletRequest servletRequest) {
     if (signupIntent != null && !signup.valid(signupIntent)) throw new ApiException(410, "SIGNUP_EXPIRED", "This Discord signup link has expired.");
-    auth.resendVerification(request.email(), clientIp(servletRequest), signupIntent);
+    if (joinInvite != null) invites.preview(joinInvite);
+    auth.resendVerification(request.email(), clientIp(servletRequest), signupIntent, joinInvite);
     return ResponseEntity.accepted().body(new MessageResponse("If the account is awaiting verification, a new email is on its way."));
   }
 
   @GetMapping("/verification/consume")
-  ResponseEntity<Void> verify(@RequestParam String token, @RequestParam(required = false) String signupIntent) {
+  ResponseEntity<Void> verify(@RequestParam String token, @RequestParam(required = false) String signupIntent,
+      @RequestParam(required = false) String joinInvite) {
     try {
       AuthService.LoginResult login = auth.verifyEmail(token);
-      String next = signupIntent != null && signup.valid(signupIntent) ? "/discord/signup?intent=" + signupIntent : "/dashboard";
+      String next = joinInvite != null && joinInvite.matches("[0-9a-fA-F-]{36}\\.[A-Za-z0-9_-]{43}")
+          ? "/join?invite=" + joinInvite
+          : signupIntent != null && signup.valid(signupIntent) ? "/discord/signup?intent=" + signupIntent : "/dashboard";
       String destination = login.onboarded() ? next : "/onboarding?next=" + java.net.URLEncoder.encode(next, java.nio.charset.StandardCharsets.UTF_8);
       return ResponseEntity.status(HttpStatus.FOUND).location(URI.create(baseUrl + destination))
           .header(HttpHeaders.SET_COOKIE, sessionCookie(login.sessionToken()).toString()).build();
@@ -107,7 +115,8 @@ class AuthController {
 @RequestMapping("/api/v1")
 class DailyGamesController {
   private final DailyGamesService service;
-  DailyGamesController(DailyGamesService service) { this.service = service; }
+  private final LeaderboardInviteService invites;
+  DailyGamesController(DailyGamesService service, LeaderboardInviteService invites) { this.service = service; this.invites = invites; }
 
   @GetMapping("/me") MeResponse me(Authentication authentication) { return service.me(current(authentication)); }
   @PutMapping("/me/profile") ProfileView onboard(Authentication authentication, @Valid @RequestBody OnboardingRequest request) { return service.onboard(current(authentication), request); }
@@ -116,6 +125,21 @@ class DailyGamesController {
   @GetMapping("/games") List<GameView> games(Authentication authentication) { current(authentication); return service.listGames(); }
 
   @GetMapping("/leaderboards") List<BoardSummary> boards(Authentication authentication) { return service.listBoards(current(authentication)); }
+  @GetMapping("/leaderboards/{id}/invite") LeaderboardInviteService.InviteLink invite(Authentication authentication, @PathVariable UUID id) {
+    return invites.get(id, current(authentication).id());
+  }
+  @PostMapping("/leaderboards/{id}/invite") LeaderboardInviteService.InviteLink createInvite(Authentication authentication, @PathVariable UUID id) {
+    return invites.create(id, current(authentication).id());
+  }
+  @PostMapping("/leaderboards/{id}/invite/regenerate") LeaderboardInviteService.InviteLink regenerateInvite(Authentication authentication, @PathVariable UUID id) {
+    return invites.regenerate(id, current(authentication).id());
+  }
+  @DeleteMapping("/leaderboards/{id}/invite") ResponseEntity<Void> revokeInvite(Authentication authentication, @PathVariable UUID id) {
+    invites.revoke(id, current(authentication).id()); return ResponseEntity.noContent().build();
+  }
+  @PostMapping("/invites/{token}/redeem") IdResponse redeemInvite(Authentication authentication, @PathVariable String token) {
+    return new IdResponse(invites.redeem(token, current(authentication).id()));
+  }
   @PostMapping("/leaderboards") ResponseEntity<IdResponse> createBoard(Authentication authentication, @Valid @RequestBody CreateLeaderboardRequest request) {
     return ResponseEntity.status(HttpStatus.CREATED).body(new IdResponse(service.createBoard(current(authentication), request)));
   }
@@ -159,6 +183,16 @@ class DailyGamesController {
       throw new ApiException(401, "UNAUTHORIZED", "Sign in first.");
     }
     return current;
+  }
+}
+
+@RestController
+@RequestMapping("/api/v1/invites")
+class LeaderboardInviteController {
+  private final LeaderboardInviteService invites;
+  LeaderboardInviteController(LeaderboardInviteService invites) { this.invites = invites; }
+  @GetMapping("/{token}") LeaderboardInviteService.InvitePreview preview(@PathVariable String token) {
+    return invites.preview(token);
   }
 }
 

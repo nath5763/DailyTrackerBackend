@@ -143,6 +143,18 @@ class Membership {
   Membership(UUID leaderboardId, UUID userId, UUID addedBy, Instant now) { id = new MembershipId(leaderboardId, userId); this.addedBy = addedBy; createdAt = now; }
 }
 
+@Entity @Table(name = "leaderboard_invites")
+class LeaderboardInvite {
+  @Id @Column(name = "leaderboard_id") UUID leaderboardId;
+  @Column(name = "invite_id", nullable = false) UUID inviteId;
+  @Column(name = "active", nullable = false) boolean active;
+  @Column(name = "created_at", nullable = false) Instant createdAt;
+  protected LeaderboardInvite() {}
+  LeaderboardInvite(UUID leaderboardId, Instant now) {
+    this.leaderboardId = leaderboardId; inviteId = UUID.randomUUID(); active = true; createdAt = now;
+  }
+}
+
 @Entity @Table(name = "submissions")
 class Submission {
   @Id UUID id;

@@ -39,7 +39,40 @@ class DailyGamesIntegrationTest {
   @Autowired UserRepository users;
   @Autowired BillingAccountRepository billingAccounts;
   @Autowired LeaderboardRepository boards;
+  @Autowired LeaderboardInviteService invites;
   @Autowired JdbcTemplate jdbc;
+
+  @Test void reusableInviteJoinsProfilesAndRevocationInvalidatesOldLinks() {
+    UserAccount owner = users.save(new UserAccount("invite-owner@example.com", Instant.now()));
+    UserAccount first = users.save(new UserAccount("invite-first@example.com", Instant.now()));
+    UserAccount second = users.save(new UserAccount("invite-second@example.com", Instant.now()));
+    CurrentUser ownerUser = new CurrentUser(owner.id, owner.normalizedEmail);
+    CurrentUser firstUser = new CurrentUser(first.id, first.normalizedEmail);
+    CurrentUser secondUser = new CurrentUser(second.id, second.normalizedEmail);
+    service.onboard(ownerUser, new OnboardingRequest("Invite Owner", "#dfff4f"));
+    service.onboard(firstUser, new OnboardingRequest("Invite First", "#ff8db6"));
+    UUID boardId = service.createBoard(ownerUser, new CreateLeaderboardRequest("Invite Board", "fermi"));
+
+    assertEquals(403, assertThrows(ApiException.class, () -> invites.create(boardId, first.id)).status);
+    String firstLink = invites.create(boardId, owner.id).url();
+    assertEquals(firstLink, invites.create(boardId, owner.id).url());
+    String token = firstLink.substring(firstLink.indexOf("invite=") + 7);
+    assertEquals("Invite Board", invites.preview(token).name());
+    assertEquals(boardId, invites.redeem(token, first.id));
+    assertEquals(boardId, invites.redeem(token, first.id));
+    assertEquals(409, assertThrows(ApiException.class, () -> invites.redeem(token, second.id)).status);
+    service.onboard(secondUser, new OnboardingRequest("Invite Second", "#a8c7ff"));
+    invites.redeem(token, second.id);
+    assertEquals(3, service.board(ownerUser, boardId, "today").members().size());
+    assertEquals("INVITE_INVALID", assertThrows(ApiException.class, () -> invites.preview(token + "x")).code);
+
+    String replacement = invites.regenerate(boardId, owner.id).url();
+    assertNotEquals(firstLink, replacement);
+    assertEquals("INVITE_INVALID", assertThrows(ApiException.class, () -> invites.preview(token)).code);
+    String replacementToken = replacement.substring(replacement.indexOf("invite=") + 7);
+    invites.revoke(boardId, owner.id);
+    assertEquals("INVITE_REVOKED", assertThrows(ApiException.class, () -> invites.preview(replacementToken)).code);
+  }
 
   @Test void onboardingLeavesFreeLeaderboardForExplicitCreation() {
     UserAccount owner = users.save(new UserAccount("owner@example.com", Instant.now()));

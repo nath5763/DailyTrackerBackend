@@ -20,6 +20,7 @@ class AuthControllerSecurityTest {
   @Autowired MockMvc mvc;
   @MockitoBean AuthService auth;
   @MockitoBean DiscordSignupService signup;
+  @MockitoBean LeaderboardInviteService invites;
 
   @Test
   void forgotPasswordIsPublicWithoutASession() throws Exception {

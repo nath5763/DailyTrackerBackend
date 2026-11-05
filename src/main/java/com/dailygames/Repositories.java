@@ -23,6 +23,8 @@ import java.util.*;
   List<CatalogGame> findAllByOrderByDisplayOrderAsc();
 }
 @Repository interface LeaderboardRepository extends JpaRepository<Leaderboard, UUID> {
+  @Lock(LockModeType.PESSIMISTIC_WRITE) @Query("select l from Leaderboard l where l.id = :id")
+  Optional<Leaderboard> findByIdForUpdate(@Param("id") UUID id);
   long countByOwnerIdAndCreationBasis(UUID ownerId, BoardCreationBasis creationBasis);
   long countByOwnerIdAndBoardType(UUID ownerId, BoardType boardType);
   @Query("select l from Leaderboard l where l.id in (select m.id.leaderboardId from Membership m where m.id.userId = :userId) order by l.createdAt")
@@ -30,10 +32,16 @@ import java.util.*;
   List<Leaderboard> findByOwnerIdOrderByCreatedAtAsc(UUID ownerId);
 }
 @Repository interface MembershipRepository extends JpaRepository<Membership, MembershipId> {
+  @Modifying @Query(value = "insert into leaderboard_members(leaderboard_id, user_id, added_by, created_at) values (:boardId, :userId, :ownerId, :now) on conflict do nothing", nativeQuery = true)
+  int insertIfAbsent(@Param("boardId") UUID boardId, @Param("userId") UUID userId,
+                     @Param("ownerId") UUID ownerId, @Param("now") Instant now);
   List<Membership> findByIdLeaderboardId(UUID leaderboardId);
   boolean existsByIdLeaderboardIdAndIdUserId(UUID leaderboardId, UUID userId);
   @Query("select count(mine) > 0 from Membership mine, Membership theirs where mine.id.leaderboardId = theirs.id.leaderboardId and mine.id.userId = :viewer and theirs.id.userId = :other")
   boolean sharesLeaderboard(@Param("viewer") UUID viewer, @Param("other") UUID other);
+}
+@Repository interface LeaderboardInviteRepository extends JpaRepository<LeaderboardInvite, UUID> {
+  Optional<LeaderboardInvite> findByInviteId(UUID inviteId);
 }
 @Repository interface SubmissionRepository extends JpaRepository<Submission, UUID> {
   List<Submission> findTop30ByUserIdOrderByPlayedOnDescCreatedAtDesc(UUID userId);

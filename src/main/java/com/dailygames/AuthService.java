@@ -54,6 +54,11 @@ class AuthService {
 
   @Transactional
   void register(String rawEmail, String password, String remoteIp, String signupIntent) {
+    register(rawEmail, password, remoteIp, signupIntent, null);
+  }
+
+  @Transactional
+  void register(String rawEmail, String password, String remoteIp, String signupIntent, String joinInvite) {
     String email = normalizeEmail(rawEmail);
     validatePassword(password);
     Instant now = Instant.now();
@@ -65,7 +70,8 @@ class AuthService {
     if (user == null) user = users.save(new UserAccount(email, passwordEncoder.encode(password), now));
     issueToken(user, AuthTokenPurpose.EMAIL_VERIFICATION, remoteIp, Duration.ofHours(verificationHours), link ->
         emailClient.sendVerification(email, publicBaseUrl + "/api/v1/auth/verification/consume?token=" + link
-            + (signupIntent == null ? "" : "&signupIntent=" + signupIntent),
+            + (signupIntent == null ? "" : "&signupIntent=" + signupIntent)
+            + (joinInvite == null ? "" : "&joinInvite=" + joinInvite),
             verificationHours));
   }
 
@@ -108,11 +114,17 @@ class AuthService {
 
   @Transactional
   void resendVerification(String rawEmail, String remoteIp, String signupIntent) {
+    resendVerification(rawEmail, remoteIp, signupIntent, null);
+  }
+
+  @Transactional
+  void resendVerification(String rawEmail, String remoteIp, String signupIntent, String joinInvite) {
     String email = normalizeEmail(rawEmail);
     users.findByNormalizedEmail(email).filter(user -> user.emailVerifiedAt == null).ifPresent(user ->
         issueToken(user, AuthTokenPurpose.EMAIL_VERIFICATION, remoteIp, Duration.ofHours(verificationHours), link ->
             emailClient.sendVerification(email, publicBaseUrl + "/api/v1/auth/verification/consume?token=" + link
-                + (signupIntent == null ? "" : "&signupIntent=" + signupIntent),
+                + (signupIntent == null ? "" : "&signupIntent=" + signupIntent)
+                + (joinInvite == null ? "" : "&joinInvite=" + joinInvite),
                 verificationHours)));
   }
 
