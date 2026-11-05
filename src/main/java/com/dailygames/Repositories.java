@@ -92,6 +92,8 @@ import java.util.*;
 @Repository interface DiscordChannelLeaderboardRepository
     extends JpaRepository<DiscordChannelLeaderboard, DiscordChannelLeaderboardId> {
   List<DiscordChannelLeaderboard> findByLeaderboardId(UUID leaderboardId);
+  @Query("select distinct c.id.guildId from DiscordChannelLeaderboard c")
+  List<String> findDistinctGuildIds();
   @Lock(LockModeType.PESSIMISTIC_WRITE)
   @Query("select c from DiscordChannelLeaderboard c where c.id = :id")
   Optional<DiscordChannelLeaderboard> findForUpdate(@Param("id") DiscordChannelLeaderboardId id);

@@ -30,6 +30,7 @@ class DiscordSetupServiceTest {
   private DiscordAccountLinkRepository links;
   private BillingService billing;
   private DiscordSetupGateway discord;
+  private DiscordCommandRegistrar commands;
   private DiscordSetupService service;
   private DiscordSetup stored;
 
@@ -38,7 +39,8 @@ class DiscordSetupServiceTest {
     members = mock(MembershipRepository.class); mappings = mock(DiscordChannelLeaderboardRepository.class);
     links = mock(DiscordAccountLinkRepository.class); billing = mock(BillingService.class);
     discord = mock(DiscordSetupGateway.class);
-    service = new DiscordSetupService(setups, boards, members, mappings, links, billing, discord,
+    commands = mock(DiscordCommandRegistrar.class);
+    service = new DiscordSetupService(setups, boards, members, mappings, links, billing, discord, commands,
         Clock.fixed(now, ZoneOffset.UTC), "https://dailytracker.cc/", "test-pepper");
     when(boards.findById(board.id)).thenReturn(Optional.of(board));
     when(billing.allGameLimit(ownerId, now)).thenReturn(1);
@@ -118,11 +120,22 @@ class DiscordSetupServiceTest {
     assertEquals("CHANNEL_REPLACEMENT_REQUIRED", assertThrows(ApiException.class,
         () -> service.save(ownerId, board.id, token, VISIBLE_ID, false)).code);
     DiscordChannelView saved = service.save(ownerId, board.id, token, VISIBLE_ID, true);
+    verify(commands).registerGuild(GUILD_ID);
     assertEquals(board.id, existing.leaderboardId);
     assertEquals("https://discord.com/channels/" + GUILD_ID + "/" + VISIBLE_ID, saved.url());
     assertNull(stored.encryptedToken);
     assertEquals("DISCORD_SETUP_EXPIRED", assertThrows(ApiException.class,
         () -> service.save(ownerId, board.id, token, VISIBLE_ID, true)).code);
+  }
+
+  @Test void failedCommandRegistrationDoesNotConnectChannel() {
+    String token = readyToken();
+    doThrow(new ApiException(502, "DISCORD_COMMANDS_UNAVAILABLE", "Discord commands could not be enabled."))
+        .when(commands).registerGuild(GUILD_ID);
+    assertEquals("DISCORD_COMMANDS_UNAVAILABLE", assertThrows(ApiException.class,
+        () -> service.save(ownerId, board.id, token, VISIBLE_ID, false)).code);
+    verify(mappings, never()).save(any());
+    assertNull(stored.consumedAt);
   }
 
   private String readyToken() {
