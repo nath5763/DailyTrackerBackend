@@ -48,7 +48,7 @@ class DiscordCommandRegistrar {
   }
 
   // Global commands cover every installed server, including installs made before this feature.
-  // Guild commands become visible immediately when an owner connects a channel.
+  // Guild commands are reconciled after a channel is connected, outside the setup request.
   @Scheduled(initialDelay = 1000, fixedDelay = 600000)
   synchronized void reconcile() {
     if (!configured()) return;

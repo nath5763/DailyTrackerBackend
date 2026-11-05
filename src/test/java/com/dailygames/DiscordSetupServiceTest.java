@@ -30,7 +30,6 @@ class DiscordSetupServiceTest {
   private DiscordAccountLinkRepository links;
   private BillingService billing;
   private DiscordSetupGateway discord;
-  private DiscordCommandRegistrar commands;
   private DiscordCommandRegistrationStore registrations;
   private DiscordSetupService service;
   private DiscordSetup stored;
@@ -40,9 +39,8 @@ class DiscordSetupServiceTest {
     members = mock(MembershipRepository.class); mappings = mock(DiscordChannelLeaderboardRepository.class);
     links = mock(DiscordAccountLinkRepository.class); billing = mock(BillingService.class);
     discord = mock(DiscordSetupGateway.class);
-    commands = mock(DiscordCommandRegistrar.class);
     registrations = mock(DiscordCommandRegistrationStore.class);
-    service = new DiscordSetupService(setups, boards, members, mappings, links, billing, discord, commands, registrations,
+    service = new DiscordSetupService(setups, boards, members, mappings, links, billing, discord, registrations,
         Clock.fixed(now, ZoneOffset.UTC), "https://dailytracker.cc/", "test-pepper");
     when(boards.findById(board.id)).thenReturn(Optional.of(board));
     when(billing.allGameLimit(ownerId, now)).thenReturn(1);
@@ -122,7 +120,6 @@ class DiscordSetupServiceTest {
     assertEquals("CHANNEL_REPLACEMENT_REQUIRED", assertThrows(ApiException.class,
         () -> service.save(ownerId, board.id, token, VISIBLE_ID, false)).code);
     DiscordChannelView saved = service.save(ownerId, board.id, token, VISIBLE_ID, true);
-    verify(commands).registerGuild(GUILD_ID);
     assertEquals(board.id, existing.leaderboardId);
     assertEquals("https://discord.com/channels/" + GUILD_ID + "/" + VISIBLE_ID, saved.url());
     assertNull(stored.encryptedToken);
@@ -130,14 +127,12 @@ class DiscordSetupServiceTest {
         () -> service.save(ownerId, board.id, token, VISIBLE_ID, true)).code);
   }
 
-  @Test void failedCommandRegistrationDoesNotConnectChannel() {
+  @Test void channelConnectionDoesNotWaitForCommandRegistration() {
     String token = readyToken();
-    doThrow(new ApiException(502, "DISCORD_COMMANDS_UNAVAILABLE", "Discord commands could not be enabled."))
-        .when(commands).registerGuild(GUILD_ID);
-    assertEquals("DISCORD_COMMANDS_UNAVAILABLE", assertThrows(ApiException.class,
-        () -> service.save(ownerId, board.id, token, VISIBLE_ID, false)).code);
-    verify(mappings, never()).save(any());
-    assertNull(stored.consumedAt);
+    DiscordChannelView saved = service.save(ownerId, board.id, token, VISIBLE_ID, false);
+    assertEquals(VISIBLE_ID, saved.channelId());
+    verify(mappings).save(argThat(mapping -> mapping.leaderboardId.equals(board.id)));
+    assertEquals(now, stored.consumedAt);
   }
 
   @Test void ownerCanDisconnectOneChannelEvenAfterPlanExpires() {
@@ -155,7 +150,6 @@ class DiscordSetupServiceTest {
     verify(mappings).flush();
     verify(registrations).pruneUnmappedGuilds();
     verify(mappings, never()).delete(second);
-    verifyNoInteractions(commands);
   }
 
   @Test void memberOrDifferentBoardCannotDisconnectChannel() {

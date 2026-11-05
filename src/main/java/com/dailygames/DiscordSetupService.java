@@ -32,7 +32,6 @@ class DiscordSetupService {
   private final DiscordAccountLinkRepository links;
   private final BillingService billing;
   private final DiscordSetupGateway discord;
-  private final DiscordCommandRegistrar commands;
   private final DiscordCommandRegistrationStore registrations;
   private final Clock clock;
   private final String publicBaseUrl;
@@ -40,12 +39,11 @@ class DiscordSetupService {
 
   DiscordSetupService(DiscordSetupRepository setups, LeaderboardRepository boards, MembershipRepository members,
       DiscordChannelLeaderboardRepository mappings, DiscordAccountLinkRepository links, BillingService billing,
-      DiscordSetupGateway discord, DiscordCommandRegistrar commands,
-      DiscordCommandRegistrationStore registrations, Clock clock,
+      DiscordSetupGateway discord, DiscordCommandRegistrationStore registrations, Clock clock,
       @Value("${app.public-base-url}") String publicBaseUrl,
       @Value("${app.token-pepper}") String pepper) {
     this.setups = setups; this.boards = boards; this.members = members; this.mappings = mappings;
-    this.links = links; this.billing = billing; this.discord = discord; this.commands = commands;
+    this.links = links; this.billing = billing; this.discord = discord;
     this.registrations = registrations; this.clock = clock;
     this.publicBaseUrl = publicBaseUrl.replaceAll("/+$", "");
     this.tokenKey = new SecretKeySpec(hashBytes("discord-oauth-token-key:v1:" + pepper), "AES");
@@ -161,7 +159,6 @@ class DiscordSetupService {
     DiscordChannelLeaderboard mapping = mappings.findForUpdate(mappingId).orElse(null);
     if (mapping != null && !mapping.leaderboardId.equals(boardId) && !replace)
       throw new ApiException(409, "CHANNEL_REPLACEMENT_REQUIRED", "This channel is connected to another leaderboard. Confirm replacement.");
-    commands.registerGuild(setup.guildId);
     Instant now = clock.instant();
     if (mapping == null) mapping = new DiscordChannelLeaderboard(setup.guildId, channelId, boardId,
         userId, setup.discordUserId, now);
