@@ -12,7 +12,9 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -23,12 +25,21 @@ class DiscordCommandRegistrarTest {
   private final List<String> paths = new ArrayList<>();
   private final List<JsonNode> bodies = new ArrayList<>();
   private DiscordChannelLeaderboardRepository mappings;
+  private DiscordCommandRegistrationStore registrations;
+  private final Map<String, String> persisted = new HashMap<>();
   private HttpServer server;
   private DiscordCommandRegistrar registrar;
   private int status = 201;
 
   @BeforeEach void setUp() throws Exception {
     mappings = mock(DiscordChannelLeaderboardRepository.class);
+    registrations = mock(DiscordCommandRegistrationStore.class);
+    when(registrations.isCurrent(anyString(), anyString(), anyString(), anyString())).thenAnswer(call ->
+        call.getArgument(3).equals(persisted.get(call.getArgument(0) + ":" + call.getArgument(1) + ":" + call.getArgument(2))));
+    doAnswer(call -> {
+      persisted.put(call.getArgument(0) + ":" + call.getArgument(1) + ":" + call.getArgument(2), call.getArgument(3));
+      return null;
+    }).when(registrations).markCurrent(anyString(), anyString(), anyString(), anyString());
     server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
     server.createContext("/api/v10", exchange -> {
       paths.add(exchange.getRequestURI().getPath());
@@ -41,7 +52,7 @@ class DiscordCommandRegistrarTest {
       exchange.close();
     });
     server.start();
-    registrar = new DiscordCommandRegistrar(HttpClient.newHttpClient(), json, mappings,
+    registrar = new DiscordCommandRegistrar(HttpClient.newHttpClient(), json, mappings, registrations,
         URI.create("http://127.0.0.1:" + server.getAddress().getPort() + "/api/v10"),
         "123456789012345678", "bot-token");
   }
@@ -64,6 +75,11 @@ class DiscordCommandRegistrarTest {
     registrar.reconcile();
     registrar.registerGuild(GUILD_ID);
     assertEquals(18, paths.size());
+    DiscordCommandRegistrar restarted = new DiscordCommandRegistrar(HttpClient.newHttpClient(), json, mappings,
+        registrations, URI.create("http://127.0.0.1:" + server.getAddress().getPort() + "/api/v10"),
+        "123456789012345678", "bot-token");
+    restarted.reconcile();
+    assertEquals(18, paths.size(), "A restart must not call Discord for unchanged commands");
   }
 
   @Test void failedRegistrationIsRetried() {
@@ -73,5 +89,14 @@ class DiscordCommandRegistrarTest {
     status = 201;
     registrar.registerGuild(GUILD_ID);
     assertEquals(10, paths.size());
+  }
+
+  @Test void onlyAChangedCommandIsRegisteredAgain() {
+    registrar.registerGuild(GUILD_ID);
+    assertEquals(9, paths.size());
+    persisted.remove("123456789012345678:" + GUILD_ID + ":help");
+    registrar.registerGuild(GUILD_ID);
+    assertEquals(10, paths.size());
+    assertEquals("help", bodies.getLast().path("name").asText());
   }
 }

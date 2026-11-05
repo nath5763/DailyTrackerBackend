@@ -12,13 +12,14 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.security.MessageDigest;
 import java.time.Duration;
+import java.util.HexFormat;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.TreeMap;
 
 @Component
 class DiscordCommandRegistrar {
@@ -26,23 +27,23 @@ class DiscordCommandRegistrar {
   private final HttpClient http;
   private final ObjectMapper json;
   private final DiscordChannelLeaderboardRepository mappings;
+  private final DiscordCommandRegistrationStore registrations;
   private final URI apiBase;
   private final String applicationId;
   private final String botToken;
-  private final Set<String> registeredGuilds = new HashSet<>();
-  private boolean globalRegistered;
 
   @Autowired
   DiscordCommandRegistrar(ObjectMapper json, DiscordChannelLeaderboardRepository mappings,
+      DiscordCommandRegistrationStore registrations,
       @Value("${app.discord.application-id:}") String applicationId,
       @Value("${app.discord.bot-token:}") String botToken) {
-    this(HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build(), json, mappings,
+    this(HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build(), json, mappings, registrations,
         URI.create("https://discord.com/api/v10"), applicationId, botToken);
   }
 
   DiscordCommandRegistrar(HttpClient http, ObjectMapper json, DiscordChannelLeaderboardRepository mappings,
-      URI apiBase, String applicationId, String botToken) {
-    this.http = http; this.json = json; this.mappings = mappings; this.apiBase = apiBase;
+      DiscordCommandRegistrationStore registrations, URI apiBase, String applicationId, String botToken) {
+    this.http = http; this.json = json; this.mappings = mappings; this.registrations = registrations; this.apiBase = apiBase;
     this.applicationId = applicationId; this.botToken = botToken;
   }
 
@@ -51,12 +52,9 @@ class DiscordCommandRegistrar {
   @Scheduled(initialDelay = 1000, fixedDelay = 600000)
   synchronized void reconcile() {
     if (!configured()) return;
-    if (!globalRegistered) {
-      try { registerGlobal(); }
-      catch (ApiException exception) { log.warn("Discord global command registration failed: {}", exception.code); }
-    }
+    try { registerGlobal(); }
+    catch (ApiException exception) { log.warn("Discord global command registration failed: {}", exception.code); }
     for (String guildId : mappings.findDistinctGuildIds()) {
-      if (registeredGuilds.contains(guildId)) continue;
       try { registerGuild(guildId); }
       catch (ApiException exception) { log.warn("Discord command registration failed for guild {}: {}", guildId, exception.code); }
     }
@@ -65,21 +63,21 @@ class DiscordCommandRegistrar {
   synchronized void registerGuild(String guildId) {
     if (!configured()) throw unavailable();
     if (!guildId.matches("[0-9]{1,20}")) throw new IllegalArgumentException("Invalid Discord guild ID");
-    if (registeredGuilds.contains(guildId)) return;
-    register("/applications/" + applicationId + "/guilds/" + guildId + "/commands", false);
-    registeredGuilds.add(guildId);
-    log.info("Registered Discord commands for guild {}", guildId);
+    if (register("/applications/" + applicationId + "/guilds/" + guildId + "/commands", guildId, false))
+      log.info("Registered Discord commands for guild {}", guildId);
   }
 
   private synchronized void registerGlobal() {
-    if (globalRegistered) return;
-    register("/applications/" + applicationId + "/commands", true);
-    globalRegistered = true;
-    log.info("Registered global Discord commands");
+    if (register("/applications/" + applicationId + "/commands", "global", true))
+      log.info("Registered global Discord commands");
   }
 
-  private void register(String path, boolean global) {
+  private boolean register(String path, String scopeId, boolean global) {
+    boolean changed = false;
     for (Map<String, Object> command : definitions(global)) {
+      String name = (String) command.get("name");
+      String hash = definitionHash(command);
+      if (registrations.isCurrent(applicationId, scopeId, name, hash)) continue;
       try {
         HttpRequest request = HttpRequest.newBuilder(apiBase.resolve(apiBase.getPath() + path))
             .timeout(Duration.ofSeconds(8))
@@ -91,6 +89,8 @@ class DiscordCommandRegistrar {
           log.warn("Discord rejected command {} with HTTP {}", command.get("name"), response.statusCode());
           throw unavailable();
         }
+        registrations.markCurrent(applicationId, scopeId, name, hash);
+        changed = true;
       } catch (ApiException exception) {
         throw exception;
       } catch (Exception exception) {
@@ -98,6 +98,24 @@ class DiscordCommandRegistrar {
         throw unavailable();
       }
     }
+    return changed;
+  }
+
+  private String definitionHash(Map<String, Object> command) {
+    try {
+      byte[] bytes = json.writeValueAsBytes(canonical(command));
+      return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
+    } catch (Exception exception) { throw new IllegalStateException("Cannot fingerprint Discord command", exception); }
+  }
+
+  private Object canonical(Object value) {
+    if (value instanceof Map<?, ?> map) {
+      Map<String, Object> sorted = new TreeMap<>();
+      map.forEach((key, entry) -> sorted.put((String) key, canonical(entry)));
+      return sorted;
+    }
+    if (value instanceof List<?> list) return list.stream().map(this::canonical).toList();
+    return value;
   }
 
   private boolean configured() {
