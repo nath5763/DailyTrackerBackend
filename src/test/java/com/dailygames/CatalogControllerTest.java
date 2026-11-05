@@ -23,6 +23,7 @@ class CatalogControllerTest {
   @MockitoBean AuthService auth;
   @MockitoBean CatalogGameRepository catalog;
   @MockitoBean GameRepository games;
+  @MockitoBean GameAdapterRegistry adapters;
 
   @Test void directoryIsPublicAndCatalogOnlyGamesStayUntracked() throws Exception {
     CatalogGame wordle = new CatalogGame(); wordle.slug = "wordle"; wordle.name = "Wordle";
@@ -41,5 +42,29 @@ class CatalogControllerTest {
         .andExpect(jsonPath("$[1].slug").value("waffle"))
         .andExpect(jsonPath("$[1].scoreTrackingAvailable").value(false));
     mvc.perform(get("/api/v1/games")).andExpect(status().isUnauthorized());
+  }
+
+  @Test void parserCapabilitiesArePublicAndExplicitAboutUnsupportedGames() throws Exception {
+    when(adapters.capabilities()).thenReturn(List.of(
+        new ApiModels.ParserCapabilityView("worldle", "PARTIAL", java.util.Set.of("share-text")),
+        new ApiModels.ParserCapabilityView("waffle", "UNSUPPORTED", java.util.Set.of())));
+    mvc.perform(get("/api/v1/catalog/games/parser-capabilities"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].gameId").value("worldle"))
+        .andExpect(jsonPath("$[0].supportedFormats[0]").value("share-text"))
+        .andExpect(jsonPath("$[1].status").value("UNSUPPORTED"))
+        .andExpect(jsonPath("$[1].supportedFormats").isEmpty());
+  }
+
+  @Test void scoreStrategiesArePublicAndKeepPrimaryAndSecondaryDirectionsExplicit() throws Exception {
+    when(adapters.scoreStrategies()).thenReturn(List.of(new ScoreStrategySpec("quordle", "failures then total",
+        "failed", MetricDirection.ASCENDING, "penalizedGuessTotal", MetricDirection.ASCENDING,
+        List.of("gameMode"), false)));
+    mvc.perform(get("/api/v1/catalog/games/score-strategies"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].gameId").value("quordle"))
+        .andExpect(jsonPath("$[0].primaryDirection").value("ASCENDING"))
+        .andExpect(jsonPath("$[0].secondaryMetric").value("penalizedGuessTotal"))
+        .andExpect(jsonPath("$[0].compatibilityFields[0]").value("gameMode"));
   }
 }

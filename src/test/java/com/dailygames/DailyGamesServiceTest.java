@@ -69,21 +69,26 @@ class DailyGamesServiceTest {
     when(profiles.findById(userId)).thenReturn(Optional.of(owner));
     when(profiles.findByIdForUpdate(userId)).thenReturn(Optional.of(owner));
     when(games.findBySlugAndActiveTrue("wordle")).thenReturn(Optional.of(game));
-    when(adapters.require("wordle")).thenReturn(new WordleParser());
-    when(submissions.existsByUserIdAndGameIdAndPuzzleKey(userId, game.id, "1961")).thenReturn(true);
+    Submission existing = new Submission(); existing.id = UUID.randomUUID(); existing.rawText = "different share";
+    when(submissions.findByUserIdAndGameIdAndPuzzleKey(userId, game.id, "1961")).thenReturn(Optional.of(existing));
     String share = "Wordle 1,961 2/6\n⬛⬛⬛⬛⬛\n🟩🟩🟩🟩🟩";
     ParsedSubmission parsed = new WordleParser().parse(share);
+    when(adapters.validateResult(eq("wordle"), any(), eq(share))).thenReturn(parsed);
     DailyGamesService service = service(profiles, games, mock(LeaderboardRepository.class),
         mock(MembershipRepository.class), submissions, adapters, mock(BillingService.class));
     var confirmed = new ApiModels.ConfirmedSubmission(parsed.puzzleKey(), parsed.puzzleNumber(), parsed.playedOn(),
         parsed.primaryScore(), parsed.metrics(), parsed.parserVersion());
     assertEquals("DUPLICATE_SUBMISSION", assertThrows(ApiException.class,
         () -> service.submit(new CurrentUser(userId, ""), new ApiModels.CreateSubmissionRequest("wordle", share, confirmed))).code);
+    existing.rawText = share;
+    assertEquals(existing.id, service.submit(new CurrentUser(userId, ""),
+        new ApiModels.CreateSubmissionRequest("wordle", share, confirmed)));
   }
   @Test
   void ranksUnassistedLinkedInResultsBeforeFasterAssistedResults() {
-    UUID ownerId = UUID.randomUUID(), friendId = UUID.randomUUID();
+    UUID ownerId = UUID.randomUUID(), twinId = UUID.randomUUID(), friendId = UUID.randomUUID();
     Profile owner = new Profile(ownerId, "Owner", "#dfff4f", Instant.now());
+    Profile twin = new Profile(twinId, "Twin", "#a8c7ff", Instant.now());
     Profile friend = new Profile(friendId, "Friend", "#ff8db6", Instant.now());
     Game game = new Game(); game.id = UUID.randomUUID(); game.slug = "queens"; game.name = "Queens";
     game.active = true; game.releaseTimezone = "UTC"; game.rankingDirection = "lower";
@@ -97,27 +102,38 @@ class DailyGamesServiceTest {
     BillingService billing = mock(BillingService.class);
     GameAdapter adapter = mock(GameAdapter.class);
     when(adapter.scoreFormat()).thenReturn(new ApiModels.ScoreFormatView("", "", 0, 0, "duration"));
+    when(adapter.rankingMetric(any(), anyMap())).thenAnswer(invocation -> invocation.getArgument(0));
     when(adapters.require("queens")).thenReturn(adapter);
     when(boards.findById(board.id)).thenReturn(Optional.of(board));
     when(games.findById(game.id)).thenReturn(Optional.of(game));
     when(memberships.existsByIdLeaderboardIdAndIdUserId(board.id, ownerId)).thenReturn(true);
     when(memberships.findByIdLeaderboardId(board.id)).thenReturn(List.of(
         new Membership(board.id, ownerId, ownerId, Instant.now()),
+        new Membership(board.id, twinId, ownerId, Instant.now()),
         new Membership(board.id, friendId, ownerId, Instant.now())));
     when(profiles.findById(ownerId)).thenReturn(Optional.of(owner));
+    when(profiles.findById(twinId)).thenReturn(Optional.of(twin));
     when(profiles.findById(friendId)).thenReturn(Optional.of(friend));
     when(billing.isBoardAccessible(eq(board), any())).thenReturn(true);
     Submission slow = new Submission(ownerId, game.id, new ParsedSubmission("1", 1, LocalDate.now(),
         BigDecimal.valueOf(80), Map.of("hints", 0, "mistakes", 0, "beginnerAssists", 0), 1), "share", Instant.now());
+    slow.submissionMethod = SubmissionMethod.MANUAL;
     Submission fastAssisted = new Submission(friendId, game.id, new ParsedSubmission("1", 1, LocalDate.now(),
         BigDecimal.valueOf(20), Map.of("hints", 1, "mistakes", 0, "beginnerAssists", 0), 1), "share", Instant.now());
-    when(submissions.findByUserIdInAndGameId(any(), eq(game.id))).thenReturn(List.of(slow, fastAssisted));
+    Submission equallySlow = new Submission(twinId, game.id, new ParsedSubmission("1", 1, LocalDate.now(),
+        BigDecimal.valueOf(80), Map.of("hints", 0, "mistakes", 0, "beginnerAssists", 0), 1), "share", Instant.now());
+    when(submissions.findByUserIdInAndGameId(any(), eq(game.id))).thenReturn(List.of(slow, equallySlow, fastAssisted));
     DailyGamesService service = service(profiles, games, boards, memberships, submissions, adapters, billing);
     var rankings = service.board(new CurrentUser(ownerId, ""), board.id, "all").rankings();
     assertEquals(ownerId, rankings.get(0).userId());
-    assertEquals(friendId, rankings.get(1).userId());
-    assertEquals(1, rankings.get(1).assistedResults());
-    assertEquals(1, rankings.get(1).hints());
+    assertEquals(1, rankings.get(0).rank());
+    assertEquals(twinId, rankings.get(1).userId());
+    assertEquals(1, rankings.get(1).rank());
+    assertEquals(friendId, rankings.get(2).userId());
+    assertEquals(3, rankings.get(2).rank());
+    assertEquals(1, rankings.get(0).manualResults());
+    assertEquals(1, rankings.get(2).assistedResults());
+    assertEquals(1, rankings.get(2).hints());
   }
   @Test
   void insightsUseRollingRankingRulesAndOnlyExposeViewerScores() {
@@ -135,6 +151,7 @@ class DailyGamesServiceTest {
     GameAdapterRegistry adapters = mock(GameAdapterRegistry.class);
     GameAdapter adapter = mock(GameAdapter.class);
     when(adapter.scoreFormat()).thenReturn(new ApiModels.ScoreFormatView("", "", 0, 0, "duration"));
+    when(adapter.rankingMetric(any(), anyMap())).thenAnswer(invocation -> invocation.getArgument(0));
     when(adapters.require("queens")).thenReturn(adapter);
     when(boards.findById(board.id)).thenReturn(Optional.of(board));
     when(games.findById(game.id)).thenReturn(Optional.of(game));
@@ -318,9 +335,7 @@ class DailyGamesServiceTest {
     when(games.findByActiveTrueOrderByNameAsc()).thenReturn(List.of(krillion));
     ParsedSubmission parsed = new ParsedSubmission("82", 82, LocalDate.of(2026, 11, 4),
         new BigDecimal("700"), Map.of(), 1);
-    GameAdapter adapter = mock(GameAdapter.class);
-    when(adapters.require("krillion")).thenReturn(adapter);
-    when(adapter.parse("Krillion share")).thenReturn(parsed);
+    when(adapters.parseResult("krillion", "Krillion share")).thenReturn(parsed);
     when(submissions.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
     DailyGamesService service = service(profiles, games, boards, memberships, submissions, adapters, billing);
 
@@ -331,7 +346,7 @@ class DailyGamesServiceTest {
     DailyGamesService.DiscordSubmissionResult saved =
         service.submitFromDiscord(userId, board.id, "krillion", "Krillion share");
     assertEquals("krillion", saved.game().slug);
-    verify(adapter).parse("Krillion share");
+    verify(adapters).parseResult("krillion", "Krillion share");
   }
 
   @Test
@@ -387,6 +402,122 @@ class DailyGamesServiceTest {
         () -> service.board(current, multi.id, "today", "fermi")).code);
     assertEquals("OWNER_SUBSCRIPTION_REQUIRED", assertThrows(ApiException.class,
         () -> service.insights(current, multi.id, "fermi")).code);
+  }
+
+  @Test
+  void multiGameBoardsUsePerPuzzlePlacementsForCombinedPoints() {
+    UUID ownerId = UUID.randomUUID(), friendId = UUID.randomUUID();
+    Profile owner = new Profile(ownerId, "Owner", "#dfff4f", Instant.now());
+    Profile friend = new Profile(friendId, "Friend", "#ff8db6", Instant.now());
+    Game quordle = game("quordle", "Quordle", "lower");
+    Game timeguessr = game("timeguessr", "TimeGuessr", "higher");
+    Leaderboard board = new Leaderboard(ownerId, "All games", null, BoardType.MULTI_GAME,
+        BoardCreationBasis.SUBSCRIPTION, Instant.now());
+    ProfileRepository profiles = mock(ProfileRepository.class);
+    GameRepository games = mock(GameRepository.class);
+    LeaderboardRepository boards = mock(LeaderboardRepository.class);
+    MembershipRepository memberships = mock(MembershipRepository.class);
+    SubmissionRepository submissions = mock(SubmissionRepository.class);
+    BillingService billing = mock(BillingService.class);
+    GameAdapterRegistry adapters = new GameAdapterRegistry(List.of(new QuordleParser(), new TimeGuessrParser()));
+    when(boards.findById(board.id)).thenReturn(Optional.of(board));
+    when(games.findByActiveTrueOrderByNameAsc()).thenReturn(List.of(quordle, timeguessr));
+    when(memberships.existsByIdLeaderboardIdAndIdUserId(board.id, ownerId)).thenReturn(true);
+    when(memberships.findByIdLeaderboardId(board.id)).thenReturn(List.of(
+        new Membership(board.id, ownerId, ownerId, Instant.now()),
+        new Membership(board.id, friendId, ownerId, Instant.now())));
+    when(profiles.findById(ownerId)).thenReturn(Optional.of(owner));
+    when(profiles.findById(friendId)).thenReturn(Optional.of(friend));
+    when(billing.isBoardAccessible(eq(board), any())).thenReturn(true);
+    Submission ownerQ = submission(ownerId, quordle.id, adapters.parseResult("quordle",
+        "Daily Quordle 1746\n5️⃣9️⃣\n7️⃣8️⃣\nm-w.com/games/quordle/"));
+    Submission friendQ = submission(friendId, quordle.id, adapters.parseResult("quordle",
+        "Daily Quordle 1746\n6️⃣9️⃣\n7️⃣8️⃣\nm-w.com/games/quordle/"));
+    Submission ownerT = submission(ownerId, timeguessr.id, adapters.parseResult("timeguessr",
+        "TimeGuessr #807 — 40,000/50,000"));
+    Submission friendT = submission(friendId, timeguessr.id, adapters.parseResult("timeguessr",
+        "TimeGuessr #807 — 45,000/50,000"));
+    when(submissions.findByUserIdInAndGameId(any(), eq(quordle.id))).thenReturn(List.of(ownerQ, friendQ));
+    when(submissions.findByUserIdInAndGameIdIn(any(), any())).thenReturn(List.of(ownerQ, friendQ, ownerT, friendT));
+    DailyGamesService service = service(profiles, games, boards, memberships, submissions, adapters, billing);
+
+    var combined = service.board(new CurrentUser(ownerId, ""), board.id, "all", "quordle").combinedRankings();
+    assertEquals(2, combined.size());
+    assertEquals(1, combined.get(0).rank());
+    assertEquals(1, combined.get(1).rank());
+    assertEquals(new BigDecimal("50.0000"), combined.get(0).leaderboardPoints());
+    assertEquals(2, combined.get(0).participationPoints());
+  }
+
+  private Game game(String slug, String name, String direction) {
+    Game game = new Game(); game.id = UUID.randomUUID(); game.slug = slug; game.name = name;
+    game.sourceUrl = "https://example.com"; game.releaseTimezone = "UTC";
+    game.rankingDirection = direction; game.active = true;
+    return game;
+  }
+
+  @Test
+  void manualSubmissionPersistsProvenanceAndRetriesIdempotently() {
+    UUID userId = UUID.randomUUID();
+    Profile profile = new Profile(userId, "Manual Player", "#dfff4f", Instant.now());
+    Game game = game("wordle", "Wordle", "lower");
+    ProfileRepository profiles = mock(ProfileRepository.class);
+    GameRepository games = mock(GameRepository.class);
+    SubmissionRepository submissions = mock(SubmissionRepository.class);
+    when(profiles.findById(userId)).thenReturn(Optional.of(profile));
+    when(profiles.findByIdForUpdate(userId)).thenReturn(Optional.of(profile));
+    when(games.findBySlugAndActiveTrue("wordle")).thenReturn(Optional.of(game));
+    when(submissions.findByUserIdAndGameIdAndPuzzleKey(userId, game.id, "2000")).thenReturn(Optional.empty());
+    when(submissions.findByUserIdAndGameIdAndPlayedOn(eq(userId), eq(game.id), any())).thenReturn(Optional.empty());
+    when(submissions.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+    DailyGamesService service = service(profiles, games, mock(LeaderboardRepository.class),
+        mock(MembershipRepository.class), submissions, new GameAdapterRegistry(List.of(new WordleParser())), mock(BillingService.class));
+    LocalDate date = LocalDate.now(ZoneOffset.UTC);
+    var request = new ApiModels.ManualSubmissionRequest("wordle", "2000", date, "WIN", Map.of("attempts", 4));
+
+    UUID id = service.submitManual(new CurrentUser(userId, ""), request);
+    var captor = org.mockito.ArgumentCaptor.forClass(Submission.class);
+    verify(submissions).saveAndFlush(captor.capture());
+    Submission saved = captor.getValue();
+    assertEquals(id, saved.id);
+    assertEquals(SubmissionMethod.MANUAL, saved.submissionMethod);
+    assertEquals("4/6", saved.metrics.get("displayScore"));
+    assertTrue(saved.rawText.contains("\"puzzleDate\":\"" + date + "\""));
+
+    when(submissions.findByUserIdAndGameIdAndPuzzleKey(userId, game.id, "2000")).thenReturn(Optional.of(saved));
+    assertEquals(id, service.submitManual(new CurrentUser(userId, ""), request));
+    verify(submissions, times(1)).saveAndFlush(any());
+  }
+
+  @Test
+  void manualSubmissionRejectsFutureDatesAndSameDayDuplicates() {
+    UUID userId = UUID.randomUUID();
+    Profile profile = new Profile(userId, "Manual Player", "#dfff4f", Instant.now());
+    Game game = game("globle", "Globle", "lower");
+    ProfileRepository profiles = mock(ProfileRepository.class);
+    GameRepository games = mock(GameRepository.class);
+    SubmissionRepository submissions = mock(SubmissionRepository.class);
+    when(profiles.findById(userId)).thenReturn(Optional.of(profile));
+    when(profiles.findByIdForUpdate(userId)).thenReturn(Optional.of(profile));
+    when(games.findBySlugAndActiveTrue("globle")).thenReturn(Optional.of(game));
+    DailyGamesService service = service(profiles, games, mock(LeaderboardRepository.class),
+        mock(MembershipRepository.class), submissions, new GameAdapterRegistry(List.of(new GlobleParser())), mock(BillingService.class));
+    LocalDate today = LocalDate.now(ZoneOffset.UTC);
+    var future = new ApiModels.ManualSubmissionRequest("globle", null, today.plusDays(1), "WIN", Map.of("attempts", 4));
+    assertEquals("INVALID_MANUAL_RESULT", assertThrows(ApiException.class,
+        () -> service.submitManual(new CurrentUser(userId, ""), future)).code);
+
+    Submission existing = new Submission(userId, game.id,
+        new ParsedSubmission("different-id", null, today, BigDecimal.valueOf(3), Map.of(), 1), "share", Instant.now());
+    when(submissions.findByUserIdAndGameIdAndPuzzleKey(userId, game.id, "new-id")).thenReturn(Optional.empty());
+    when(submissions.findByUserIdAndGameIdAndPlayedOn(userId, game.id, today)).thenReturn(Optional.of(existing));
+    var duplicate = new ApiModels.ManualSubmissionRequest("globle", "new-id", today, "WIN", Map.of("attempts", 4));
+    assertEquals("DUPLICATE_SUBMISSION", assertThrows(ApiException.class,
+        () -> service.submitManual(new CurrentUser(userId, ""), duplicate)).code);
+  }
+
+  private Submission submission(UUID userId, UUID gameId, ParsedSubmission parsed) {
+    return new Submission(userId, gameId, parsed, "share", Instant.now());
   }
 
   private DailyGamesService service(ProfileRepository profiles, GameRepository games, LeaderboardRepository boards,

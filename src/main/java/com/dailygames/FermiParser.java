@@ -20,6 +20,7 @@ class FermiParser implements GameAdapter {
   private static final Pattern MULTIPLIER = Pattern.compile("(?i)(\\d+(?:[.,]\\d+)?)\\s*[×x]");
 
   @Override public String slug() { return "fermi"; }
+  @Override public String scoreDirection() { return "HIGHER_IS_BETTER"; }
   @Override public ScoreFormatView scoreFormat() { return new ScoreFormatView("", "×", 2, 2); }
   @Override public SubmissionConfigView submissionConfig() {
     return new SubmissionConfigView("Fermi #92\n1.31× score\ntop 8%", "Puzzle number", "Final score",

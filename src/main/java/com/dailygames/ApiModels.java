@@ -30,6 +30,11 @@ final class ApiModels {
                              Map<String, Object> metrics, Integer parserVersion) {}
   record CreateSubmissionRequest(@NotBlank String game, @NotBlank @Size(max = 10_000) String rawText,
                                  @NotNull ConfirmedSubmission confirmed) {}
+  record ManualSubmissionRequest(@NotBlank @Size(max = 80) String game,
+                                 @Size(max = 80) String puzzleId,
+                                 @NotNull LocalDate puzzleDate,
+                                 @NotBlank @Size(max = 20) String completionStatus,
+                                 @NotNull @Size(max = 40) Map<String, Object> values) {}
   record IdResponse(UUID id) {}
   record UrlResponse(String url) {}
   record CheckoutRequest(@NotNull BillingTier tier) {}
@@ -45,14 +50,28 @@ final class ApiModels {
   }
   record SubmissionConfigView(String exampleShareText, String puzzleLabel, String scoreLabel, BigDecimal scoreMin,
                               BigDecimal scoreMax, BigDecimal scoreStep, Set<String> editableFields) {}
+  record ManualEntryFieldView(String key, String label, String type, boolean required, BigDecimal min,
+                              BigDecimal max, BigDecimal step, List<String> options, String helpText) {}
+  record ManualEntryConfigView(boolean supported, boolean puzzleIdRequired, List<String> completionStatuses,
+                               List<ManualEntryFieldView> fields) {}
   record GameView(UUID id, String slug, String name, String sourceUrl, String rankingDirection,
-                  ScoreFormatView scoreFormat, SubmissionConfigView submission) {}
+                  ScoreFormatView scoreFormat, SubmissionConfigView submission, ManualEntryConfigView manualEntry) {
+    GameView(UUID id, String slug, String name, String sourceUrl, String rankingDirection,
+             ScoreFormatView scoreFormat, SubmissionConfigView submission) {
+      this(id, slug, name, sourceUrl, rankingDirection, scoreFormat, submission,
+          new ManualEntryConfigView(false, false, List.of(), List.of()));
+    }
+  }
   record CatalogGameView(String slug, String name, String description, String category, String sourceUrl,
                          boolean scoreTrackingAvailable) {}
+  record ParserCapabilityView(String gameId, String status, Set<String> supportedFormats) {}
+  record ScoreStrategyView(String gameId, String rankingRule, String primaryMetric, String primaryDirection,
+                           String secondaryMetric, String secondaryDirection, List<String> compatibilityFields,
+                           boolean completionOnlyAllowed) {}
   record BoardSummary(UUID id, String name, UUID ownerId, boolean owner, GameView game, BoardType boardType,
                       List<GameView> games, boolean locked, Instant createdAt) {}
   record ScoreView(UUID id, String puzzleKey, LocalDate playedOn, BigDecimal primaryScore, String gameName, String gameSlug,
-                   GameView game, Map<String, Object> metrics) {}
+                   GameView game, Map<String, Object> metrics, String submissionMethod) {}
   record StatsView(BigDecimal average, BigDecimal best, int currentStreak, int results) {}
   record GameStatsView(GameView game, BigDecimal average, BigDecimal best, int currentStreak, int results) {}
   record DashboardResponse(ProfileView profile, StatsView stats, List<GameStatsView> statsByGame,
@@ -60,14 +79,21 @@ final class ApiModels {
   record PreviewResponse(ParsedSubmission submission) {}
   record MemberView(UUID userId, UUID shareId, String displayName, String avatarColor, boolean owner) {}
   record RankingView(int rank, UUID userId, UUID shareId, String displayName, BigDecimal average, int gamesPlayed,
-                     int assistedResults, int unknownAssistanceResults, int hints, int mistakes, int beginnerAssists) {
+                     int assistedResults, int unknownAssistanceResults, int hints, int mistakes, int beginnerAssists,
+                     String displayScore, BigDecimal leaderboardPoints, int participationPoints, int manualResults) {
     RankingView(int rank, UUID userId, UUID shareId, String displayName, BigDecimal average, int gamesPlayed) {
-      this(rank, userId, shareId, displayName, average, gamesPlayed, 0, 0, 0, 0, 0);
+      this(rank, userId, shareId, displayName, average, gamesPlayed, 0, 0, 0, 0, 0, null, null, 0, 0);
     }
   }
   record LeaderboardResponse(UUID id, String name, UUID ownerId, GameView game, BoardType boardType,
                              List<GameView> games, String range, boolean owner, List<MemberView> members,
-                             List<RankingView> rankings, List<MemberView> absent) {}
+                             List<RankingView> rankings, List<MemberView> absent, List<RankingView> combinedRankings) {
+    LeaderboardResponse(UUID id, String name, UUID ownerId, GameView game, BoardType boardType,
+                        List<GameView> games, String range, boolean owner, List<MemberView> members,
+                        List<RankingView> rankings, List<MemberView> absent) {
+      this(id, name, ownerId, game, boardType, games, range, owner, members, rankings, absent, List.of());
+    }
+  }
   record RankPoint(LocalDate date, Integer rank) {}
   record RankSeries(UUID userId, String displayName, String avatarColor, List<RankPoint> points) {}
   record DailyPerformance(LocalDate date, BigDecimal score, int assistanceTier) {}

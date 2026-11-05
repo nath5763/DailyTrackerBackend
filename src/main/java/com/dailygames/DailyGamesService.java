@@ -1,5 +1,7 @@
 package com.dailygames;
 
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,6 +16,7 @@ import static com.dailygames.ApiModels.*;
 @Service
 class DailyGamesService {
   static final Set<String> COLORS = Set.of("#dfff4f", "#ff8db6", "#a8c7ff", "#ffba6b", "#bba7ff");
+  private static final ObjectMapper JSON = new ObjectMapper();
   private final UserRepository users;
   private final ProfileRepository profiles;
   private final GameRepository games;
@@ -133,12 +136,14 @@ class DailyGamesService {
       default -> throw new ApiException(400, "INVALID_RANGE", "Range must be today, 7d, 30d, or all.");
     };
     List<RankingView> rankings = rankScores(memberProfiles, scores, game);
+    List<RankingView> combinedRankings = boardType(board) == BoardType.MULTI_GAME
+        ? combinedRankings(memberProfiles, memberIds, allowedGames, range) : List.of();
     Set<UUID> ranked = rankings.stream().map(RankingView::userId).collect(Collectors.toSet());
     List<MemberView> members = memberProfiles.stream().map(profile -> memberView(profile, board.ownerId)).toList();
     List<MemberView> absent = range.equals("today") ? memberProfiles.stream().filter(profile -> !ranked.contains(profile.userId)).map(profile -> memberView(profile, board.ownerId)).toList() : List.of();
     return new LeaderboardResponse(board.id, board.name, board.ownerId, gameView(game), boardType(board),
         allowedGames.stream().map(this::gameView).toList(), range, board.ownerId.equals(current.id()),
-        members, rankings, absent);
+        members, rankings, absent, combinedRankings);
   }
 
   LeaderboardInsightsResponse insights(CurrentUser current, UUID boardId, String gameSlug) {
@@ -173,15 +178,22 @@ class DailyGamesService {
   }
 
   private List<RankingView> rankScores(List<Profile> memberProfiles, List<Submission> scores, Game game) {
+    if (scores.stream().anyMatch(score -> score.metrics.containsKey("rankingPrimary") ||
+        score.metrics.containsKey("rankingSecondary"))) {
+      return rankNormalizedScores(memberProfiles, scores, game);
+    }
     Map<UUID, List<Submission>> byUser = scores.stream().collect(Collectors.groupingBy(score -> score.userId));
-    Comparator<RankingSeed> rankingOrder = Comparator.comparing(RankingSeed::assistanceTier);
+    Comparator<RankingSeed> rankingOrder = Comparator.comparing(RankingSeed::losses)
+        .thenComparing(RankingSeed::assistanceTier);
     Comparator<RankingSeed> scoreOrder = Comparator.comparing(RankingSeed::average);
     if ("higher".equals(game.rankingDirection)) scoreOrder = scoreOrder.reversed();
     rankingOrder = rankingOrder.thenComparing(scoreOrder).thenComparing(RankingSeed::gamesPlayed, Comparator.reverseOrder())
         .thenComparing(seed -> seed.profile.displayName, String.CASE_INSENSITIVE_ORDER);
     List<RankingSeed> seeds = memberProfiles.stream().filter(profile -> byUser.containsKey(profile.userId)).map(profile -> {
       List<Submission> values = byUser.get(profile.userId);
-      BigDecimal average = values.stream().map(value -> value.primaryScore).reduce(BigDecimal.ZERO, BigDecimal::add)
+      GameAdapter adapter = adapters.require(game.slug);
+      BigDecimal average = values.stream().map(value -> adapter.rankingMetric(value.primaryScore, value.metrics))
+          .reduce(BigDecimal.ZERO, BigDecimal::add)
           .divide(BigDecimal.valueOf(values.size()), 4, RoundingMode.HALF_UP);
       int hints = values.stream().mapToInt(value -> metricCount(value, "hints")).sum();
       int mistakes = values.stream().mapToInt(value -> metricCount(value, "mistakes")).sum();
@@ -189,17 +201,167 @@ class DailyGamesService {
       int assisted = (int) values.stream().filter(value -> "assisted".equals(value.metrics.get("assistanceStatus")) ||
           metricCount(value, "hints") > 0 || metricCount(value, "mistakes") > 0 || metricCount(value, "beginnerAssists") > 0).count();
       int unknown = (int) values.stream().filter(value -> "unknown".equals(value.metrics.get("assistanceStatus"))).count();
-      return new RankingSeed(profile, average, values.size(), assistanceTier(values),
-          assisted, unknown, hints, mistakes, beginner);
+      int losses = (int) values.stream().filter(value -> "LOSS".equals(value.metrics.get("completionStatus"))).count();
+      int manual = (int) values.stream().filter(value -> value.submissionMethod == SubmissionMethod.MANUAL).count();
+      return new RankingSeed(profile, average, values.size(), losses, assistanceTier(values),
+          assisted, unknown, hints, mistakes, beginner, manual);
     }).sorted(rankingOrder).toList();
     List<RankingView> rankings = new ArrayList<>();
+    int rank = 0;
+    RankingSeed previous = null;
     for (int index = 0; index < seeds.size(); index++) {
       RankingSeed seed = seeds.get(index);
-      rankings.add(new RankingView(index + 1, seed.profile.userId, seed.profile.shareId, seed.profile.displayName,
+      if (previous == null || !seed.sameResult(previous)) rank = index + 1;
+      rankings.add(new RankingView(rank, seed.profile.userId, seed.profile.shareId, seed.profile.displayName,
           seed.average, seed.gamesPlayed, seed.assistedResults, seed.unknownAssistanceResults,
-          seed.hints, seed.mistakes, seed.beginnerAssists));
+          seed.hints, seed.mistakes, seed.beginnerAssists, null, null, seed.gamesPlayed, seed.manualResults));
+      previous = seed;
     }
     return rankings;
+  }
+
+  private List<RankingView> rankNormalizedScores(List<Profile> memberProfiles, List<Submission> scores, Game game) {
+    Map<UUID, Profile> profileById = memberProfiles.stream().collect(Collectors.toMap(profile -> profile.userId, profile -> profile));
+    Map<Submission, NormalizedScore> normalized = new IdentityHashMap<>();
+    for (Submission score : scores) normalized.put(score, adapters.normalizedScore(game.slug, score.primaryScore,
+        score.metrics, score.puzzleKey, score.playedOn, score.parserVersion, game.rankingDirection));
+    Set<String> contests = scores.stream().map(score -> score.puzzleKey + "|" + normalized.get(score).compatibilityKey())
+        .collect(Collectors.toSet());
+    if (contests.size() > 1) return rankByPlacementPoints(profileById, scores, normalized);
+
+    List<Submission> ordered = scores.stream().sorted((left, right) -> {
+      int compared = adapters.compareScores(normalized.get(left), normalized.get(right));
+      if (compared != 0) return compared;
+      return profileById.get(left.userId).displayName.compareToIgnoreCase(profileById.get(right.userId).displayName);
+    }).toList();
+    List<RankingView> results = new ArrayList<>();
+    Submission previous = null;
+    int rank = 0;
+    for (int index = 0; index < ordered.size(); index++) {
+      Submission value = ordered.get(index);
+      NormalizedScore score = normalized.get(value);
+      if (previous == null || !adapters.sameRank(score, normalized.get(previous))) rank = index + 1;
+      Profile profile = profileById.get(value.userId);
+      results.add(new RankingView(rank, profile.userId, profile.shareId, profile.displayName,
+          score.rankingPrimary() == null ? value.primaryScore : score.rankingPrimary(), 1,
+          assisted(value) ? 1 : 0, unknownAssistance(value) ? 1 : 0,
+          metricCount(value, "hints"), metricCount(value, "mistakes"), metricCount(value, "beginnerAssists"),
+          score.displayScore(), null, 1, value.submissionMethod == SubmissionMethod.MANUAL ? 1 : 0));
+      previous = value;
+    }
+    return results;
+  }
+
+  private List<RankingView> rankByPlacementPoints(Map<UUID, Profile> profilesById, List<Submission> scores,
+                                                   Map<Submission, NormalizedScore> normalized) {
+    Map<String, List<Submission>> contests = scores.stream().collect(Collectors.groupingBy(score ->
+        score.gameId + "|" + score.puzzleKey + "|" + normalized.get(score).compatibilityKey()));
+    Map<UUID, List<BigDecimal>> pointsByUser = new HashMap<>();
+    Map<UUID, List<Submission>> valuesByUser = scores.stream().collect(Collectors.groupingBy(score -> score.userId));
+    for (List<Submission> contest : contests.values()) {
+      List<Submission> ordered = contest.stream().sorted((left, right) ->
+          adapters.compareScores(normalized.get(left), normalized.get(right))).toList();
+      List<Submission> valid = ordered.stream().filter(value -> validPerformance(normalized.get(value))).toList();
+      int validCount = valid.size();
+      int rank = 0;
+      Submission previous = null;
+      for (int index = 0; index < ordered.size(); index++) {
+        Submission value = ordered.get(index);
+        NormalizedScore score = normalized.get(value);
+        if (previous == null || !adapters.sameRank(score, normalized.get(previous))) rank = index + 1;
+        BigDecimal points = BigDecimal.ZERO;
+        if (validPerformance(score)) {
+          int validRank = valid.indexOf(value) + 1;
+          if (validRank > 1 && adapters.sameRank(score, normalized.get(valid.get(validRank - 2)))) {
+            int cursor = validRank - 1;
+            while (cursor > 0 && adapters.sameRank(score, normalized.get(valid.get(cursor - 1)))) cursor--;
+            validRank = cursor + 1;
+          }
+          points = validCount == 1 ? BigDecimal.valueOf(100) :
+              BigDecimal.valueOf(100L * (validCount - validRank)).divide(BigDecimal.valueOf(validCount - 1L), 4, RoundingMode.HALF_UP);
+        }
+        pointsByUser.computeIfAbsent(value.userId, ignored -> new ArrayList<>()).add(points);
+        previous = value;
+      }
+    }
+    List<RankingSeed> seeds = pointsByUser.entrySet().stream().map(entry -> {
+      UUID userId = entry.getKey();
+      List<Submission> values = valuesByUser.get(userId);
+      BigDecimal average = entry.getValue().stream().reduce(BigDecimal.ZERO, BigDecimal::add)
+          .divide(BigDecimal.valueOf(entry.getValue().size()), 4, RoundingMode.HALF_UP);
+      return rankingSeed(profilesById.get(userId), values, average);
+    }).sorted(Comparator.comparing(RankingSeed::average).reversed()
+        .thenComparing(RankingSeed::gamesPlayed, Comparator.reverseOrder())
+        .thenComparing(seed -> seed.profile.displayName, String.CASE_INSENSITIVE_ORDER)).toList();
+    List<RankingView> results = new ArrayList<>();
+    RankingSeed previous = null;
+    int rank = 0;
+    for (int index = 0; index < seeds.size(); index++) {
+      RankingSeed seed = seeds.get(index);
+      if (previous == null || seed.average.compareTo(previous.average) != 0 || !seed.gamesPlayed.equals(previous.gamesPlayed)) rank = index + 1;
+      String display = seed.average.stripTrailingZeros().toPlainString() + " leaderboard pts";
+      results.add(new RankingView(rank, seed.profile.userId, seed.profile.shareId, seed.profile.displayName,
+          seed.average, seed.gamesPlayed, seed.assistedResults, seed.unknownAssistanceResults, seed.hints,
+          seed.mistakes, seed.beginnerAssists, display, seed.average, seed.gamesPlayed, seed.manualResults));
+      previous = seed;
+    }
+    return results;
+  }
+
+  private List<RankingView> combinedRankings(List<Profile> memberProfiles, List<UUID> memberIds,
+                                              List<Game> allowedGames, String range) {
+    if (allowedGames.isEmpty()) return List.of();
+    List<UUID> gameIds = allowedGames.stream().map(game -> game.id).toList();
+    List<Submission> candidates;
+    if (range.equals("all")) candidates = submissions.findByUserIdInAndGameIdIn(memberIds, gameIds);
+    else {
+      LocalDate utcToday = LocalDate.now(ZoneOffset.UTC);
+      int days = range.equals("today") ? 0 : range.equals("7d") ? 6 : 29;
+      candidates = submissions.findByUserIdInAndGameIdInAndPlayedOnBetween(memberIds, gameIds,
+          utcToday.minusDays(days + 1L), utcToday.plusDays(1));
+    }
+    Map<UUID, Game> gamesById = allowedGames.stream().collect(Collectors.toMap(game -> game.id, game -> game));
+    List<Submission> selected = candidates.stream().filter(value -> {
+      Game candidate = gamesById.get(value.gameId);
+      if (candidate == null || range.equals("all")) return candidate != null;
+      LocalDate today = LocalDate.now(ZoneId.of(candidate.releaseTimezone));
+      LocalDate from = range.equals("today") ? today : range.equals("7d") ? today.minusDays(6) : today.minusDays(29);
+      return !value.playedOn.isBefore(from) && !value.playedOn.isAfter(today);
+    }).toList();
+    if (selected.isEmpty()) return List.of();
+    Map<Submission, NormalizedScore> normalized = new IdentityHashMap<>();
+    for (Submission value : selected) {
+      Game candidate = gamesById.get(value.gameId);
+      normalized.put(value, adapters.normalizedScore(candidate.slug, value.primaryScore, value.metrics,
+          value.puzzleKey, value.playedOn, value.parserVersion, candidate.rankingDirection));
+    }
+    Map<UUID, Profile> profilesById = memberProfiles.stream().collect(Collectors.toMap(profile -> profile.userId, profile -> profile));
+    return rankByPlacementPoints(profilesById, selected, normalized);
+  }
+
+  private RankingSeed rankingSeed(Profile profile, List<Submission> values, BigDecimal average) {
+    int hints = values.stream().mapToInt(value -> metricCount(value, "hints")).sum();
+    int mistakes = values.stream().mapToInt(value -> metricCount(value, "mistakes")).sum();
+    int beginner = values.stream().mapToInt(value -> metricCount(value, "beginnerAssists")).sum();
+    int assisted = (int) values.stream().filter(this::assisted).count();
+    int unknown = (int) values.stream().filter(this::unknownAssistance).count();
+    int losses = (int) values.stream().filter(value -> "LOSS".equals(value.metrics.get("completionStatus"))).count();
+    int manual = (int) values.stream().filter(value -> value.submissionMethod == SubmissionMethod.MANUAL).count();
+    return new RankingSeed(profile, average, values.size(), losses, assistanceTier(values), assisted, unknown,
+        hints, mistakes, beginner, manual);
+  }
+
+  private boolean validPerformance(NormalizedScore score) {
+    return score.rankingPrimary() != null && ("WIN".equals(score.completionStatus()) || "UNKNOWN".equals(score.completionStatus()));
+  }
+
+  private boolean assisted(Submission value) {
+    return "assisted".equals(value.metrics.get("assistanceStatus")) || metricCount(value, "hints") > 0 ||
+        metricCount(value, "mistakes") > 0 || metricCount(value, "beginnerAssists") > 0;
+  }
+
+  private boolean unknownAssistance(Submission value) {
+    return "unknown".equals(value.metrics.get("assistanceStatus"));
   }
 
   private int assistanceTier(List<Submission> scores) {
@@ -251,15 +413,34 @@ class DailyGamesService {
   ParsedSubmission preview(CurrentUser current, PreviewSubmissionRequest request) {
     requireProfile(current.id());
     requireGame(request.game());
-    return adapters.require(request.game()).parse(request.rawText());
+    return adapters.parseResult(request.game(), request.rawText());
   }
 
   @Transactional
   UUID submit(CurrentUser current, CreateSubmissionRequest request) {
     requireProfile(current.id());
     Game game = requireGame(request.game());
-    ParsedSubmission value = adapters.require(request.game()).validateConfirmed(request.confirmed(), request.rawText());
-    return persistSubmission(current.id(), game, value, request.rawText());
+    ParsedSubmission value = adapters.validateResult(request.game(), request.confirmed(), request.rawText());
+    return persistSubmission(current.id(), game, value, request.rawText(), SubmissionMethod.SHARE_TEXT);
+  }
+
+  @Transactional
+  UUID submitManual(CurrentUser current, ManualSubmissionRequest request) {
+    ParsedSubmission value = previewManual(current, request);
+    Game game = requireGame(request.game());
+    return persistSubmission(current.id(), game, value, manualAudit(request), SubmissionMethod.MANUAL);
+  }
+
+  ParsedSubmission previewManual(CurrentUser current, ManualSubmissionRequest request) {
+    requireProfile(current.id());
+    Game game = requireGame(request.game());
+    LocalDate today;
+    try { today = LocalDate.now(ZoneId.of(game.releaseTimezone)); }
+    catch (DateTimeException exception) { today = LocalDate.now(ZoneOffset.UTC); }
+    if (request.puzzleDate() == null || request.puzzleDate().isAfter(today)) {
+      throw new ApiException(422, "INVALID_MANUAL_RESULT", "Puzzle date cannot be in the future.");
+    }
+    return adapters.normalizeManualResult(game.slug, request);
   }
 
   DiscordSubmissionResult submitFromDiscord(UUID userId, UUID leaderboardId, String rawText) {
@@ -280,21 +461,38 @@ class DailyGamesService {
     }
     List<Game> allowedGames = allowedGames(board);
     Game game = selectGame(board, allowedGames, gameSlug);
-    ParsedSubmission value = adapters.require(game.slug).parse(rawText);
-    UUID id = persistSubmission(userId, game, value, rawText);
+    ParsedSubmission value = adapters.parseResult(game.slug, rawText);
+    UUID id = persistSubmission(userId, game, value, rawText, SubmissionMethod.SHARE_TEXT);
     return new DiscordSubmissionResult(id, game, value);
   }
 
   UUID persistSubmission(UUID userId, Game game, ParsedSubmission value, String rawText) {
+    return persistSubmission(userId, game, value, rawText, SubmissionMethod.SHARE_TEXT);
+  }
+
+  UUID persistSubmission(UUID userId, Game game, ParsedSubmission value, String rawText, SubmissionMethod method) {
     // Serialize submissions for one profile so the existence check remains race-safe without poisoning
     // the surrounding interaction transaction with a caught unique-constraint exception.
     profiles.findByIdForUpdate(userId)
         .orElseThrow(() -> new ApiException(409, "PROFILE_REQUIRED", "Finish setting up your profile."));
-    if (submissions.existsByUserIdAndGameIdAndPuzzleKey(userId, game.id, value.puzzleKey())) {
+    Optional<Submission> existing = submissions.findByUserIdAndGameIdAndPuzzleKey(userId, game.id, value.puzzleKey());
+    if (existing.isEmpty()) existing = submissions.findByUserIdAndGameIdAndPlayedOn(userId, game.id, value.playedOn());
+    if (existing.isPresent()) {
+      if (existing.get().submissionMethod == method && existing.get().rawText.equals(rawText)) return existing.get().id;
       throw duplicate(game);
     }
-    try { return submissions.saveAndFlush(new Submission(userId, game.id, value, rawText, Instant.now())).id; }
+    try { return submissions.saveAndFlush(new Submission(userId, game.id, value, rawText, method, Instant.now())).id; }
     catch (DataIntegrityViolationException exception) { throw duplicate(game); }
+  }
+
+  private String manualAudit(ManualSubmissionRequest request) {
+    Map<String, Object> audit = new LinkedHashMap<>();
+    audit.put("game", request.game());
+    if (request.puzzleId() != null && !request.puzzleId().isBlank()) audit.put("puzzleId", request.puzzleId().trim());
+    audit.put("puzzleDate", request.puzzleDate().toString()); audit.put("completionStatus", request.completionStatus());
+    audit.put("values", new TreeMap<>(request.values()));
+    try { return JSON.writeValueAsString(audit); }
+    catch (JacksonException exception) { throw new ApiException(422, "INVALID_MANUAL_RESULT", "Manual result could not be recorded."); }
   }
 
   ProfileResponse profile(CurrentUser current, UUID shareId) {
@@ -362,7 +560,7 @@ class DailyGamesService {
   private GameView gameView(Game game) {
     GameAdapter adapter = adapters.require(game.slug);
     return new GameView(game.id, game.slug, game.name, game.sourceUrl, game.rankingDirection,
-        adapter.scoreFormat(), adapter.submissionConfig());
+        adapter.scoreFormat(), adapter.submissionConfig(), adapters.manualEntryConfig(game.slug));
   }
   private BoardSummary boardSummary(Leaderboard board, UUID viewer) {
     List<Game> allowedGames = allowedGames(board);
@@ -399,7 +597,7 @@ class DailyGamesService {
   private ScoreView scoreView(Submission value) {
     Game game = games.findById(value.gameId).orElseThrow(this::notFound);
     return new ScoreView(value.id, value.puzzleKey, value.playedOn, value.primaryScore, game.name, game.slug,
-        gameView(game), value.metrics);
+        gameView(game), value.metrics, value.submissionMethod.name());
   }
   private List<GameStatsView> statsByGame(List<Submission> values) {
     return values.stream().collect(Collectors.groupingBy(value -> value.gameId)).entrySet().stream().map(entry -> {
@@ -441,6 +639,12 @@ class DailyGamesService {
     Object metric = value.metrics.get(key);
     return metric instanceof Number number ? number.intValue() : 0;
   }
-  private record RankingSeed(Profile profile, BigDecimal average, Integer gamesPlayed, int assistanceTier,
-                             int assistedResults, int unknownAssistanceResults, int hints, int mistakes, int beginnerAssists) {}
+  private record RankingSeed(Profile profile, BigDecimal average, Integer gamesPlayed, int losses, int assistanceTier,
+                             int assistedResults, int unknownAssistanceResults, int hints, int mistakes, int beginnerAssists,
+                             int manualResults) {
+    boolean sameResult(RankingSeed other) {
+      return losses == other.losses && assistanceTier == other.assistanceTier && average.compareTo(other.average) == 0
+          && gamesPlayed.equals(other.gamesPlayed);
+    }
+  }
 }

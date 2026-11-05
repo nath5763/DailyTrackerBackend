@@ -166,14 +166,21 @@ class Submission {
   @JdbcTypeCode(SqlTypes.JSON) @Column(nullable = false, columnDefinition = "jsonb") Map<String, Object> metrics = new LinkedHashMap<>();
   @Column(name = "raw_text", nullable = false) String rawText;
   @Column(name = "parser_version", nullable = false) int parserVersion;
+  @Enumerated(EnumType.STRING) @Column(name = "submission_method", nullable = false, length = 16)
+  SubmissionMethod submissionMethod = SubmissionMethod.SHARE_TEXT;
   @Column(name = "created_at", nullable = false) Instant createdAt;
   protected Submission() {}
   Submission(UUID userId, UUID gameId, ParsedSubmission value, String rawText, Instant now) {
+    this(userId, gameId, value, rawText, SubmissionMethod.SHARE_TEXT, now);
+  }
+  Submission(UUID userId, UUID gameId, ParsedSubmission value, String rawText, SubmissionMethod method, Instant now) {
     id = UUID.randomUUID(); this.userId = userId; this.gameId = gameId; puzzleKey = value.puzzleKey();
     playedOn = value.playedOn(); primaryScore = value.primaryScore(); metrics = value.metrics();
-    this.rawText = rawText; parserVersion = value.parserVersion(); createdAt = now;
+    this.rawText = rawText; parserVersion = value.parserVersion(); submissionMethod = method; createdAt = now;
   }
 }
+
+enum SubmissionMethod { SHARE_TEXT, MANUAL }
 
 enum AuthTokenPurpose { EMAIL_VERIFICATION, PASSWORD_RESET }
 

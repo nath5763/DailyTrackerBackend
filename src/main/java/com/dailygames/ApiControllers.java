@@ -177,6 +177,14 @@ class DailyGamesController {
   @PostMapping("/submissions") ResponseEntity<IdResponse> submit(Authentication authentication, @Valid @RequestBody CreateSubmissionRequest request) {
     return ResponseEntity.status(HttpStatus.CREATED).body(new IdResponse(service.submit(current(authentication), request)));
   }
+  @PostMapping("/submissions/manual") ResponseEntity<IdResponse> submitManual(Authentication authentication,
+      @Valid @RequestBody ManualSubmissionRequest request) {
+    return ResponseEntity.status(HttpStatus.CREATED).body(new IdResponse(service.submitManual(current(authentication), request)));
+  }
+  @PostMapping("/submissions/manual/preview") PreviewResponse previewManual(Authentication authentication,
+      @Valid @RequestBody ManualSubmissionRequest request) {
+    return new PreviewResponse(service.previewManual(current(authentication), request));
+  }
 
   private CurrentUser current(Authentication authentication) {
     if (authentication == null || !(authentication.getPrincipal() instanceof CurrentUser current)) {
@@ -201,14 +209,24 @@ class LeaderboardInviteController {
 class CatalogController {
   private final CatalogGameRepository catalog;
   private final GameRepository games;
-  CatalogController(CatalogGameRepository catalog, GameRepository games) {
-    this.catalog = catalog; this.games = games;
+  private final GameAdapterRegistry adapters;
+  CatalogController(CatalogGameRepository catalog, GameRepository games, GameAdapterRegistry adapters) {
+    this.catalog = catalog; this.games = games; this.adapters = adapters;
   }
   @GetMapping List<CatalogGameView> games() {
     Set<String> tracked = games.findByActiveTrueOrderByNameAsc().stream().map(game -> game.slug).collect(java.util.stream.Collectors.toSet());
     return catalog.findAllByOrderByDisplayOrderAsc().stream().map(game -> new CatalogGameView(
         game.slug, game.name, game.description, game.category, game.sourceUrl,
         game.trackedGameSlug != null && tracked.contains(game.trackedGameSlug))).toList();
+  }
+  @GetMapping("/parser-capabilities") List<ParserCapabilityView> parserCapabilities() {
+    return adapters.capabilities();
+  }
+  @GetMapping("/score-strategies") List<ScoreStrategyView> scoreStrategies() {
+    return adapters.scoreStrategies().stream().map(strategy -> new ScoreStrategyView(strategy.gameId(),
+        strategy.rankingRule(), strategy.primaryMetric(), strategy.primaryDirection().name(),
+        strategy.secondaryMetric(), strategy.secondaryDirection() == null ? null : strategy.secondaryDirection().name(),
+        strategy.compatibilityFields(), strategy.completionOnlyAllowed())).toList();
   }
 }
 

@@ -48,7 +48,12 @@ import java.util.*;
   List<Submission> findByUserIdOrderByPlayedOnDescCreatedAtDesc(UUID userId);
   List<Submission> findByUserIdInAndGameIdAndPlayedOnBetween(Collection<UUID> userIds, UUID gameId, LocalDate from, LocalDate to);
   List<Submission> findByUserIdInAndGameId(Collection<UUID> userIds, UUID gameId);
+  List<Submission> findByUserIdInAndGameIdIn(Collection<UUID> userIds, Collection<UUID> gameIds);
+  List<Submission> findByUserIdInAndGameIdInAndPlayedOnBetween(Collection<UUID> userIds, Collection<UUID> gameIds,
+                                                               LocalDate from, LocalDate to);
   boolean existsByUserIdAndGameIdAndPuzzleKey(UUID userId, UUID gameId, String puzzleKey);
+  Optional<Submission> findByUserIdAndGameIdAndPuzzleKey(UUID userId, UUID gameId, String puzzleKey);
+  Optional<Submission> findByUserIdAndGameIdAndPlayedOn(UUID userId, UUID gameId, LocalDate playedOn);
 }
 @Repository interface AuthActionTokenRepository extends JpaRepository<AuthActionToken, UUID> {
   long countByUserIdAndPurposeAndCreatedAtAfter(UUID userId, AuthTokenPurpose purpose, Instant after);

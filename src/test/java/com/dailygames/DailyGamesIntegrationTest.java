@@ -110,7 +110,7 @@ class DailyGamesIntegrationTest {
     assertNotNull(profile.shareId());
     assertTrue(service.listBoards(current).isEmpty());
 
-    assertEquals(List.of("crossclimb", "fermi", "krillion", "pinpoint", "queens", "tango", "wordle", "zip"), service.listGames().stream().map(GameView::slug).sorted().toList());
+    assertEquals(List.of("connections", "contexto", "crossclimb", "fermi", "globle", "krillion", "murdle", "nerdle", "nyt-mini-crossword", "pinpoint", "queens", "quordle", "redactle", "semantle", "strands", "tango", "timeguessr", "wordle", "worldle", "zip"), service.listGames().stream().map(GameView::slug).sorted().toList());
 
     var boardId = service.createBoard(current, new CreateLeaderboardRequest("My Friends", "krillion"));
     assertEquals(1, service.listBoards(current).size());
@@ -178,7 +178,7 @@ class DailyGamesIntegrationTest {
     BoardSummary summary = service.listBoards(current).stream().filter(value -> value.id().equals(multiId)).findFirst().orElseThrow();
     assertEquals(BoardType.MULTI_GAME, summary.boardType());
     assertEquals("crossclimb", summary.game().slug());
-    assertEquals(List.of("crossclimb", "fermi", "krillion", "pinpoint", "queens", "tango", "wordle", "zip"), summary.games().stream().map(GameView::slug).toList());
+    assertEquals(List.of("connections", "contexto", "crossclimb", "fermi", "globle", "krillion", "murdle", "nerdle", "nyt-mini-crossword", "pinpoint", "queens", "quordle", "redactle", "semantle", "strands", "tango", "timeguessr", "wordle", "worldle", "zip"), summary.games().stream().map(GameView::slug).toList());
     assertEquals("krillion", service.board(current, multiId, "all", "krillion").game().slug());
 
     UUID gameId = UUID.fromString("f0000000-0000-4000-8000-000000000001");

@@ -27,6 +27,7 @@ class KrillionParser implements GameAdapter {
       "🌟", new Tier("krillion", 100));
 
   @Override public String slug() { return "krillion"; }
+  @Override public String scoreDirection() { return "HIGHER_IS_BETTER"; }
   @Override public ScoreFormatView scoreFormat() { return new ScoreFormatView("", " pts", 0, 2); }
   @Override public SubmissionConfigView submissionConfig() {
     return new SubmissionConfigView("Krillion #82 🦐\n180\n\n🐟🫧🫧🐟🦑🫧🐟", "Dive number", "Final score",

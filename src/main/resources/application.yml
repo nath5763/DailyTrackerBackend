@@ -40,6 +40,7 @@ app:
     connect-timeout-ms: ${STRIPE_CONNECT_TIMEOUT_MS:5000}
     read-timeout-ms: ${STRIPE_READ_TIMEOUT_MS:20000}
   discord:
+    command-registration-enabled: ${DISCORD_COMMAND_REGISTRATION_ENABLED:true}
     application-id: ${DISCORD_APPLICATION_ID:}
     public-key: ${DISCORD_PUBLIC_KEY:}
     client-secret: ${DISCORD_CLIENT_SECRET:}

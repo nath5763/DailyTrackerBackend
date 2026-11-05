@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.ObjectMapper;
@@ -22,6 +23,7 @@ import java.util.Map;
 import java.util.TreeMap;
 
 @Component
+@ConditionalOnProperty(prefix = "app.discord", name = "command-registration-enabled", havingValue = "true", matchIfMissing = true)
 class DiscordCommandRegistrar {
   private static final Logger log = LoggerFactory.getLogger(DiscordCommandRegistrar.class);
   private final HttpClient http;

@@ -27,6 +27,8 @@ The backend registers `/help`, `/signup`, `/my-id`, `/add-member`, `/link`, `/un
 
 Discord command registrations are tracked per application, command, and scope in PostgreSQL by Flyway V12. The scheduled check skips unchanged definitions across backend restarts and retries only commands that were never recorded or whose definitions changed. The first deployment of V12 will register the current commands once because earlier successful registrations were not recorded.
 
+Set `DISCORD_COMMAND_REGISTRATION_ENABLED=false` to pause only automatic Discord command registration and retries. Restart the backend after changing it. Existing Discord commands and interaction handling continue to work; new or changed command definitions will not be published until the setting is restored to `true`.
+
 Unlinking an owner's Discord account from the website or with `/unlink` disconnects channels attached to leaderboards they own. Removing the last saved channel in a server stops guild command retries and clears that server's registration fingerprints; reconnecting can register commands again. Other owners' channels in the same server remain connected. Direct changes made only in Discord are not detected without reconnecting or removing the saved channel in Daily Tracker.
 
 ## Leaderboard types
