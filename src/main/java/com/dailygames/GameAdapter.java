@@ -1,6 +1,7 @@
 package com.dailygames;
 
 import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -28,6 +29,7 @@ interface GameAdapter {
   default BigDecimal rankingMetric(BigDecimal primaryScore, Map<String, Object> metrics) { return primaryScore; }
   default String scoreDirection() { return "LOWER_IS_BETTER"; }
   default Set<String> supportedFormats() { return Set.of("share-text"); }
+  default String parserStatus() { return "PARTIAL"; }
 }
 
 @Component
@@ -36,9 +38,24 @@ class GameAdapterRegistry {
   private final ScoreQuantizerRegistry quantizers = new ScoreQuantizerRegistry();
   private final ManualScoreRegistry manualScores = new ManualScoreRegistry();
 
+  @Autowired
+  GameAdapterRegistry(List<GameAdapter> adapters, FandomGameAdapterProvider fandom) {
+    this(merge(adapters, fandom.adapters()), true);
+  }
+
   GameAdapterRegistry(List<GameAdapter> adapters) {
+    this(merge(adapters, new FandomGameAdapterProvider().adapters()), true);
+  }
+
+  private GameAdapterRegistry(List<GameAdapter> adapters, boolean merged) {
     this.adapters = adapters.stream().collect(Collectors.toUnmodifiableMap(GameAdapter::slug, Function.identity(),
         (left, right) -> { throw new IllegalStateException("Duplicate game adapter for " + left.slug()); }));
+  }
+
+  private static List<GameAdapter> merge(List<GameAdapter> nativeAdapters, List<GameAdapter> fandomAdapters) {
+    List<GameAdapter> merged = new ArrayList<>(nativeAdapters);
+    merged.addAll(fandomAdapters);
+    return merged;
   }
 
   GameAdapter require(String slug) {
@@ -48,7 +65,8 @@ class GameAdapterRegistry {
   }
 
   Optional<String> detectGame(String rawText) {
-    Set<String> matches = adapters.values().stream().filter(adapter -> adapter.matches(rawText))
+    Set<String> matches = adapters.values().stream().filter(adapter -> adapter.supportedFormats().contains("share-text"))
+        .filter(adapter -> adapter.matches(rawText))
         .map(GameAdapter::slug).collect(Collectors.toSet());
     return matches.size() == 1 ? Optional.of(matches.iterator().next()) : Optional.empty();
   }
@@ -87,6 +105,17 @@ class GameAdapterRegistry {
   int compareScores(NormalizedScore left, NormalizedScore right) { return quantizers.compare(left, right); }
   boolean sameRank(NormalizedScore left, NormalizedScore right) { return quantizers.sameRank(left, right); }
   Collection<ScoreStrategySpec> scoreStrategies() { return quantizers.strategies(); }
+  boolean supportsShareText(String gameId) {
+    GameAdapter adapter = adapters.get(gameId);
+    return adapter != null && adapter.supportedFormats().contains("share-text");
+  }
+
+  Set<String> submissionFormats(String gameId) {
+    GameAdapter adapter = require(gameId);
+    Set<String> formats = new LinkedHashSet<>(adapter.supportedFormats());
+    if (manualScores.configFor(gameId).supported()) formats.add("manual-entry");
+    return Collections.unmodifiableSet(formats);
+  }
 
   Map<String, Set<String>> supportedFormats() {
     Map<String, Set<String>> formats = new LinkedHashMap<>();
@@ -98,7 +127,7 @@ class GameAdapterRegistry {
   List<ParserCapabilityView> capabilities() {
     return GameParserCapabilities.REQUESTED_GAME_IDS.stream().map(gameId -> {
       GameAdapter adapter = adapters.get(gameId);
-      return new ParserCapabilityView(gameId, adapter == null ? "UNSUPPORTED" : "PARTIAL",
+      return new ParserCapabilityView(gameId, adapter == null ? "UNSUPPORTED" : adapter.parserStatus(),
           adapter == null ? Set.of() : adapter.supportedFormats());
     }).toList();
   }

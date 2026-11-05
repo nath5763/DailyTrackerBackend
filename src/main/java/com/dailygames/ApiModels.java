@@ -55,11 +55,16 @@ final class ApiModels {
   record ManualEntryConfigView(boolean supported, boolean puzzleIdRequired, List<String> completionStatuses,
                                List<ManualEntryFieldView> fields) {}
   record GameView(UUID id, String slug, String name, String sourceUrl, String rankingDirection,
-                  ScoreFormatView scoreFormat, SubmissionConfigView submission, ManualEntryConfigView manualEntry) {
+                  ScoreFormatView scoreFormat, SubmissionConfigView submission, ManualEntryConfigView manualEntry,
+                  Set<String> supportedFormats) {
+    GameView(UUID id, String slug, String name, String sourceUrl, String rankingDirection,
+             ScoreFormatView scoreFormat, SubmissionConfigView submission, ManualEntryConfigView manualEntry) {
+      this(id, slug, name, sourceUrl, rankingDirection, scoreFormat, submission, manualEntry, Set.of("share-text"));
+    }
     GameView(UUID id, String slug, String name, String sourceUrl, String rankingDirection,
              ScoreFormatView scoreFormat, SubmissionConfigView submission) {
       this(id, slug, name, sourceUrl, rankingDirection, scoreFormat, submission,
-          new ManualEntryConfigView(false, false, List.of(), List.of()));
+          new ManualEntryConfigView(false, false, List.of(), List.of()), Set.of("share-text"));
     }
   }
   record CatalogGameView(String slug, String name, String description, String category, String sourceUrl,

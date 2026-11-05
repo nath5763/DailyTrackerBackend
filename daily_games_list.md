@@ -109,3 +109,14 @@ If building your own collection of games, potential mechanics include:
 - An ad-supported tier plus an ad-free premium option.
 
 > **Note:** A game's mechanics may be reusable in general, but avoid copying its branding, artwork, word lists, puzzle content, or distinctive presentation. Review applicable intellectual-property and licensing considerations before publishing a close adaptation.
+
+## Supported Fandom Leaderboard Games
+
+The platform also tracks 39 available direct-link fandom games promoted from `additional_daily_games.md`: Squirdle, PokeDoku,
+Pokennection, PokeGrid, Weakdle, Dotadle, Valodle, Genshindle, Smashdle, MCdle, Minecraftle, CraftConnections,
+Balatrodle, Stardewdle, Pufferdle, Clasherdle, Royaledle, Fortnitedle, R6dle, TFTdle, TF2dle, WoWdle, Runedle,
+Spiredle, Terradle, StreetFighterdle, Ace Attorneydle, Silksongdle, Narutodle, Onepiecedle, Grandlinedle, Animedle,
+Daily Animedle, GuessThe.Game, Gamedle, Steamdle, Retro Game Trivia, Isaaconnect, and Actorle.
+
+These games currently use native manual score entry. Their clipboard parsers remain disabled until real share-result
+fixtures are available; detailed status and ranking rules are in `fandom_game_capabilities.md`.

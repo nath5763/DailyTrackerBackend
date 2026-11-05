@@ -17,6 +17,7 @@ class ManualScoreRegistryTest {
         "connections", "worldle", "murdle", "globle", "semantle", "contexto", "redactle", "strands",
         "nyt-mini-crossword", "nerdle", "quordle", "timeguessr");
     assertTrue(active.stream().allMatch(slug -> registry.configFor(slug).supported()));
+    assertTrue(FandomGames.slugs().stream().allMatch(slug -> registry.configFor(slug).supported()));
     assertFalse(registry.configFor("waffle").supported());
   }
 

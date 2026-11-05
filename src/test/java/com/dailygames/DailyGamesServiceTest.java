@@ -31,11 +31,13 @@ class DailyGamesServiceTest {
       active.add(game);
       GameAdapter adapter = mock(GameAdapter.class);
       when(adapters.require(game.slug)).thenReturn(adapter);
+      when(adapters.supportsShareText(game.slug)).thenReturn(i % 2 == 0);
     }
     when(games.findByActiveTrueOrderByNameAsc()).thenReturn(active);
     DailyGamesService service = service(mock(ProfileRepository.class), games, boards,
         mock(MembershipRepository.class), mock(SubmissionRepository.class), adapters, billing);
     assertEquals(25, service.searchDiscordGames(board.id, "new").size());
+    assertEquals(15, service.searchDiscordGames(board.id, "new", true).size());
     assertEquals("new-game-29", service.searchDiscordGames(board.id, "29").getFirst().slug());
     when(billing.isBoardAccessible(eq(board), any())).thenReturn(false);
     assertEquals("OWNER_SUBSCRIPTION_REQUIRED", assertThrows(ApiException.class,

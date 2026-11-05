@@ -241,7 +241,7 @@ class DiscordService {
     DiscordChannelLeaderboard mapping = channels.findById(new DiscordChannelLeaderboardId(guildId, channelId)).orElse(null);
     if (mapping == null) return emptyChoices(command);
     try {
-      List<Map<String, String>> choices = dailyGames.searchDiscordGames(mapping.leaderboardId, query).stream()
+      List<Map<String, String>> choices = dailyGames.searchDiscordGames(mapping.leaderboardId, query, "daily".equals(command)).stream()
           .map(game -> Map.of("name", game.name(), "value", game.slug())).toList();
       return new DiscordInteractionResult(Map.of("type", 8, "data", Map.of("choices", choices)), command, "SUCCESS");
     } catch (ApiException exception) { return emptyChoices(command); }

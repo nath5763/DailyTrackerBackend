@@ -26,12 +26,13 @@ class GameAdapterRegistryTest {
     assertEquals("worldle", registry.detectGame("#Worldle #1103 (28.01.2025) 1/6 (100%)").orElseThrow());
     assertTrue(registry.detectGame("🟩🟩🟩🟩🟩").isEmpty());
     assertTrue(registry.detectGame("Wordle 1961 4/6\n#Worldle #1103 (28.01.2025) 1/6 (100%)").isEmpty());
+    assertTrue(registry.detectGame("Squirdle #100 3/8").isEmpty());
   }
 
   @Test void reportsEveryRequestedGameWithoutPretendingUnsupportedFormatsWork() {
     var all = registry.capabilities();
-    assertEquals(37, all.size());
-    assertEquals(37, all.stream().map(ApiModels.ParserCapabilityView::gameId).distinct().count());
+    assertEquals(76, all.size());
+    assertEquals(76, all.stream().map(ApiModels.ParserCapabilityView::gameId).distinct().count());
     assertEquals("PARTIAL", all.stream().filter(value -> value.gameId().equals("worldle"))
         .findFirst().orElseThrow().status());
     var unsupported = all.stream().filter(value -> value.gameId().equals("waffle")).findFirst().orElseThrow();
@@ -42,6 +43,10 @@ class GameAdapterRegistryTest {
     assertEquals(Set.of("share-text"), formats.get("worldle"));
     assertEquals(Set.of(), formats.get("waffle"));
     assertEquals(Set.of("share-text"), formats.get("connections"));
+    var fandom = all.stream().filter(value -> value.gameId().equals("squirdle")).findFirst().orElseThrow();
+    assertEquals("MANUAL_ONLY", fandom.status());
+    assertEquals(Set.of(), fandom.supportedFormats());
+    assertEquals(Set.of("manual-entry"), registry.submissionFormats("squirdle"));
   }
 
   @ParameterizedTest(name = "{0} is explicitly {1}")
@@ -55,7 +60,8 @@ class GameAdapterRegistryTest {
 
   static Stream<Arguments> requestedGames() {
     return GameParserCapabilities.REQUESTED_GAME_IDS.stream()
-        .map(gameId -> Arguments.of(gameId, PARTIAL.contains(gameId) ? "PARTIAL" : "UNSUPPORTED"));
+        .map(gameId -> Arguments.of(gameId, PARTIAL.contains(gameId) ? "PARTIAL" :
+            FandomGames.find(gameId).isPresent() ? "MANUAL_ONLY" : "UNSUPPORTED"));
   }
 
   @Test void decoratesNativeMetricsAndRevalidatesTheConfirmedPreview() {

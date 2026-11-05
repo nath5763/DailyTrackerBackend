@@ -391,11 +391,16 @@ class DailyGamesService {
   }
 
   List<GameView> searchDiscordGames(UUID boardId, String query) {
+    return searchDiscordGames(boardId, query, false);
+  }
+
+  List<GameView> searchDiscordGames(UUID boardId, String query, boolean shareTextOnly) {
     Leaderboard board = boards.findById(boardId)
         .orElseThrow(() -> new ApiException(404, "LEADERBOARD_NOT_FOUND", "That leaderboard no longer exists."));
     requireUnlocked(board);
     String term = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
     return allowedGames(board).stream()
+        .filter(game -> !shareTextOnly || adapters.supportsShareText(game.slug))
         .filter(game -> game.name.toLowerCase(Locale.ROOT).contains(term) || game.slug.toLowerCase(Locale.ROOT).contains(term))
         .limit(25).map(this::gameView).toList();
   }
@@ -560,7 +565,8 @@ class DailyGamesService {
   private GameView gameView(Game game) {
     GameAdapter adapter = adapters.require(game.slug);
     return new GameView(game.id, game.slug, game.name, game.sourceUrl, game.rankingDirection,
-        adapter.scoreFormat(), adapter.submissionConfig(), adapters.manualEntryConfig(game.slug));
+        adapter.scoreFormat(), adapter.submissionConfig(), adapters.manualEntryConfig(game.slug),
+        adapters.submissionFormats(game.slug));
   }
   private BoardSummary boardSummary(Leaderboard board, UUID viewer) {
     List<Game> allowedGames = allowedGames(board);

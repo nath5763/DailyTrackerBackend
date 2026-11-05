@@ -27,7 +27,7 @@ interface ScoreQuantizer {
 class ScoreQuantizerRegistry {
   private static final MetricDirection ASC = MetricDirection.ASCENDING;
   private static final MetricDirection DESC = MetricDirection.DESCENDING;
-  private static final List<ScoreStrategySpec> SPECS = List.of(
+  private static final List<ScoreStrategySpec> CORE_SPECS = List.of(
       spec("spelling-bee", "percentage of verified daily maximum; otherwise ordinal rank", "percentOfMaximum", DESC, "rankOrdinal", ASC, List.of(), true),
       spec("quordle", "fewest failed boards, then lowest total with failed boards worth 10", "failed", ASC, "penalizedGuessTotal", ASC, List.of("gameMode"), false),
       spec("octordle", "verified native mode score; otherwise failures then penalized total", "failed", ASC, "penalizedGuessTotal", ASC, List.of("gameMode"), false),
@@ -56,12 +56,29 @@ class ScoreQuantizerRegistry {
       spec("immaculate-grid", "highest correct cells, then lowest rarity when present", "correctCells", DESC, "rarityScore", ASC, List.of("sport", "gameMode"), false),
       spec("weddle", "fewest guesses", "attemptsUsed", ASC, null, null, List.of("gameMode"), false),
       spec("poeltl", "fewest guesses", "attemptsUsed", ASC, null, null, List.of("gameMode"), false));
+  private static final List<ScoreStrategySpec> SPECS = fandomSpecs();
   private final Map<String, ScoreQuantizer> quantizers;
 
   ScoreQuantizerRegistry() {
     Map<String, ScoreQuantizer> values = new LinkedHashMap<>();
     SPECS.forEach(spec -> values.put(spec.gameId(), new ConfiguredScoreQuantizer(spec)));
     quantizers = Collections.unmodifiableMap(values);
+  }
+
+  private static List<ScoreStrategySpec> fandomSpecs() {
+    List<ScoreStrategySpec> values = new ArrayList<>(CORE_SPECS);
+    for (FandomGameDefinition game : FandomGames.ALL) {
+      List<String> compatibility = game.hasModes() ? List.of("gameMode") : List.of();
+      values.add(switch (game.scoreKind()) {
+        case ATTEMPTS -> spec(game.slug(), "fewest native guesses or revealed clues", "attemptsUsed", ASC,
+            null, null, compatibility, false);
+        case CONNECTION_MISTAKES -> spec(game.slug(), "fewest incorrect group submissions", "mistakes", ASC,
+            null, null, compatibility, false);
+        case GRID_RARITY -> spec(game.slug(), "most correct cells, then lowest available rarity", "correctCells", DESC,
+            "rarityScore", ASC, compatibility, false);
+      });
+    }
+    return List.copyOf(values);
   }
 
   Collection<ScoreStrategySpec> strategies() { return quantizers.values().stream().map(ScoreQuantizer::spec).toList(); }

@@ -319,7 +319,7 @@ class DiscordServiceTest {
         "444444444444444444", "333333333333333333", boardId, UUID.randomUUID(), "222222222222222222", now)));
     List<ApiModels.GameView> games = new ArrayList<>();
     for (int i = 0; i < 25; i++) games.add(game("game" + i, "Game " + i));
-    when(dailyGames.searchDiscordGames(boardId, "ga")).thenReturn(games);
+    when(dailyGames.searchDiscordGames(boardId, "ga", true)).thenReturn(games);
     String payload = commandWithPermissions("daily", "0", "game", "ga")
         .replace("\"type\":2", "\"type\":4")
         .replace("\"name\":\"game\",\"value\"", "\"name\":\"game\",\"focused\":true,\"value\"");

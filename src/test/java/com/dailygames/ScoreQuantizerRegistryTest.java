@@ -12,8 +12,8 @@ class ScoreQuantizerRegistryTest {
   private final ScoreQuantizerRegistry registry = new ScoreQuantizerRegistry();
 
   @Test void definesASeparateStrategyForEveryRequestedGame() {
-    assertEquals(28, registry.strategies().size());
-    assertEquals(28, registry.strategies().stream().map(ScoreStrategySpec::gameId).distinct().count());
+    assertEquals(67, registry.strategies().size());
+    assertEquals(67, registry.strategies().stream().map(ScoreStrategySpec::gameId).distinct().count());
   }
 
   @Test void comparesQuordleByFailuresBeforePenalizedTotalAndProducesTies() {

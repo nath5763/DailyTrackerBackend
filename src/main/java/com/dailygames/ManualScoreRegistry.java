@@ -45,6 +45,7 @@ final class ManualScoreRegistry {
         integer("round1", "Round 1 points", false, 0, 10000, null), integer("round2", "Round 2 points", false, 0, 10000, null),
         integer("round3", "Round 3 points", false, 0, 10000, null), integer("round4", "Round 4 points", false, 0, 10000, null),
         integer("round5", "Round 5 points", false, 0, 10000, "If one round is entered, all five are required.")));
+    FandomGames.ALL.forEach(game -> values.put(game.slug(), fandomConfig(game)));
     configs = Collections.unmodifiableMap(values);
   }
 
@@ -67,10 +68,18 @@ final class ManualScoreRegistry {
     for (ManualEntryFieldView field : config.fields()) if (field.required() && missing(raw.get(field.key())))
       throw invalid(field.label() + " is required.");
 
+    String mode = FandomGames.find(slug).filter(FandomGameDefinition::hasModes)
+        .map(ignored -> optionalText(raw, "gameMode", 50)).orElse(null);
     String key = puzzleId == null ? date.toString() : puzzleId;
+    if (mode != null) {
+      mode = mode.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", "-").replaceAll("(^-|-$)", "");
+      if (mode.isEmpty()) throw invalid("Game mode must include at least one letter or number.");
+      key = mode + ":" + key;
+    }
     Integer number = puzzleId != null && puzzleId.matches("[1-9][0-9]*") ? parsePuzzleNumber(puzzleId) : null;
     Map<String, Object> metrics = new LinkedHashMap<>();
     metrics.put("completionStatus", status);
+    if (mode != null) metrics.put("gameMode", mode);
 
     BigDecimal primary = switch (slug) {
       case "fermi" -> fermi(raw, metrics);
@@ -86,7 +95,8 @@ final class ManualScoreRegistry {
       case "strands" -> strands(raw, metrics);
       case "quordle" -> quordle(raw, metrics, status);
       case "timeguessr" -> timeGuessr(raw, metrics);
-      default -> throw invalid("Manual entry is not available for this game.");
+      default -> FandomGames.find(slug).map(game -> fandom(game, raw, metrics, status))
+          .orElseThrow(() -> invalid("Manual entry is not available for this game."));
     };
     return new ParsedSubmission(key, number, date, primary, Collections.unmodifiableMap(metrics), 1);
   }
@@ -166,6 +176,48 @@ final class ManualScoreRegistry {
     return BigDecimal.valueOf(hints);
   }
 
+  private BigDecimal fandom(FandomGameDefinition game, Map<String, Object> raw, Map<String, Object> metrics,
+                            String status) {
+    return switch (game.scoreKind()) {
+      case ATTEMPTS -> {
+        int attempts = integer(raw, "attempts", true, 1, 1000);
+        metrics.put("attemptsUsed", attempts);
+        metrics.put("rankingPrimary", attempts);
+        metrics.put("rankingPrimaryDirection", "ASCENDING");
+        metrics.put("scoreUnit", "guesses");
+        metrics.put("displayScore", ("LOSS".equals(status) ? "Not solved · " : "") + attempts
+            + (attempts == 1 ? " guess" : " guesses"));
+        yield BigDecimal.valueOf(attempts);
+      }
+      case CONNECTION_MISTAKES -> {
+        int mistakes = integer(raw, "mistakes", true, 0, 1000);
+        metrics.put("mistakes", mistakes);
+        metrics.put("rankingPrimary", mistakes);
+        metrics.put("rankingPrimaryDirection", "ASCENDING");
+        metrics.put("scoreUnit", "mistakes");
+        metrics.put("displayScore", mistakes + (mistakes == 1 ? " mistake" : " mistakes"));
+        yield BigDecimal.valueOf(mistakes);
+      }
+      case GRID_RARITY -> {
+        int correct = integer(raw, "correctCells", true, 0, 9);
+        BigDecimal rarity = decimal(raw, "rarityScore", false, BigDecimal.ZERO, new BigDecimal("1000000"));
+        if ("WIN".equals(status) && correct != 9 || "LOSS".equals(status) && correct == 9)
+          throw invalid("Completed grids must have nine correct cells; incomplete grids must have fewer than nine.");
+        metrics.put("correctCells", correct);
+        metrics.put("rankingPrimary", correct);
+        metrics.put("rankingPrimaryDirection", "DESCENDING");
+        if (rarity != null) {
+          metrics.put("rarityScore", rarity);
+          metrics.put("rankingSecondary", rarity);
+          metrics.put("rankingSecondaryDirection", "ASCENDING");
+        }
+        metrics.put("scoreUnit", "completed-cells");
+        metrics.put("displayScore", correct + "/9" + (rarity == null ? "" : " · rarity " + rarity.stripTrailingZeros().toPlainString()));
+        yield BigDecimal.valueOf(correct);
+      }
+    };
+  }
+
   private BigDecimal quordle(Map<String, Object> raw, Map<String, Object> metrics, String status) {
     List<Integer> guesses = new ArrayList<>(); int failed = 0, total = 0;
     for (int index = 1; index <= 4; index++) {
@@ -227,6 +279,22 @@ final class ManualScoreRegistry {
     for (String key : assistance) fields.add(integer(key, label(key), false, 0, 10000, null));
     return new ManualEntryConfigView(true, false, WIN, List.copyOf(fields));
   }
+  private static ManualEntryConfigView fandomConfig(FandomGameDefinition game) {
+    List<ManualEntryFieldView> fields = new ArrayList<>();
+    if (game.hasModes()) fields.add(text("gameMode", "Game mode", true, "Enter the mode exactly as shown by the game."));
+    switch (game.scoreKind()) {
+      case ATTEMPTS -> fields.add(integer("attempts", "Guesses or clues used", true, 1, 1000,
+          "Enter the native count shown by the completed game."));
+      case CONNECTION_MISTAKES -> fields.add(integer("mistakes", "Incorrect groups", true, 0, 1000,
+          "Enter the number of incorrect group submissions."));
+      case GRID_RARITY -> {
+        fields.add(integer("correctCells", "Correct cells", true, 0, 9, "Enter the number completed out of nine."));
+        fields.add(decimal("rarityScore", "Rarity score", false, "0", "1000000", "0.01",
+            "Optional. Leave blank when the game does not display rarity."));
+      }
+    }
+    return new ManualEntryConfigView(true, false, WIN_LOSS, List.copyOf(fields));
+  }
   private static ManualEntryFieldView integer(String key, String label, boolean required, int min, int max, String help) {
     return new ManualEntryFieldView(key, label, "INTEGER", required, BigDecimal.valueOf(min), BigDecimal.valueOf(max), BigDecimal.ONE, List.of(), help);
   }
@@ -239,6 +307,9 @@ final class ManualScoreRegistry {
   }
   private static ManualEntryFieldView bool(String key, String label, boolean required, String help) {
     return new ManualEntryFieldView(key, label, "BOOLEAN", required, null, null, null, List.of(), help);
+  }
+  private static ManualEntryFieldView text(String key, String label, boolean required, String help) {
+    return new ManualEntryFieldView(key, label, "TEXT", required, null, null, null, List.of(), help);
   }
   private static ManualEntryFieldView board(String key, String label) {
     return new ManualEntryFieldView(key, label, "ENUM", true, null, null, null,
@@ -301,6 +372,14 @@ final class ManualScoreRegistry {
     return seconds;
   }
   private boolean bool(Object value) { return value instanceof Boolean flag ? flag : value != null && Boolean.parseBoolean(value.toString()); }
+  private static String optionalText(Map<String, Object> values, String key, int maximum) {
+    Object raw = values.get(key);
+    if (missing(raw)) return null;
+    String value = raw.toString().strip().replaceAll("\\s+", " ");
+    if (value.length() > maximum || value.chars().anyMatch(Character::isISOControl))
+      throw new ApiException(422, "INVALID_MANUAL_RESULT", "Game mode is invalid.");
+    return value;
+  }
   private static boolean missing(Object value) { return value == null || value instanceof String text && text.isBlank(); }
   private static String formatDuration(int seconds) {
     if (seconds >= 3600) return String.format(Locale.ROOT, "%d:%02d:%02d", seconds / 3600, seconds / 60 % 60, seconds % 60);
