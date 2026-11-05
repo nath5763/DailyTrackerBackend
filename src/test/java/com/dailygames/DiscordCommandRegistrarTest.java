@@ -99,4 +99,15 @@ class DiscordCommandRegistrarTest {
     assertEquals(10, paths.size());
     assertEquals("help", bodies.getLast().path("name").asText());
   }
+
+  @Test void removedGuildIsNotRetriedAndReconnectionRegistersAgain() {
+    when(mappings.findDistinctGuildIds()).thenReturn(List.of(GUILD_ID), List.of(), List.of(GUILD_ID));
+    registrar.reconcile();
+    assertEquals(18, paths.size());
+    registrar.reconcile();
+    assertEquals(18, paths.size());
+    persisted.keySet().removeIf(key -> key.contains(":" + GUILD_ID + ":"));
+    registrar.reconcile();
+    assertEquals(27, paths.size());
+  }
 }

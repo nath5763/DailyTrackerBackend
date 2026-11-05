@@ -52,6 +52,7 @@ class DiscordCommandRegistrar {
   @Scheduled(initialDelay = 1000, fixedDelay = 600000)
   synchronized void reconcile() {
     if (!configured()) return;
+    registrations.pruneUnmappedGuilds();
     try { registerGlobal(); }
     catch (ApiException exception) { log.warn("Discord global command registration failed: {}", exception.code); }
     for (String guildId : mappings.findDistinctGuildIds()) {

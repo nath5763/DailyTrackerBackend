@@ -95,6 +95,7 @@ class DiscordService {
   private final DiscordLinkCodeRepository codes;
   private final LeaderboardRepository boards;
   private final DiscordChannelLeaderboardRepository channels;
+  private final DiscordCommandRegistrationStore registrations;
   private final ProcessedDiscordInteractionRepository interactions;
   private final BillingService billing;
   private final DailyGamesService dailyGames;
@@ -107,11 +108,13 @@ class DiscordService {
 
   DiscordService(ProfileRepository profiles, DiscordAccountLinkRepository links, DiscordLinkCodeRepository codes,
                  LeaderboardRepository boards, DiscordChannelLeaderboardRepository channels,
+                 DiscordCommandRegistrationStore registrations,
                  ProcessedDiscordInteractionRepository interactions, BillingService billing,
                  DailyGamesService dailyGames, DiscordSignupService signup, GameAdapterRegistry adapters, DiscordSignatureVerifier configuration,
                  Clock clock, @Value("${app.token-pepper}") String pepper,
                  @Value("${app.public-base-url}") String publicBaseUrl) {
     this.profiles = profiles; this.links = links; this.codes = codes; this.boards = boards; this.channels = channels;
+    this.registrations = registrations;
     this.interactions = interactions; this.billing = billing; this.dailyGames = dailyGames; this.signup = signup; this.adapters = adapters;
     this.configuration = configuration; this.clock = clock; this.pepper = pepper;
     this.publicBaseUrl = publicBaseUrl.replaceAll("/+$", "");
@@ -144,7 +147,13 @@ class DiscordService {
 
   @Transactional
   void unlinkWebsite(UUID userId) {
+    disconnectOwnedChannels(userId);
     links.deleteByUserId(userId);
+  }
+
+  private void disconnectOwnedChannels(UUID userId) {
+    channels.deleteOwnedChannels(userId);
+    registrations.pruneUnmappedGuilds();
   }
 
   @Transactional
@@ -256,6 +265,9 @@ class DiscordService {
       byDiscord.updatedAt = now;
       links.save(byDiscord);
     } else {
+      if (byDiscord != null) disconnectOwnedChannels(byDiscord.userId);
+      if (byProfile != null && (byDiscord == null || !byProfile.userId.equals(byDiscord.userId)))
+        disconnectOwnedChannels(byProfile.userId);
       if (byDiscord != null) links.delete(byDiscord);
       if (byProfile != null) links.delete(byProfile);
       links.flush();
@@ -267,11 +279,11 @@ class DiscordService {
   }
 
   private DiscordInteractionResult unlink(String discordUserId) {
-    if (!links.existsById(discordUserId)) {
-      throw new ApiException(404, "NOT_LINKED", "This Discord account is not linked to Daily Tracker.");
-    }
+    DiscordAccountLink link = links.findById(discordUserId)
+        .orElseThrow(() -> new ApiException(404, "NOT_LINKED", "This Discord account is not linked to Daily Tracker."));
+    disconnectOwnedChannels(link.userId);
     links.deleteById(discordUserId);
-    return ephemeral("Your Discord account is no longer linked to Daily Tracker.", "SUCCESS", "unlink");
+    return ephemeral("Your Discord account is no longer linked to Daily Tracker. Channels connected to leaderboards you own were disconnected.", "SUCCESS", "unlink");
   }
 
   private DiscordInteractionResult setup(String discordUserId, String guildId, String channelId, JsonNode member,

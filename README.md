@@ -27,6 +27,8 @@ The backend registers `/help`, `/signup`, `/my-id`, `/add-member`, `/link`, `/un
 
 Discord command registrations are tracked per application, command, and scope in PostgreSQL by Flyway V12. The scheduled check skips unchanged definitions across backend restarts and retries only commands that were never recorded or whose definitions changed. The first deployment of V12 will register the current commands once because earlier successful registrations were not recorded.
 
+Unlinking an owner's Discord account from the website or with `/unlink` disconnects channels attached to leaderboards they own. Removing the last saved channel in a server stops guild command retries and clears that server's registration fingerprints; reconnecting can register commands again. Other owners' channels in the same server remain connected. Direct changes made only in Discord are not detected without reconnecting or removing the saved channel in Daily Tracker.
+
 ## Leaderboard types
 
 Owners can share a reusable signup link from their leaderboard's player management area. `GET /api/v1/leaderboards/{id}/invite` shows the active link, `POST` to the same path creates it if needed, `POST /api/v1/leaderboards/{id}/invite/regenerate` replaces it, and `DELETE /api/v1/leaderboards/{id}/invite` revokes it. These operations require ownership. Public `GET /api/v1/invites/{token}` previews the leaderboard; authenticated `POST /api/v1/invites/{token}/redeem` adds the current profile idempotently. Creating and redeeming require an unlocked board. Links are signed with the stable `AUTH_TOKEN_PEPPER`, so keep that secret unchanged while links are in use. Deploy Flyway V11 and the backend endpoints before deploying the website `/join` page.

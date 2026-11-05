@@ -39,8 +39,37 @@ class DailyGamesIntegrationTest {
   @Autowired UserRepository users;
   @Autowired BillingAccountRepository billingAccounts;
   @Autowired LeaderboardRepository boards;
+  @Autowired DiscordService discord;
+  @Autowired DiscordChannelLeaderboardRepository channels;
+  @Autowired DiscordCommandRegistrationStore registrations;
   @Autowired LeaderboardInviteService invites;
   @Autowired JdbcTemplate jdbc;
+
+  @Test void unlinkingOwnersPrunesOnlyTheirChannelsAndLastGuildRegistration() {
+    UserAccount first = users.save(new UserAccount("discord-owner-one@example.com", Instant.now()));
+    UserAccount second = users.save(new UserAccount("discord-owner-two@example.com", Instant.now()));
+    CurrentUser firstUser = new CurrentUser(first.id, first.normalizedEmail);
+    CurrentUser secondUser = new CurrentUser(second.id, second.normalizedEmail);
+    service.onboard(firstUser, new OnboardingRequest("First Owner", "#dfff4f"));
+    service.onboard(secondUser, new OnboardingRequest("Second Owner", "#ff8db6"));
+    UUID firstBoard = service.createBoard(firstUser, new CreateLeaderboardRequest("First Board", "fermi"));
+    UUID secondBoard = service.createBoard(secondUser, new CreateLeaderboardRequest("Second Board", "fermi"));
+    String guild = "333333333333333333";
+    String firstChannel = "444444444444444444";
+    String secondChannel = "555555555555555555";
+    channels.save(new DiscordChannelLeaderboard(guild, firstChannel, firstBoard, first.id, "111111111111111111", Instant.now()));
+    channels.save(new DiscordChannelLeaderboard(guild, secondChannel, secondBoard, second.id, "222222222222222222", Instant.now()));
+    registrations.markCurrent("123456789012345678", guild, "help", "hash");
+
+    discord.unlinkWebsite(first.id);
+    assertFalse(channels.existsById(new DiscordChannelLeaderboardId(guild, firstChannel)));
+    assertTrue(channels.existsById(new DiscordChannelLeaderboardId(guild, secondChannel)));
+    assertTrue(registrations.isCurrent("123456789012345678", guild, "help", "hash"));
+
+    discord.unlinkWebsite(second.id);
+    assertFalse(channels.existsById(new DiscordChannelLeaderboardId(guild, secondChannel)));
+    assertFalse(registrations.isCurrent("123456789012345678", guild, "help", "hash"));
+  }
 
   @Test void reusableInviteJoinsProfilesAndRevocationInvalidatesOldLinks() {
     UserAccount owner = users.save(new UserAccount("invite-owner@example.com", Instant.now()));

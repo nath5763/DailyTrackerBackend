@@ -23,4 +23,9 @@ class DiscordCommandRegistrationStore {
         "set definition_hash = excluded.definition_hash, registered_at = excluded.registered_at",
         applicationId, scopeId, name, hash, Instant.now());
   }
+
+  void pruneUnmappedGuilds() {
+    jdbc.update("delete from discord_command_registrations r where r.scope_id <> 'global' and " +
+        "not exists (select 1 from discord_channel_leaderboards c where c.guild_id = r.scope_id)");
+  }
 }

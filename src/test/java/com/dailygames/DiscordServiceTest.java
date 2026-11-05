@@ -21,6 +21,7 @@ class DiscordServiceTest {
   private DiscordLinkCodeRepository codes;
   private LeaderboardRepository boards;
   private DiscordChannelLeaderboardRepository channels;
+  private DiscordCommandRegistrationStore registrations;
   private ProcessedDiscordInteractionRepository interactions;
   private BillingService billing;
   private DailyGamesService dailyGames;
@@ -35,13 +36,14 @@ class DiscordServiceTest {
     codes = mock(DiscordLinkCodeRepository.class);
     boards = mock(LeaderboardRepository.class);
     channels = mock(DiscordChannelLeaderboardRepository.class);
+    registrations = mock(DiscordCommandRegistrationStore.class);
     interactions = mock(ProcessedDiscordInteractionRepository.class);
     billing = mock(BillingService.class);
     dailyGames = mock(DailyGamesService.class);
     signup = mock(DiscordSignupService.class);
     adapters = mock(GameAdapterRegistry.class);
     DiscordSignatureVerifier configured = new DiscordSignatureVerifier("123", "00".repeat(32), clock);
-    service = new DiscordService(profiles, links, codes, boards, channels, interactions, billing, dailyGames, signup,
+    service = new DiscordService(profiles, links, codes, boards, channels, registrations, interactions, billing, dailyGames, signup,
         adapters, configured, clock, "test-pepper-that-is-never-logged", "https://dailytracker.cc/");
     json = new ObjectMapper();
   }
@@ -220,6 +222,43 @@ class DiscordServiceTest {
     verifyNoInteractions(links);
   }
 
+  @Test void websiteUnlinkDisconnectsOnlyBoardsOwnedByThatProfile() {
+    UUID ownerId = UUID.randomUUID();
+    service.unlinkWebsite(ownerId);
+    verify(channels).deleteOwnedChannels(ownerId);
+    verify(registrations).pruneUnmappedGuilds();
+    verify(links).deleteByUserId(ownerId);
+  }
+
+  @Test void discordUnlinkDisconnectsBoardsOwnedByTheLinkedProfile() throws Exception {
+    UUID ownerId = UUID.randomUUID();
+    String discordUserId = "222222222222222222";
+    when(interactions.insertIfAbsent(anyString(), anyString(), eq(2), eq("unlink"), eq(now))).thenReturn(1);
+    when(links.findById(discordUserId)).thenReturn(Optional.of(new DiscordAccountLink(discordUserId, ownerId, now)));
+    assertEquals("SUCCESS", service.handle(json.readTree(commandWithPermissions("unlink", "0", null, null))).outcome());
+    verify(channels).deleteOwnedChannels(ownerId);
+    verify(registrations).pruneUnmappedGuilds();
+    verify(links).deleteById(discordUserId);
+  }
+
+  @Test void relinkingDiscordAccountDisconnectsPreviousOwnersChannels() throws Exception {
+    UUID previousOwner = UUID.randomUUID();
+    UUID newUser = UUID.randomUUID();
+    when(profiles.findByIdForUpdate(newUser)).thenReturn(Optional.of(new Profile(newUser, "New User", "#dfff4f", now)));
+    String issued = service.issueCode(newUser).code();
+    ArgumentCaptor<DiscordLinkCode> stored = ArgumentCaptor.forClass(DiscordLinkCode.class);
+    verify(codes).save(stored.capture());
+    when(interactions.insertIfAbsent(anyString(), anyString(), eq(2), eq("link"), eq(now))).thenReturn(1);
+    when(codes.findByCodeHashAndConsumedAtIsNullAndExpiresAtAfter(eq(stored.getValue().codeHash), eq(now)))
+        .thenReturn(Optional.of(stored.getValue()));
+    String discordUserId = "222222222222222222";
+    when(links.findById(discordUserId)).thenReturn(Optional.of(new DiscordAccountLink(discordUserId, previousOwner, now)));
+    assertEquals("SUCCESS", service.handle(json.readTree(command("link", discordUserId,
+        "111111111111111111", "333333333333333333", "other", "ignored", "code", issued))).outcome());
+    verify(channels).deleteOwnedChannels(previousOwner);
+    verify(channels, never()).deleteOwnedChannels(newUser);
+  }
+
   @Test void statusProvidesGuildInstallUrlWithoutRequiringLink() {
     UUID userId = UUID.randomUUID();
     DiscordStatus status = service.status(userId);
@@ -231,7 +270,7 @@ class DiscordServiceTest {
     assertEquals(status.installUrl(), service.status(userId).installUrl());
 
     DiscordSignatureVerifier unconfigured = new DiscordSignatureVerifier("", "", clock);
-    DiscordService disabled = new DiscordService(profiles, links, codes, boards, channels, interactions, billing,
+    DiscordService disabled = new DiscordService(profiles, links, codes, boards, channels, registrations, interactions, billing,
         dailyGames, signup, adapters, unconfigured, clock, "pepper", "https://dailytracker.cc");
     assertNull(disabled.status(userId).installUrl());
     assertFalse(disabled.status(userId).configured());

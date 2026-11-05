@@ -100,6 +100,9 @@ import java.util.*;
 @Repository interface DiscordChannelLeaderboardRepository
     extends JpaRepository<DiscordChannelLeaderboard, DiscordChannelLeaderboardId> {
   List<DiscordChannelLeaderboard> findByLeaderboardId(UUID leaderboardId);
+  @Modifying @Query(value = "delete from discord_channel_leaderboards where leaderboard_id in " +
+      "(select id from leaderboards where owner_id = :ownerId)", nativeQuery = true)
+  int deleteOwnedChannels(@Param("ownerId") UUID ownerId);
   @Query("select distinct c.id.guildId from DiscordChannelLeaderboard c")
   List<String> findDistinctGuildIds();
   @Lock(LockModeType.PESSIMISTIC_WRITE)

@@ -31,6 +31,7 @@ class DiscordSetupServiceTest {
   private BillingService billing;
   private DiscordSetupGateway discord;
   private DiscordCommandRegistrar commands;
+  private DiscordCommandRegistrationStore registrations;
   private DiscordSetupService service;
   private DiscordSetup stored;
 
@@ -40,7 +41,8 @@ class DiscordSetupServiceTest {
     links = mock(DiscordAccountLinkRepository.class); billing = mock(BillingService.class);
     discord = mock(DiscordSetupGateway.class);
     commands = mock(DiscordCommandRegistrar.class);
-    service = new DiscordSetupService(setups, boards, members, mappings, links, billing, discord, commands,
+    registrations = mock(DiscordCommandRegistrationStore.class);
+    service = new DiscordSetupService(setups, boards, members, mappings, links, billing, discord, commands, registrations,
         Clock.fixed(now, ZoneOffset.UTC), "https://dailytracker.cc/", "test-pepper");
     when(boards.findById(board.id)).thenReturn(Optional.of(board));
     when(billing.allGameLimit(ownerId, now)).thenReturn(1);
@@ -150,6 +152,8 @@ class DiscordSetupServiceTest {
     when(billing.allGameLimit(ownerId, now)).thenReturn(0);
     service.disconnect(ownerId, board.id, GUILD_ID, VISIBLE_ID);
     verify(mappings).delete(first);
+    verify(mappings).flush();
+    verify(registrations).pruneUnmappedGuilds();
     verify(mappings, never()).delete(second);
     verifyNoInteractions(commands);
   }
