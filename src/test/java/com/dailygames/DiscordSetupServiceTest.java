@@ -138,6 +138,38 @@ class DiscordSetupServiceTest {
     assertNull(stored.consumedAt);
   }
 
+  @Test void ownerCanDisconnectOneChannelEvenAfterPlanExpires() {
+    DiscordChannelLeaderboard first = new DiscordChannelLeaderboard(GUILD_ID, VISIBLE_ID, board.id,
+        ownerId, USER_ID, now);
+    DiscordChannelLeaderboard second = new DiscordChannelLeaderboard(GUILD_ID, HIDDEN_ID, board.id,
+        ownerId, USER_ID, now);
+    when(mappings.findForUpdate(new DiscordChannelLeaderboardId(GUILD_ID, VISIBLE_ID)))
+        .thenReturn(Optional.of(first));
+    when(mappings.findForUpdate(new DiscordChannelLeaderboardId(GUILD_ID, HIDDEN_ID)))
+        .thenReturn(Optional.of(second));
+    when(billing.allGameLimit(ownerId, now)).thenReturn(0);
+    service.disconnect(ownerId, board.id, GUILD_ID, VISIBLE_ID);
+    verify(mappings).delete(first);
+    verify(mappings, never()).delete(second);
+    verifyNoInteractions(commands);
+  }
+
+  @Test void memberOrDifferentBoardCannotDisconnectChannel() {
+    DiscordChannelLeaderboard mapping = new DiscordChannelLeaderboard(GUILD_ID, VISIBLE_ID, otherId,
+        otherId, USER_ID, now);
+    when(mappings.findForUpdate(new DiscordChannelLeaderboardId(GUILD_ID, VISIBLE_ID)))
+        .thenReturn(Optional.of(mapping));
+    assertEquals("NOT_OWNER", assertThrows(ApiException.class,
+        () -> service.disconnect(otherId, board.id, GUILD_ID, VISIBLE_ID)).code);
+    assertEquals("CHANNEL_NOT_CONNECTED", assertThrows(ApiException.class,
+        () -> service.disconnect(ownerId, board.id, GUILD_ID, VISIBLE_ID)).code);
+    when(mappings.findForUpdate(new DiscordChannelLeaderboardId(GUILD_ID, VISIBLE_ID)))
+        .thenReturn(Optional.empty());
+    assertEquals("CHANNEL_NOT_CONNECTED", assertThrows(ApiException.class,
+        () -> service.disconnect(ownerId, board.id, GUILD_ID, VISIBLE_ID)).code);
+    verify(mappings, never()).delete(any());
+  }
+
   private String readyToken() {
     String url = service.callback(ownerId, start(), "code", null, GUILD_ID);
     return url.substring(url.indexOf("&setup=") + 7);

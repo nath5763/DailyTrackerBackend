@@ -116,6 +116,19 @@ class DiscordSetupService {
   }
 
   @Transactional
+  void disconnect(UUID userId, UUID boardId, String guildId, String channelId) {
+    Leaderboard board = boards.findById(boardId)
+        .orElseThrow(() -> new ApiException(404, "LEADERBOARD_NOT_FOUND", "Leaderboard not found."));
+    if (!board.ownerId.equals(userId))
+      throw new ApiException(403, "NOT_OWNER", "Only the owner can disconnect this channel.");
+    DiscordChannelLeaderboard mapping = mappings.findForUpdate(
+        new DiscordChannelLeaderboardId(snowflake(guildId), snowflake(channelId)))
+        .filter(value -> value.leaderboardId.equals(boardId))
+        .orElseThrow(() -> new ApiException(404, "CHANNEL_NOT_CONNECTED", "This channel is not connected to this leaderboard."));
+    mappings.delete(mapping);
+  }
+
+  @Transactional
   List<DiscordChannelView> available(UUID userId, UUID boardId, String setupToken) {
     DiscordSetup setup = requireSetup(userId, boardId, setupToken);
     verifyUser(decrypt(setup.encryptedToken), setup.guildId);

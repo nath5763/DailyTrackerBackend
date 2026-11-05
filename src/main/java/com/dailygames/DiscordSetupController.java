@@ -49,6 +49,13 @@ class DiscordSetupController {
     return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(setup.connected(current(authentication), boardId));
   }
 
+  @DeleteMapping("/leaderboards/{boardId}/channels/{guildId}/{channelId}")
+  ResponseEntity<Void> disconnect(Authentication authentication, @PathVariable UUID boardId,
+      @PathVariable String guildId, @PathVariable String channelId) {
+    setup.disconnect(current(authentication), boardId, guildId, channelId);
+    return ResponseEntity.noContent().cacheControl(CacheControl.noStore()).build();
+  }
+
   @GetMapping("/leaderboards/{boardId}/setup/channels")
   ResponseEntity<List<DiscordChannelView>> available(Authentication authentication, @PathVariable UUID boardId,
       @RequestParam String setupToken) {
