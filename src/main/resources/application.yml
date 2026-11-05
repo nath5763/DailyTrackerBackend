@@ -42,6 +42,9 @@ app:
   discord:
     application-id: ${DISCORD_APPLICATION_ID:}
     public-key: ${DISCORD_PUBLIC_KEY:}
+    client-secret: ${DISCORD_CLIENT_SECRET:}
+    bot-token: ${DISCORD_BOT_TOKEN:}
+    callback-url: ${DISCORD_CALLBACK_URL:http://localhost:3000/api/v1/discord/oauth/callback}
   token-pepper: ${AUTH_TOKEN_PEPPER:local-development-only-change-me}
   secure-cookie: ${SECURE_COOKIE:false}
   verification-hours: 24

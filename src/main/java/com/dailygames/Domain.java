@@ -253,6 +253,7 @@ class DiscordChannelLeaderboardId implements Serializable {
 class DiscordChannelLeaderboard {
   @EmbeddedId DiscordChannelLeaderboardId id;
   @Column(name = "leaderboard_id", nullable = false) UUID leaderboardId;
+  @Column(name = "channel_name", length = 100) String channelName;
   @Column(name = "configured_by_user_id", nullable = false) UUID configuredByUserId;
   @Column(name = "configured_by_discord_user_id", nullable = false, length = 20) String configuredByDiscordUserId;
   @Column(name = "created_at", nullable = false) Instant createdAt;
@@ -275,4 +276,23 @@ class ProcessedDiscordInteraction {
   @Column(nullable = false, length = 64) String outcome;
   @Column(name = "processed_at", nullable = false) Instant processedAt;
   protected ProcessedDiscordInteraction() {}
+}
+
+@Entity @Table(name = "discord_setups")
+class DiscordSetup {
+  @Id UUID id;
+  @Column(name = "user_id", nullable = false) UUID userId;
+  @Column(name = "leaderboard_id", nullable = false) UUID leaderboardId;
+  @Column(name = "state_hash", nullable = false, unique = true, length = 64) String stateHash;
+  @Column(name = "setup_hash", unique = true, length = 64) String setupHash;
+  @Column(name = "discord_user_id", length = 20) String discordUserId;
+  @Column(name = "guild_id", length = 20) String guildId;
+  @Column(name = "encrypted_token", length = 2048) String encryptedToken;
+  @Column(name = "expires_at", nullable = false) Instant expiresAt;
+  @Column(name = "consumed_at") Instant consumedAt;
+  protected DiscordSetup() {}
+  DiscordSetup(UUID userId, UUID leaderboardId, String stateHash, Instant expiresAt) {
+    id = UUID.randomUUID(); this.userId = userId; this.leaderboardId = leaderboardId;
+    this.stateHash = stateHash; this.expiresAt = expiresAt;
+  }
 }

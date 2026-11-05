@@ -90,7 +90,20 @@ import java.util.*;
 }
 
 @Repository interface DiscordChannelLeaderboardRepository
-    extends JpaRepository<DiscordChannelLeaderboard, DiscordChannelLeaderboardId> {}
+    extends JpaRepository<DiscordChannelLeaderboard, DiscordChannelLeaderboardId> {
+  List<DiscordChannelLeaderboard> findByLeaderboardId(UUID leaderboardId);
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query("select c from DiscordChannelLeaderboard c where c.id = :id")
+  Optional<DiscordChannelLeaderboard> findForUpdate(@Param("id") DiscordChannelLeaderboardId id);
+}
+
+@Repository interface DiscordSetupRepository extends JpaRepository<DiscordSetup, UUID> {
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  Optional<DiscordSetup> findByStateHash(String stateHash);
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  Optional<DiscordSetup> findBySetupHash(String setupHash);
+  void deleteByExpiresAtBefore(Instant before);
+}
 
 @Repository interface ProcessedDiscordInteractionRepository extends JpaRepository<ProcessedDiscordInteraction, String> {
   @Modifying
