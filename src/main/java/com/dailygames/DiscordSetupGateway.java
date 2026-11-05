@@ -18,6 +18,7 @@ import java.util.Base64;
 @Component
 class DiscordSetupGateway {
   private static final String API = "https://discord.com/api/v10";
+  private static final String USER_AGENT = "DiscordBot (https://dailytracker.cc, 0.1.0)";
   private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
   private final ObjectMapper json;
   private final String applicationId;
@@ -60,6 +61,7 @@ class DiscordSetupGateway {
         (applicationId + ":" + clientSecret).getBytes(StandardCharsets.UTF_8));
     HttpRequest request = HttpRequest.newBuilder(URI.create(API + "/oauth2/token"))
         .timeout(Duration.ofSeconds(15)).header("Content-Type", MediaType.APPLICATION_FORM_URLENCODED_VALUE)
+        .header("User-Agent", USER_AGENT)
         .header("Authorization", "Basic " + credentials)
         .POST(HttpRequest.BodyPublishers.ofString(body)).build();
     return send(request);
@@ -76,12 +78,12 @@ class DiscordSetupGateway {
 
   private JsonNode getBot(String path) {
     return send(HttpRequest.newBuilder(URI.create(API + path)).timeout(Duration.ofSeconds(15))
-        .header("Authorization", "Bot " + botToken).GET().build(), true);
+        .header("Authorization", "Bot " + botToken).header("User-Agent", USER_AGENT).GET().build(), true);
   }
 
   private JsonNode get(String path, String authorization) {
     return send(HttpRequest.newBuilder(URI.create(API + path)).timeout(Duration.ofSeconds(15))
-        .header("Authorization", authorization).GET().build());
+        .header("Authorization", authorization).header("User-Agent", USER_AGENT).GET().build());
   }
 
   private JsonNode send(HttpRequest request) { return send(request, false); }

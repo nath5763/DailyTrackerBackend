@@ -45,6 +45,7 @@ class DiscordCommandRegistrarTest {
       paths.add(exchange.getRequestURI().getPath());
       assertEquals("POST", exchange.getRequestMethod());
       assertEquals("Bot bot-token", exchange.getRequestHeaders().getFirst("Authorization"));
+      assertEquals("DiscordBot (https://dailytracker.cc, 0.1.0)", exchange.getRequestHeaders().getFirst("User-Agent"));
       bodies.add(json.readTree(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8)));
       byte[] response = "{}".getBytes(StandardCharsets.UTF_8);
       exchange.sendResponseHeaders(status, response.length);

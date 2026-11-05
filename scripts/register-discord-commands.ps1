@@ -106,7 +106,7 @@ if ($Scope -eq "Global") {
 }
 
 Write-Warning "Discord bulk registration replaces every command owned by this application in the selected $Scope scope."
-$headers = @{ Authorization = "Bot $botToken"; "User-Agent" = "DailyTrackerCommandRegistrar/1.0" }
+$headers = @{ Authorization = "Bot $botToken"; "User-Agent" = "DiscordBot (https://dailytracker.cc, 0.1.0)" }
 $body = $commands | ConvertTo-Json -Depth 8 -Compress
 $registered = Invoke-RestMethod -Method Put -Uri $endpoint -Headers $headers -ContentType "application/json" -Body $body
 Write-Host "Registered $($registered.Count) Discord commands in $Scope scope."

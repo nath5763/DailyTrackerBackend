@@ -26,6 +26,7 @@ import java.util.TreeMap;
 @ConditionalOnProperty(prefix = "app.discord", name = "command-registration-enabled", havingValue = "true", matchIfMissing = true)
 class DiscordCommandRegistrar {
   private static final Logger log = LoggerFactory.getLogger(DiscordCommandRegistrar.class);
+  private static final String USER_AGENT = "DiscordBot (https://dailytracker.cc, 0.1.0)";
   private final HttpClient http;
   private final ObjectMapper json;
   private final DiscordChannelLeaderboardRepository mappings;
@@ -101,6 +102,7 @@ class DiscordCommandRegistrar {
         HttpRequest request = HttpRequest.newBuilder(apiBase.resolve(apiBase.getPath() + path))
             .timeout(Duration.ofSeconds(8))
             .header("Authorization", "Bot " + botToken)
+            .header("User-Agent", USER_AGENT)
             .header("Content-Type", "application/json")
             .POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(command))).build();
         HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString());
