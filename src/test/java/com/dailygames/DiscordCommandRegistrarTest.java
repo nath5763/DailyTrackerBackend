@@ -110,4 +110,16 @@ class DiscordCommandRegistrarTest {
     registrar.reconcile();
     assertEquals(27, paths.size());
   }
+
+  @Test void diagnosticTextRedactsSecretsNormalizesLinesAndTruncates() {
+    String secret = "super-secret-bot-token";
+    String diagnostic = DiscordCommandRegistrar.sanitizeDiagnostic(
+        "first\nAuthorization: Bot " + secret + "\t" + "x".repeat(1600), secret);
+    assertFalse(diagnostic.contains(secret));
+    assertFalse(diagnostic.contains("\n"));
+    assertFalse(diagnostic.contains("\t"));
+    assertTrue(diagnostic.contains("[REDACTED]"));
+    assertTrue(diagnostic.endsWith("…[truncated]"));
+    assertEquals("<empty>", DiscordCommandRegistrar.sanitizeDiagnostic(null, secret));
+  }
 }

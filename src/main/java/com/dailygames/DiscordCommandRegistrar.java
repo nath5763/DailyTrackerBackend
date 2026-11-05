@@ -53,13 +53,25 @@ class DiscordCommandRegistrar {
   // Guild commands are reconciled after a channel is connected, outside the setup request.
   @Scheduled(initialDelay = 1000, fixedDelay = 600000)
   synchronized void reconcile() {
-    if (!configured()) return;
+    if (!configured()) {
+      log.warn("Discord command registration is enabled but not configured: applicationIdValid={} botTokenPresent={}",
+          applicationId.matches("[0-9]{1,20}"), !botToken.isBlank());
+      return;
+    }
     registrations.pruneUnmappedGuilds();
+    List<String> guildIds = mappings.findDistinctGuildIds();
+    log.debug("Reconciling Discord commands applicationId={} guildCount={}", applicationId, guildIds.size());
     try { registerGlobal(); }
-    catch (ApiException exception) { log.warn("Discord global command registration failed: {}", exception.code); }
-    for (String guildId : mappings.findDistinctGuildIds()) {
+    catch (ApiException exception) {
+      log.warn("Discord global command registration failed code={} message={}; see the preceding request diagnostic",
+          exception.code, exception.getMessage());
+    }
+    for (String guildId : guildIds) {
       try { registerGuild(guildId); }
-      catch (ApiException exception) { log.warn("Discord command registration failed for guild {}: {}", guildId, exception.code); }
+      catch (ApiException exception) {
+        log.warn("Discord command registration failed scope={} code={} message={}; see the preceding request diagnostic",
+            guildId, exception.code, exception.getMessage());
+      }
     }
   }
 
@@ -80,7 +92,11 @@ class DiscordCommandRegistrar {
     for (Map<String, Object> command : definitions(global)) {
       String name = (String) command.get("name");
       String hash = definitionHash(command);
-      if (registrations.isCurrent(applicationId, scopeId, name, hash)) continue;
+      if (registrations.isCurrent(applicationId, scopeId, name, hash)) {
+        log.trace("Skipping current Discord command scope={} command={} definitionHash={}", scopeId, name,
+            hash.substring(0, 12));
+        continue;
+      }
       try {
         HttpRequest request = HttpRequest.newBuilder(apiBase.resolve(apiBase.getPath() + path))
             .timeout(Duration.ofSeconds(8))
@@ -89,15 +105,27 @@ class DiscordCommandRegistrar {
             .POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(command))).build();
         HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString());
         if (response.statusCode() != 200 && response.statusCode() != 201) {
-          log.warn("Discord rejected command {} with HTTP {}", command.get("name"), response.statusCode());
+          log.warn("Discord command registration rejected scope={} command={} status={} contentType={} " +
+                  "retryAfter={} rateLimitRemaining={} rateLimitResetAfter={} rateLimitScope={} cfRay={} body={}",
+              scopeId, name, response.statusCode(), header(response, "content-type"),
+              header(response, "retry-after"), header(response, "x-ratelimit-remaining"),
+              header(response, "x-ratelimit-reset-after"), header(response, "x-ratelimit-scope"),
+              header(response, "cf-ray"), sanitizeDiagnostic(response.body(), botToken));
           throw unavailable();
         }
+        log.debug("Discord command registration accepted scope={} command={} status={} definitionHash={} " +
+                "rateLimitRemaining={} rateLimitResetAfter={}", scopeId, name, response.statusCode(),
+            hash.substring(0, 12), header(response, "x-ratelimit-remaining"),
+            header(response, "x-ratelimit-reset-after"));
         registrations.markCurrent(applicationId, scopeId, name, hash);
         changed = true;
       } catch (ApiException exception) {
         throw exception;
       } catch (Exception exception) {
         if (exception instanceof InterruptedException) Thread.currentThread().interrupt();
+        log.warn("Discord command registration request failed scope={} command={} endpoint={} exceptionType={} message={}",
+            scopeId, name, path, exception.getClass().getName(),
+            sanitizeDiagnostic(exception.getMessage(), botToken), exception);
         throw unavailable();
       }
     }
@@ -123,6 +151,19 @@ class DiscordCommandRegistrar {
 
   private boolean configured() {
     return applicationId.matches("[0-9]{1,20}") && !botToken.isBlank();
+  }
+
+  private static String header(HttpResponse<?> response, String name) {
+    return response.headers().firstValue(name).orElse("-");
+  }
+
+  static String sanitizeDiagnostic(String value, String secret) {
+    if (value == null || value.isBlank()) return "<empty>";
+    String safe = value;
+    if (secret != null && !secret.isBlank()) safe = safe.replace(secret, "[REDACTED]");
+    safe = safe.replaceAll("(?i)Authorization\\s*[:=]\\s*Bot\\s+[^\\s,;}]+", "Authorization=Bot [REDACTED]")
+        .replaceAll("[\\r\\n\\t]+", " ").trim();
+    return safe.length() <= 1500 ? safe : safe.substring(0, 1500) + "…[truncated]";
   }
 
   private static ApiException unavailable() {
