@@ -70,9 +70,17 @@ class DiscordCommandRegistrarTest {
         bodies.subList(0, 9).stream().map(body -> body.path("name").asText()).toList());
     assertEquals("32", bodies.get(6).path("default_member_permissions").asText());
     assertEquals("result", bodies.get(7).path("options").get(1).path("name").asText());
+    assertEquals("leaderboard", bodies.get(7).path("options").get(2).path("name").asText());
+    assertFalse(bodies.get(7).path("options").get(2).path("required").asBoolean());
     assertTrue(bodies.get(7).path("options").get(0).path("autocomplete").asBoolean());
-    assertEquals(0, bodies.get(7).path("contexts").get(0).asInt());
+    assertEquals("[0,1,2]", bodies.get(7).path("contexts").toString());
+    assertEquals("[0,1]", bodies.get(7).path("integration_types").toString());
+    assertTrue(bodies.subList(0, 9).stream().allMatch(body ->
+        "[0,1,2]".equals(body.path("contexts").toString())
+            && "[0,1]".equals(body.path("integration_types").toString())));
+    assertTrue(bodies.subList(0, 9).stream().noneMatch(body -> body.has("dm_permission")));
     assertTrue(bodies.get(16).path("contexts").isMissingNode());
+    assertTrue(bodies.get(16).path("integration_types").isMissingNode());
     registrar.reconcile();
     registrar.registerGuild(GUILD_ID);
     assertEquals(18, paths.size());

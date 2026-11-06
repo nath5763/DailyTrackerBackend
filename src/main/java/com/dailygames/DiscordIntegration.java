@@ -163,7 +163,7 @@ class DiscordService {
     if (type != 2) return ephemeral("This interaction type is not supported.", "UNSUPPORTED_INTERACTION", null);
     String interactionId = snowflake(payload, "id");
     JsonNode member = payload.path("member");
-    String discordUserId = snowflake(member.path("user"), "id");
+    String discordUserId = interactionUserId(payload);
     String command = requiredText(payload.path("data"), "name", 32).toLowerCase(Locale.ROOT);
     Instant now = clock.instant();
     if (interactions.insertIfAbsent(interactionId, discordUserId, type, command, now) == 0) {
@@ -172,22 +172,24 @@ class DiscordService {
 
     DiscordInteractionResult result;
     try {
-      String guildId = snowflake(payload, "guild_id");
-      String channelId = snowflake(payload, "channel_id");
+      String guildId = optionalSnowflake(payload, "guild_id");
+      String channelId = optionalSnowflake(payload, "channel_id");
       result = switch (command) {
         case "help" -> help();
-        case "signup" -> ephemeral("Finish creating or signing in to your account: <" + signup.issue(discordUserId, guildId, channelId)
-            + ">\nThis private link expires in 24 hours.", "SUCCESS", "signup");
+        case "signup" -> signup(discordUserId, guildId, channelId);
         case "my-id" -> myId(discordUserId);
-        case "add-member" -> addMember(discordUserId, guildId, channelId, option(payload, "uuid", 36));
+        case "add-member" -> addMember(discordUserId, guildId, channelId,
+            option(payload, "uuid", 36), optionalOption(payload, "leaderboard", 36));
         case "link" -> link(discordUserId, option(payload, "code", 32), now);
         case "unlink" -> unlink(discordUserId);
         case "setup" -> setup(discordUserId, guildId, channelId, member,
             option(payload, "leaderboard", 36), now);
         case "daily" -> daily(discordUserId, guildId, channelId,
-            optionalOption(payload, "game", 80), option(payload, "result", 6_000));
+            optionalOption(payload, "game", 80), option(payload, "result", 6_000),
+            optionalOption(payload, "leaderboard", 36));
         case "leaderboard" -> leaderboard(discordUserId, guildId, channelId,
-            option(payload, "game", 80), optionalOption(payload, "range", 8));
+            option(payload, "game", 80), optionalOption(payload, "range", 8),
+            optionalOption(payload, "leaderboard", 36));
         default -> throw new ApiException(400, "UNKNOWN_COMMAND", "That command is not supported.");
       };
     } catch (ApiException exception) {
@@ -199,12 +201,24 @@ class DiscordService {
 
   private DiscordInteractionResult help() {
     return ephemeral("**Daily Tracker help**\n"
-        + "Run `/signup` to create or connect your account and join this channel's leaderboard.\n"
+        + "Run `/signup` to create or connect your account. In a connected server channel, signup can also join that channel's leaderboard.\n"
         + "1. **Link your account:** Sign in at " + publicBaseUrl + "/dashboard, generate a link code in the Discord section, then run `/link` and enter the code. Codes expire after 10 minutes.\n"
-        + "2. **Submit a game result:** In a connected channel, run `/daily`, choose a game, and paste the complete game share text into `result`.\n"
-        + "3. **See rankings:** In a connected channel, run `/leaderboard`, choose a game, and optionally choose a range (today, 7 days, 30 days, or all time).\n"
-        + "Each player links their own account. `/daily` and `/leaderboard` work in channels connected to a leaderboard.",
+        + "2. **Submit a game result:** Run `/daily`, choose a game, and paste the complete game share text into `result`. In DMs and Group DMs, also enter the leaderboard UUID from its Daily Tracker URL.\n"
+        + "3. **See rankings:** Run `/leaderboard`, choose a game, and optionally choose a range (today, 7 days, 30 days, or all time). In DMs and Group DMs, also enter the leaderboard UUID.\n"
+        + "Each player links their own account. Server channels use their configured leaderboard; private chats never create or reuse a channel mapping.",
         "SUCCESS", "help");
+  }
+
+  private DiscordInteractionResult signup(String discordUserId, String guildId, String channelId) {
+    if (guildId == null) {
+      return ephemeral("Create or sign in to Daily Tracker at <" + publicBaseUrl
+          + "/dashboard>, finish your profile, then use the Discord section to generate a code for `/link`. "
+          + "Private chats are not automatically connected to a leaderboard.", "SUCCESS", "signup");
+    }
+    requireChannel(channelId);
+    return ephemeral("Finish creating or signing in to your account: <"
+        + signup.issue(discordUserId, guildId, channelId)
+        + ">\nThis private link expires in 24 hours.", "SUCCESS", "signup");
   }
 
   private DiscordInteractionResult myId(String discordUserId) {
@@ -214,15 +228,16 @@ class DiscordService {
     return ephemeral("Your shareable profile UUID is `" + profile.shareId + "`.", "SUCCESS", "my-id");
   }
 
-  private DiscordInteractionResult addMember(String discordUserId, String guildId, String channelId, String rawId) {
+  private DiscordInteractionResult addMember(String discordUserId, String guildId, String channelId, String rawId,
+                                             String rawLeaderboardId) {
     UUID userId = linkedUser(discordUserId);
-    DiscordChannelLeaderboard mapping = channels.findById(new DiscordChannelLeaderboardId(guildId, channelId))
-        .orElseThrow(() -> new ApiException(404, "CHANNEL_NOT_CONFIGURED", "This channel is not connected to a leaderboard."));
+    UUID leaderboardId = resolveLeaderboard(guildId, channelId, rawLeaderboardId);
     UUID shareId;
     try { shareId = UUID.fromString(rawId); }
     catch (IllegalArgumentException exception) { throw new ApiException(400, "INVALID_PROFILE_ID", "Enter a valid profile UUID."); }
-    dailyGames.addMember(new CurrentUser(userId, ""), mapping.leaderboardId, shareId);
-    return ephemeral("Member added to this channel's leaderboard.", "SUCCESS", "add-member");
+    dailyGames.addMember(new CurrentUser(userId, ""), leaderboardId, shareId);
+    return ephemeral(guildId == null ? "Member added to the selected leaderboard."
+        : "Member added to this channel's leaderboard.", "SUCCESS", "add-member");
   }
 
   private DiscordInteractionResult autocomplete(JsonNode payload) {
@@ -236,12 +251,24 @@ class DiscordService {
           && option.path("value").isTextual()) query = option.path("value").asText();
     }
     if (query == null || query.length() > 80) return emptyChoices(command);
-    String guildId = snowflake(payload, "guild_id");
-    String channelId = snowflake(payload, "channel_id");
-    DiscordChannelLeaderboard mapping = channels.findById(new DiscordChannelLeaderboardId(guildId, channelId)).orElse(null);
-    if (mapping == null) return emptyChoices(command);
     try {
-      List<Map<String, String>> choices = dailyGames.searchDiscordGames(mapping.leaderboardId, query, "daily".equals(command)).stream()
+      String guildId = optionalSnowflake(payload, "guild_id");
+      List<ApiModels.GameView> games;
+      if (guildId == null) {
+        String rawLeaderboardId = optionalOption(payload, "leaderboard", 36);
+        if (rawLeaderboardId == null) return emptyChoices(command);
+        UUID userId = linkedUser(interactionUserId(payload));
+        games = dailyGames.searchDiscordGames(userId, parseLeaderboardId(rawLeaderboardId), query,
+            "daily".equals(command));
+      } else {
+        String channelId = optionalSnowflake(payload, "channel_id");
+        if (channelId == null) return emptyChoices(command);
+        DiscordChannelLeaderboard mapping = channels.findById(
+            new DiscordChannelLeaderboardId(guildId, channelId)).orElse(null);
+        if (mapping == null) return emptyChoices(command);
+        games = dailyGames.searchDiscordGames(mapping.leaderboardId, query, "daily".equals(command));
+      }
+      List<Map<String, String>> choices = games.stream()
           .map(game -> Map.of("name", game.name(), "value", game.slug())).toList();
       return new DiscordInteractionResult(Map.of("type", 8, "data", Map.of("choices", choices)), command, "SUCCESS");
     } catch (ApiException exception) { return emptyChoices(command); }
@@ -288,6 +315,11 @@ class DiscordService {
 
   private DiscordInteractionResult setup(String discordUserId, String guildId, String channelId, JsonNode member,
                                          String rawLeaderboardId, Instant now) {
+    if (guildId == null) {
+      throw new ApiException(400, "GUILD_REQUIRED",
+          "Run /setup in a Discord server channel. DMs and Group DMs select a leaderboard per command instead.");
+    }
+    requireChannel(channelId);
     if (!canManageGuild(requiredText(member, "permissions", 40))) {
       throw new ApiException(403, "MANAGE_GUILD_REQUIRED", "You need Manage Server permission to configure this channel.");
     }
@@ -317,30 +349,28 @@ class DiscordService {
   }
 
   private DiscordInteractionResult daily(String discordUserId, String guildId, String channelId,
-                                          String gameSlug, String rawText) {
+                                          String gameSlug, String rawText, String rawLeaderboardId) {
     UUID userId = linkedUser(discordUserId);
-    DiscordChannelLeaderboard mapping = channels.findById(new DiscordChannelLeaderboardId(guildId, channelId))
-        .orElseThrow(() -> new ApiException(404, "CHANNEL_NOT_CONFIGURED", "This channel is not connected to a leaderboard."));
-    requirePaidOwner(mapping.leaderboardId);
+    UUID leaderboardId = resolveLeaderboard(guildId, channelId, rawLeaderboardId);
+    if (guildId != null) requirePaidOwner(leaderboardId);
     DailyGamesService.DiscordSubmissionResult saved = gameSlug == null
-        ? dailyGames.submitFromDiscord(userId, mapping.leaderboardId, rawText)
-        : dailyGames.submitFromDiscord(userId, mapping.leaderboardId, gameSlug, rawText);
+        ? dailyGames.submitFromDiscord(userId, leaderboardId, rawText)
+        : dailyGames.submitFromDiscord(userId, leaderboardId, gameSlug, rawText);
     String score = formatScore(saved.submission().primaryScore(), adapters.require(saved.game().slug).scoreFormat());
     return ephemeral("Saved " + saved.game().name + " #" + saved.submission().puzzleKey() + " at " + score + ".",
         "SUCCESS", "daily");
   }
 
   private DiscordInteractionResult leaderboard(String discordUserId, String guildId, String channelId,
-                                               String gameSlug, String requestedRange) {
+                                               String gameSlug, String requestedRange, String rawLeaderboardId) {
     UUID userId = linkedUser(discordUserId);
-    DiscordChannelLeaderboard mapping = channels.findById(new DiscordChannelLeaderboardId(guildId, channelId))
-        .orElseThrow(() -> new ApiException(404, "CHANNEL_NOT_CONFIGURED", "This channel is not connected to a leaderboard."));
-    requirePaidOwner(mapping.leaderboardId);
+    UUID leaderboardId = resolveLeaderboard(guildId, channelId, rawLeaderboardId);
+    if (guildId != null) requirePaidOwner(leaderboardId);
     String range = requestedRange == null ? "today" : requestedRange;
     if (!Set.of("today", "7d", "30d", "all").contains(range)) {
       throw new ApiException(400, "INVALID_RANGE", "Range must be today, 7d, 30d, or all.");
     }
-    ApiModels.LeaderboardResponse board = dailyGames.board(new CurrentUser(userId, ""), mapping.leaderboardId,
+    ApiModels.LeaderboardResponse board = dailyGames.board(new CurrentUser(userId, ""), leaderboardId,
         range, gameSlug);
     String url = publicBaseUrl + "/leaderboards/" + board.id() + "?game=" + gameSlug + "&range=" + range;
     String label = switch (range) {
@@ -385,6 +415,33 @@ class DiscordService {
   private UUID linkedUser(String discordUserId) {
     return links.findById(discordUserId).map(link -> link.userId)
         .orElseThrow(() -> new ApiException(403, "NOT_LINKED", "Link your Daily Tracker account first with /link."));
+  }
+
+  private UUID resolveLeaderboard(String guildId, String channelId, String rawLeaderboardId) {
+    if (guildId != null) {
+      requireChannel(channelId);
+      return channels.findById(new DiscordChannelLeaderboardId(guildId, channelId))
+          .map(mapping -> mapping.leaderboardId)
+          .orElseThrow(() -> new ApiException(404, "CHANNEL_NOT_CONFIGURED",
+              "This server channel is not connected to a leaderboard."));
+    }
+    if (rawLeaderboardId == null) {
+      throw new ApiException(400, "PRIVATE_LEADERBOARD_REQUIRED",
+          "In a DM or Group DM, enter the leaderboard UUID in the `leaderboard` option. "
+              + "Copy it from the leaderboard URL in Daily Tracker.");
+    }
+    return parseLeaderboardId(rawLeaderboardId);
+  }
+
+  private UUID parseLeaderboardId(String rawLeaderboardId) {
+    try { return UUID.fromString(rawLeaderboardId); }
+    catch (IllegalArgumentException exception) {
+      throw new ApiException(400, "INVALID_LEADERBOARD", "Enter a valid leaderboard UUID.");
+    }
+  }
+
+  private void requireChannel(String channelId) {
+    if (channelId == null) throw new ApiException(400, "INVALID_INTERACTION", "Discord sent an invalid interaction.");
   }
 
   private String option(JsonNode payload, String name, int maxLength) {
@@ -475,6 +532,18 @@ class DiscordService {
     String value = requiredText(node, field, 20);
     if (!SNOWFLAKE.matcher(value).matches()) throw new ApiException(400, "INVALID_INTERACTION", "Discord sent an invalid interaction.");
     return value;
+  }
+
+  private static String optionalSnowflake(JsonNode node, String field) {
+    JsonNode value = node.path(field);
+    if (value.isMissingNode() || value.isNull()) return null;
+    return snowflake(node, field);
+  }
+
+  private static String interactionUserId(JsonNode payload) {
+    JsonNode memberUser = payload.path("member").path("user");
+    if (memberUser.path("id").isTextual()) return snowflake(memberUser, "id");
+    return snowflake(payload.path("user"), "id");
   }
 
   private static String requiredText(JsonNode node, String field, int maxLength) {

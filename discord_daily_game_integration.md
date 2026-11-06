@@ -1,6 +1,8 @@
 # Discord Daily Game Integration — Reconciled Technical Plan
 
 > Historical implementation plan, reconciled against the backend on 2026-11-03. The shipped `/daily` command now requires a fixed `game` choice plus `result`, and mapped multi-game leaderboards accept every active game.
+>
+> 2026-11-06 update: global commands now support `GUILD_INSTALL` and `USER_INSTALL` with `GUILD`, `BOT_DM`, and `PRIVATE_CHANNEL` interaction contexts. In DMs and Group DMs, identity comes from `interaction.user.id` and `/daily`, `/leaderboard`, and `/add-member` require an explicit `leaderboard` UUID. Private channels are never persisted as server/channel mappings, `/setup` remains server-only, and no passive Group DM message access is used. The current installation and deployment procedure is documented in `README.md`; guild-only statements below describe the original MVP.
 
 ## 1. Objective
 

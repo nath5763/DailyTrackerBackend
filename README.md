@@ -25,6 +25,43 @@ Discord uses the existing HTTPS service; no Gateway connection or separate runti
 
 The backend registers `/help`, `/signup`, `/my-id`, `/add-member`, `/link`, `/unlink`, `/setup`, `/daily`, and `/leaderboard` globally when new or changed and retries transient failures. It also registers the commands immediately in a server when an owner connects a channel. Existing connected servers are reconciled automatically. Registration upserts these commands without replacing unrelated application commands. `/signup` privately sends a single-use link valid for 24 hours. After website registration or sign-in and profile setup, Discord OAuth `identify` confirms the same Discord user and links the accounts. If the channel still points to its original accessible leaderboard, signup adds the user as a member. An unconnected channel only links the account. `/my-id` privately shows the linked profile's shareable UUID. The linked board owner can use `/add-member uuid:<profile UUID>` in a connected channel. `/link` remains available for manual account linking. The PowerShell registrar is available for administrator troubleshooting only. Paid owners can select **Add leaderboard to Discord** from an unlocked leaderboard. Discord authorization requests `bot`, `applications.commands`, `identify`, and `guilds`, with only View Channel permission for the bot. After selecting a server, the owner chooses an existing visible text channel. The backend checks their Discord identity and Manage Server permission, bot access, website ownership, and paid entitlement before updating the exact server/channel mapping. A channel already mapped to another board requires explicit replacement confirmation. OAuth state is single-use, setup expires after ten minutes, and the user token is discarded after saving. Servers previously authorized for commands alone must authorize the bot through this flow. `/setup` requires Manage Server, board ownership, and an active paid owner tier. Existing channel mappings also check the owner's paid entitlement on every `/daily` and `/leaderboard` call. Free members can link and use those commands in a paid owner's channel. `/daily` requires both `game` and `result`. `/leaderboard` posts up to ten rankings in the channel; `game` is required and `range` defaults to today (`7d`, `30d`, and `all` are available). Both commands autocomplete active games allowed on the channel's board. All-game boards pick up newly active games automatically.
 
+Global commands support both Discord installation types (`GUILD_INSTALL` `0` and `USER_INSTALL` `1`) and all interaction contexts (`GUILD` `0`, `BOT_DM` `1`, and `PRIVATE_CHANNEL` `2`). `PRIVATE_CHANNEL` includes Group DMs for a user-installed app. In a DM or Group DM, Discord sends the invoker at `interaction.user.id`; no guild or member object is required. `/help`, `/signup`, `/link`, `/unlink`, and `/my-id` work without a server. `/daily`, `/leaderboard`, and `/add-member` accept the existing arguments plus an optional `leaderboard` UUID, which is required in DMs and Group DMs and must identify a board the linked user can access. Copy the UUID from the Daily Tracker leaderboard URL. Private-channel commands never create or consult a Discord channel mapping, and `/setup` clearly directs the user to run it in a server. In servers, the `leaderboard` option is ignored and the saved guild/channel mapping, permissions, and paid-owner checks remain authoritative.
+
+User-installed apps respond only to explicit interactions. This integration does not add the bot as a Group DM participant, subscribe to Group DM messages, or parse arbitrary messages. Successful submissions and command errors are acknowledged immediately with private interaction responses; `/leaderboard` returns a mention-safe response visible in the current conversation. No deprecated `dm_permission` field is registered.
+
+### Enable and install the Discord app for Group DMs
+
+In the [Discord Developer Portal](https://discord.com/developers/applications), open the application and configure **Installation**:
+
+1. Under **Installation Contexts**, enable both **User Install** and **Guild Install**.
+2. Select **Discord Provided Link** as the install-link type.
+3. Under **Default Install Settings**, give **User Install** the `applications.commands` scope.
+4. Keep **Guild Install** configured with `applications.commands` and `bot`; keep the existing minimal bot permission (**View Channels**) used by server setup.
+5. Keep the Interactions Endpoint URL set to `https://<api-host>/api/v1/discord/interactions`.
+
+Copy the Discord Provided Link, open it while signed in to Discord, choose **Add to my apps**, and approve the installation. Open a Group DM, type `/` and select this app, then run `/help`. Link the invoking account with `/link code:<dashboard code>`. Test `/leaderboard game:<slug> leaderboard:<UUID>` and `/daily game:<slug> result:<share text> leaderboard:<UUID>`. The linked user must already be a member of the selected leaderboard; `/add-member uuid:<profile UUID> leaderboard:<UUID>` remains owner-only. A Group DM without `leaderboard` receives an actionable response instead of being associated with that private channel.
+
+Discord documents the installation-context setup in [Building your first Discord bot](https://docs.discord.com/developers/quick-start/getting-started#choosing-installation-contexts) and the command fields in [Application Commands](https://docs.discord.com/developers/docs/interactions/slash-commands).
+
+### Register and deploy updated commands
+
+The backend registrar runs shortly after startup when `DISCORD_COMMAND_REGISTRATION_ENABLED=true` and POST-upserts each changed global command by name. It does not bulk-overwrite or delete unrelated commands. To register manually from PowerShell with the same safe upsert behavior:
+
+```powershell
+$env:DISCORD_APPLICATION_ID = '<application-id>'
+$env:DISCORD_BOT_TOKEN = '<bot-token>'
+./scripts/register-discord-commands.ps1 -Scope Global -ConfirmGlobal
+```
+
+For an optional server-only smoke test before global registration:
+
+```powershell
+$env:DISCORD_TEST_GUILD_ID = '<test-server-id>'
+./scripts/register-discord-commands.ps1 -Scope Guild
+```
+
+Build and validate the deployment artifact with `mvn test` and `mvn clean package`, deploy `target/daily-games-api-0.1.0.jar` with the existing Discord secrets, and restart the service. Global command changes can take time to propagate, while Discord may use read-repair when an older command definition is invoked.
+
 Discord command registrations are tracked per application, command, and scope in PostgreSQL by Flyway V12. The scheduled check skips unchanged definitions across backend restarts and retries only commands that were never recorded or whose definitions changed. The first deployment of V12 will register the current commands once because earlier successful registrations were not recorded.
 
 Set `DISCORD_COMMAND_REGISTRATION_ENABLED=false` to pause only automatic Discord command registration and retries. Restart the backend after changing it. Existing Discord commands and interaction handling continue to work; new or changed command definitions will not be published until the setting is restored to `true`.

@@ -432,6 +432,11 @@ class DailyGamesService {
         .limit(25).map(this::gameView).toList();
   }
 
+  List<GameView> searchDiscordGames(UUID userId, UUID boardId, String query, boolean shareTextOnly) {
+    requireMembership(boardId, userId);
+    return searchDiscordGames(boardId, query, shareTextOnly);
+  }
+
   @Transactional
   void removeMember(CurrentUser current, UUID boardId, UUID userId) {
     Leaderboard board = requireOwnedBoard(boardId, current.id());

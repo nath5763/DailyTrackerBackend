@@ -43,6 +43,19 @@ class DailyGamesServiceTest {
     assertEquals("OWNER_SUBSCRIPTION_REQUIRED", assertThrows(ApiException.class,
         () -> service.searchDiscordGames(board.id, "new")).code);
   }
+
+  @Test
+  void privateDiscordGameSearchRequiresLeaderboardMembership() {
+    UUID userId = UUID.randomUUID(), boardId = UUID.randomUUID();
+    MembershipRepository memberships = mock(MembershipRepository.class);
+    DailyGamesService service = service(mock(ProfileRepository.class), mock(GameRepository.class),
+        mock(LeaderboardRepository.class), memberships, mock(SubmissionRepository.class),
+        mock(GameAdapterRegistry.class), mock(BillingService.class));
+
+    assertEquals("NOT_FOUND", assertThrows(ApiException.class,
+        () -> service.searchDiscordGames(userId, boardId, "fermi", true)).code);
+    verify(memberships).existsByIdLeaderboardIdAndIdUserId(boardId, userId);
+  }
   @Test
   void catalogOnlyGameCannotCreateBoardOrAcceptAScore() {
     UUID userId = UUID.randomUUID();

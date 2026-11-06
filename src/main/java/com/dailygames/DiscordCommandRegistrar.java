@@ -184,10 +184,10 @@ class DiscordCommandRegistrar {
   static List<Map<String, Object>> definitions(boolean global) {
     List<Map<String, Object>> commands = new ArrayList<>();
     commands.add(command("help", "How to link your account, submit games, and view rankings", List.of()));
-    commands.add(command("signup", "Create or connect your account and join this channel's leaderboard", List.of()));
+    commands.add(command("signup", "Create or connect your Daily Tracker account", List.of()));
     commands.add(command("my-id", "Show your shareable profile UUID privately", List.of()));
-    commands.add(command("add-member", "Add a profile to this channel's leaderboard",
-        List.of(stringOption("uuid", "Shareable profile UUID", true, 36, 36))));
+    commands.add(command("add-member", "Add a profile to a leaderboard",
+        List.of(stringOption("uuid", "Shareable profile UUID", true, 36, 36), leaderboardOption())));
     commands.add(command("link", "Link your Discord identity to your Daily Tracker profile",
         List.of(stringOption("code", "One-time code from your Daily Tracker dashboard", true, 12, 14))));
     commands.add(command("unlink", "Unlink your Discord identity from Daily Tracker", List.of()));
@@ -197,17 +197,18 @@ class DiscordCommandRegistrar {
     commands.add(setup);
     Map<String, Object> game = stringOption("game", "Game whose result you are submitting", true, 1, 80);
     game.put("autocomplete", true);
-    commands.add(command("daily", "Submit a daily-game share result to this channel's leaderboard",
-        List.of(game, stringOption("result", "Complete game share text", true, 1, 6000))));
+    commands.add(command("daily", "Submit a daily-game share result to a leaderboard",
+        List.of(game, stringOption("result", "Complete game share text", true, 1, 6000), leaderboardOption())));
     Map<String, Object> leaderboardGame = stringOption("game", "Game to rank", true, 1, 80);
     leaderboardGame.put("autocomplete", true);
     Map<String, Object> range = choiceOption("range", "Period to rank (defaults to today)", false,
         List.of(Map.of("name", "Today", "value", "today"), Map.of("name", "Last 7 days", "value", "7d"),
             Map.of("name", "Last 30 days", "value", "30d"), Map.of("name", "All time", "value", "all")));
-    commands.add(command("leaderboard", "Show this channel's leaderboard rankings", List.of(leaderboardGame, range)));
+    commands.add(command("leaderboard", "Show leaderboard rankings",
+        List.of(leaderboardGame, range, leaderboardOption())));
     if (global) commands.forEach(command -> {
-      command.put("contexts", List.of(0));
-      command.put("integration_types", List.of(0));
+      command.put("contexts", List.of(0, 1, 2));
+      command.put("integration_types", List.of(0, 1));
     });
     return commands;
   }
@@ -233,5 +234,9 @@ class DiscordCommandRegistrar {
     result.put("type", 3); result.put("name", name); result.put("description", description);
     result.put("required", required); result.put("choices", choices);
     return result;
+  }
+
+  private static Map<String, Object> leaderboardOption() {
+    return stringOption("leaderboard", "Leaderboard UUID (required in DMs and Group DMs)", false, 36, 36);
   }
 }

@@ -31,12 +31,15 @@ $commands = @(
     name = "help"
     description = "How to link your account, submit games, and view rankings"
   },
-  @{ name = "signup"; description = "Create or connect your account and join this channel's leaderboard" },
+  @{ name = "signup"; description = "Create or connect your Daily Tracker account" },
   @{ name = "my-id"; description = "Show your shareable profile UUID privately" },
   @{
     name = "add-member"
-    description = "Add a profile to this channel's leaderboard"
-    options = @(@{ type = 3; name = "uuid"; description = "Shareable profile UUID"; required = $true; min_length = 36; max_length = 36 })
+    description = "Add a profile to a leaderboard"
+    options = @(
+      @{ type = 3; name = "uuid"; description = "Shareable profile UUID"; required = $true; min_length = 36; max_length = 36 },
+      @{ type = 3; name = "leaderboard"; description = "Leaderboard UUID (required in DMs and Group DMs)"; required = $false; min_length = 36; max_length = 36 }
+    )
   },
   @{
     name = "link"
@@ -55,7 +58,7 @@ $commands = @(
   },
   @{
     name = "daily"
-    description = "Submit a daily-game share result to this channel's leaderboard"
+    description = "Submit a daily-game share result to a leaderboard"
     options = @(
       @{
         type = 3
@@ -66,12 +69,13 @@ $commands = @(
         max_length = 80
         autocomplete = $true
       },
-      @{ type = 3; name = "result"; description = "Complete game share text"; required = $true; min_length = 1; max_length = 6000 }
+      @{ type = 3; name = "result"; description = "Complete game share text"; required = $true; min_length = 1; max_length = 6000 },
+      @{ type = 3; name = "leaderboard"; description = "Leaderboard UUID (required in DMs and Group DMs)"; required = $false; min_length = 36; max_length = 36 }
     )
   },
   @{
     name = "leaderboard"
-    description = "Show this channel's leaderboard rankings"
+    description = "Show leaderboard rankings"
     options = @(
       @{
         type = 3
@@ -93,20 +97,24 @@ $commands = @(
           @{ name = "Last 30 days"; value = "30d" },
           @{ name = "All time"; value = "all" }
         )
-      }
+      },
+      @{ type = 3; name = "leaderboard"; description = "Leaderboard UUID (required in DMs and Group DMs)"; required = $false; min_length = 36; max_length = 36 }
     )
   }
 )
 
 if ($Scope -eq "Global") {
   foreach ($command in $commands) {
-    $command.contexts = @(0)
-    $command.integration_types = @(0)
+    $command.contexts = @(0, 1, 2)
+    $command.integration_types = @(0, 1)
   }
 }
 
-Write-Warning "Discord bulk registration replaces every command owned by this application in the selected $Scope scope."
 $headers = @{ Authorization = "Bot $botToken"; "User-Agent" = "DiscordBot (https://dailytracker.cc, 0.1.0)" }
-$body = $commands | ConvertTo-Json -Depth 8 -Compress
-$registered = Invoke-RestMethod -Method Put -Uri $endpoint -Headers $headers -ContentType "application/json" -Body $body
-Write-Host "Registered $($registered.Count) Discord commands in $Scope scope."
+$registered = 0
+foreach ($command in $commands) {
+  $body = $command | ConvertTo-Json -Depth 8 -Compress
+  Invoke-RestMethod -Method Post -Uri $endpoint -Headers $headers -ContentType "application/json" -Body $body | Out-Null
+  $registered++
+}
+Write-Host "Upserted $registered Discord commands in $Scope scope without deleting unrelated commands."
