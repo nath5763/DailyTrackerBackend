@@ -22,6 +22,8 @@ class FermiParserTest {
     assertEquals(LocalDate.of(2026, 10, 26), parsed.playedOn());
     assertEquals("WIN", parsed.metrics().get("completionStatus"));
     assertEquals(new BigDecimal("8"), parsed.metrics().get("percentile"));
+    assertEquals(java.util.List.of(new ApiModels.ResultDetailView("Top", "8%")),
+        parser.resultDetails(parsed.metrics()));
   }
 
   @Test void acceptsCommaAndComponents() {

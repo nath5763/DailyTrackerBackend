@@ -30,7 +30,32 @@ class ShareTextParsersTest {
           parsed.puzzleNumber(), parsed.playedOn(), parsed.primaryScore(), parsed.metrics(), parsed.parserVersion()), shares.get(i)));
     }
     assertEquals(LocalDate.of(2026, 11, 4), new QueensParser().parse(QUEENS).playedOn());
-    assertEquals("4/6*", new WordleParser().parse(WORDLE).metrics().get("displayScore"));
+    WordleParser wordle = new WordleParser();
+    ParsedSubmission parsedWordle = wordle.parse(WORDLE);
+    assertEquals("4/6*", parsedWordle.metrics().get("displayScore"));
+    assertEquals(List.of(new ApiModels.ResultDetailView("G1", "⬜🟨⬜🟨🟨"),
+        new ApiModels.ResultDetailView("G2", "🟨⬜⬜🟩🟩"),
+        new ApiModels.ResultDetailView("G3", "⬜⬜🟩🟩🟩"),
+        new ApiModels.ResultDetailView("G4", "🟩🟩🟩🟩🟩")), wordle.resultDetails(parsedWordle.metrics()));
+    ParsedSubmission pinpoint = new PinpointParser().parse(PINPOINT);
+    assertEquals(List.of(new ApiModels.ResultDetailView("G1", "100%")),
+        new PinpointParser().resultDetails(pinpoint.metrics()));
+    ParsedSubmission queens = new QueensParser().parse(QUEENS);
+    assertEquals(List.of(new ApiModels.ResultDetailView("C1", "🟦"),
+        new ApiModels.ResultDetailView("C2", "🟪"), new ApiModels.ResultDetailView("C3", "🟧")),
+        new QueensParser().resultDetails(queens.metrics()));
+    ParsedSubmission crossclimb = new CrossclimbParser().parse(CROSSCLIMB);
+    assertEquals(List.of(new ApiModels.ResultDetailView("Order", "1 → 2 → 3 → 5 → 4")),
+        new CrossclimbParser().resultDetails(crossclimb.metrics()));
+    ParsedSubmission tango = new TangoParser().parse(TANGO);
+    assertEquals(List.of(new ApiModels.ResultDetailView("P1", "R3C3"),
+        new ApiModels.ResultDetailView("P2", "R3C1"), new ApiModels.ResultDetailView("P3", "R4C1"),
+        new ApiModels.ResultDetailView("P4", "R5C1"), new ApiModels.ResultDetailView("P5", "R6C1"),
+        new ApiModels.ResultDetailView("Hints", "0"), new ApiModels.ResultDetailView("Mistakes", "0")),
+        new TangoParser().resultDetails(tango.metrics()));
+    ParsedSubmission zip = new ZipParser().parse(ZIP);
+    assertEquals(List.of(new ApiModels.ResultDetailView("Backtracks", "0")),
+        new ZipParser().resultDetails(zip.metrics()));
   }
   @Test void handlesLossAssistanceAndDeviceWhitespace() {
     String loss = "Wordle 1,962 X/6\n⬛⬛⬛⬛⬛\n⬛⬛⬛⬛⬛\n⬛⬛⬛⬛⬛\n⬛⬛⬛⬛⬛\n⬛⬛⬛⬛⬛\n⬛⬛⬛⬛⬛";

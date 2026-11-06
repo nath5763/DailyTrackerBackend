@@ -26,6 +26,10 @@ class TimeGuessrParserTest {
     assertEquals(List.of(8734, 6874, 9058, 9794, 6233), result.metrics().get("roundScores"));
     assertEquals("40,693 pts", result.metrics().get("displayScore"));
     assertEquals("DESCENDING", result.metrics().get("rankingPrimaryDirection"));
+    assertEquals(List.of(new ApiModels.ResultDetailView("R1", "8734 pts"),
+        new ApiModels.ResultDetailView("R2", "6874 pts"), new ApiModels.ResultDetailView("R3", "9058 pts"),
+        new ApiModels.ResultDetailView("R4", "9794 pts"), new ApiModels.ResultDetailView("R5", "6233 pts")),
+        parser.resultDetails(result.metrics()));
   }
 
   @Test void acceptsTheSummaryOnlyVariantAndNarrowNoBreakSpaces() {

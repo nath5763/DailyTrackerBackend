@@ -27,7 +27,9 @@ interface GameAdapter {
     return Arrays.stream(lines).anyMatch(line -> signature.matcher(line).find());
   }
   default BigDecimal rankingMetric(BigDecimal primaryScore, Map<String, Object> metrics) { return primaryScore; }
-  default List<ResultDetailView> resultDetails(Map<String, Object> metrics) { return List.of(); }
+  default List<ResultDetailView> resultDetails(Map<String, Object> metrics) {
+    return ResultDetailFormatter.fromMetrics(slug(), metrics);
+  }
   default String scoreDirection() { return "LOWER_IS_BETTER"; }
   default Set<String> supportedFormats() { return Set.of("share-text"); }
   default String parserStatus() { return "PARTIAL"; }

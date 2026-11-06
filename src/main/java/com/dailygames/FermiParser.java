@@ -29,14 +29,25 @@ class FermiParser implements GameAdapter {
 
   @Override public List<ResultDetailView> resultDetails(Map<String, Object> metrics) {
     Object rawComponents = metrics.get("components");
-    if (!(rawComponents instanceof Collection<?> components)) return List.of();
     List<ResultDetailView> details = new ArrayList<>();
-    for (Object raw : components) {
-      if (details.size() == 3) break;
+    if (rawComponents instanceof Collection<?> components) {
+      for (Object raw : components) {
+        if (details.size() == 3) break;
+        try {
+          BigDecimal value = raw instanceof BigDecimal decimal ? decimal : new BigDecimal(raw.toString());
+          details.add(new ResultDetailView("Q" + (details.size() + 1),
+              value.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString() + "×"));
+        } catch (RuntimeException ignored) {
+          // Ignore malformed historical presentation-only metrics without affecting the saved result.
+        }
+      }
+    }
+    Object rawPercentile = metrics.get("percentile");
+    if (rawPercentile != null) {
       try {
-        BigDecimal value = raw instanceof BigDecimal decimal ? decimal : new BigDecimal(raw.toString());
-        details.add(new ResultDetailView("Q" + (details.size() + 1),
-            value.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString() + "×"));
+        BigDecimal percentile = rawPercentile instanceof BigDecimal decimal ? decimal
+            : new BigDecimal(rawPercentile.toString());
+        details.add(new ResultDetailView("Top", percentile.stripTrailingZeros().toPlainString() + "%"));
       } catch (RuntimeException ignored) {
         // Ignore malformed historical presentation-only metrics without affecting the saved result.
       }

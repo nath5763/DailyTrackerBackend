@@ -39,7 +39,7 @@ class WordleParser implements GameAdapter {
     return new ParsedSubmission(String.valueOf(number), number, FIRST.plusDays(number - 1L), BigDecimal.valueOf(guesses),
         Map.of("completionStatus", solved ? "WIN" : "LOSS",
             "displayScore", header.group(2).toUpperCase(Locale.ROOT) + "/6" + (header.group(3) == null ? "" : "*"),
-            "hardMode", header.group(3) != null), 1);
+            "hardMode", header.group(3) != null, "rows", List.of(lines).subList(1, lines.length)), 1);
   }
   @Override public ParsedSubmission validateConfirmed(ConfirmedSubmission confirmed, String rawText) {
     return ShareTextParserSupport.confirm(parse(rawText), confirmed);
@@ -98,8 +98,10 @@ abstract class LinkedInParser implements GameAdapter {
       Integer backtracks = backtracks(text);
       if (backtracks != null) metrics.put("backtracks", backtracks);
     }
+    metrics.putAll(detailMetrics(text));
     return new ParsedSubmission(String.valueOf(number), number, first.plusDays(number - 1L), BigDecimal.valueOf(value), metrics, 1);
   }
+  Map<String, Object> detailMetrics(String text) { return Map.of(); }
   private int count(Pattern pattern, String text, String zeroPhrase) {
     Matcher matcher = pattern.matcher(text);
     if (matcher.find()) {
@@ -138,6 +140,11 @@ abstract class LinkedInParser implements GameAdapter {
         !matches.getLast().equalsIgnoreCase("100% match"))
       throw ShareTextParserSupport.invalid("Pinpoint needs its completed share details.");
   }
+  @Override Map<String, Object> detailMetrics(String text) {
+    List<Integer> percentages = Pattern.compile("(?i)\\b(\\d{1,3})% match\\b").matcher(text).results()
+        .map(match -> Integer.valueOf(match.group(1))).toList();
+    return Map.of("matchPercentages", percentages);
+  }
 }
 @Component class QueensParser extends LinkedInParser {
   QueensParser() { super("queens", "Queens", LocalDate.of(2024, 5, 1), true,
@@ -146,6 +153,12 @@ abstract class LinkedInParser implements GameAdapter {
     if (!text.contains("First 👑s:") || !hasGameLink(text) ||
         Pattern.compile("[🟥🟧🟨🟩🟦🟪🟫⬜]").matcher(text.substring(text.indexOf("First 👑s:") + 10)).results().count() < 3)
       throw ShareTextParserSupport.invalid("Queens needs its completed share details.");
+  }
+  @Override Map<String, Object> detailMetrics(String text) {
+    String crowns = text.substring(text.indexOf("First 👑s:") + "First 👑s:".length());
+    List<String> colors = Pattern.compile("[🟥🟧🟨🟩🟦🟪🟫⬜]").matcher(crowns).results()
+        .limit(8).map(MatchResult::group).toList();
+    return Map.of("firstCrowns", colors);
   }
 }
 @Component class CrossclimbParser extends LinkedInParser {
@@ -156,6 +169,12 @@ abstract class LinkedInParser implements GameAdapter {
         !text.substring(text.indexOf("Fill order:")).contains("️⃣"))
       throw ShareTextParserSupport.invalid("Crossclimb needs its completed share details.");
   }
+  @Override Map<String, Object> detailMetrics(String text) {
+    String order = text.substring(text.indexOf("Fill order:"));
+    List<Integer> values = Pattern.compile("[1-5]\\uFE0F?\\u20E3").matcher(order).results()
+        .limit(5).map(match -> ShareText.keycapDigit(match.group())).toList();
+    return Map.of("fillOrder", values);
+  }
 }
 @Component class TangoParser extends LinkedInParser {
   TangoParser() { super("tango", "Tango", LocalDate.of(2024, 10, 8), true,
@@ -164,6 +183,22 @@ abstract class LinkedInParser implements GameAdapter {
     if (!text.contains("First 5 placements:") || !hasGameLink(text) ||
         !List.of("1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣").stream().allMatch(text::contains))
       throw ShareTextParserSupport.invalid("Tango needs its completed share details.");
+  }
+  @Override Map<String, Object> detailMetrics(String text) {
+    String board = text.substring(text.indexOf("First 5 placements:") + "First 5 placements:".length());
+    int link = board.toLowerCase(Locale.ROOT).indexOf("lnkd.in/");
+    if (link >= 0) board = board.substring(0, link);
+    Map<Integer, String> placements = new TreeMap<>();
+    String[] rows = board.trim().split("\\s+");
+    Pattern cell = Pattern.compile("[1-5]\\uFE0F?\\u20E3|🟨");
+    for (int row = 0; row < rows.length; row++) {
+      List<String> cells = cell.matcher(rows[row]).results().map(MatchResult::group).toList();
+      for (int column = 0; column < cells.size(); column++) {
+        String value = cells.get(column);
+        if (!value.equals("🟨")) placements.put(ShareText.keycapDigit(value), "R" + (row + 1) + "C" + (column + 1));
+      }
+    }
+    return placements.size() == 5 ? Map.of("placementCells", List.copyOf(placements.values())) : Map.of();
   }
 }
 @Component class ZipParser extends LinkedInParser {

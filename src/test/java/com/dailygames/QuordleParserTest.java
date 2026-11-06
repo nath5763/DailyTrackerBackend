@@ -22,6 +22,9 @@ class QuordleParserTest {
     assertEquals(1, result.metrics().get("failed"));
     assertEquals(32, result.metrics().get("penalizedGuessTotal"));
     assertEquals("3/4 · 32", result.metrics().get("displayScore"));
+    assertEquals(List.of(new ApiModels.ResultDetailView("Q1", "5 guesses"),
+        new ApiModels.ResultDetailView("Q2", "9 guesses"), new ApiModels.ResultDetailView("Q3", "X"),
+        new ApiModels.ResultDetailView("Q4", "8 guesses")), parser.resultDetails(result.metrics()));
   }
 
   @Test void parsesAWinWithUnicodeVariationSelectors() {
