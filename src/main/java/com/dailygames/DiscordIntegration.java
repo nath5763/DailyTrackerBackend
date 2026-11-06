@@ -418,8 +418,12 @@ class DiscordService {
     DailyGamesService.DiscordSubmissionResult saved = gameSlug == null
         ? dailyGames.submitFromDiscord(userId, leaderboardId, rawText)
         : dailyGames.submitFromDiscord(userId, leaderboardId, gameSlug, rawText);
-    String score = formatScore(saved.submission().primaryScore(), adapters.require(saved.game().slug).scoreFormat());
-    return publicReply("Saved " + saved.game().name + " #" + saved.submission().puzzleKey() + " at " + score + ".",
+    GameAdapter adapter = adapters.require(saved.game().slug);
+    String score = formatScore(saved.submission().primaryScore(), adapter.scoreFormat());
+    String details = formatResultDetails(adapter.resultDetails(saved.submission().metrics()));
+    String content = "Saved " + saved.game().name + " #" + saved.submission().puzzleKey() + " at " + score + "."
+        + (details.isEmpty() ? "" : "\n" + details);
+    return publicReply(content,
         "SUCCESS", "daily");
   }
 
@@ -454,6 +458,15 @@ class DiscordService {
         String score = formatScore(row.average(), board.game().scoreFormat());
         String line = row.rank() + ". " + discordText(row.displayName(), 60) + " — " + discordText(score, 40)
             + " (" + row.gamesPlayed() + (row.gamesPlayed() == 1 ? " score)\n" : " scores)\n");
+        if (range.equals("today")) {
+          String details = board.dailyResults().stream()
+              .filter(result -> result.userId().equals(row.userId()))
+              .map(ApiModels.DailyResultDetailsView::details)
+              .map(this::formatResultDetails)
+              .filter(value -> !value.isEmpty())
+              .findFirst().orElse("");
+          if (!details.isEmpty()) line += "   " + details + "\n";
+        }
         if (content.length() + line.length() + footer.length() > 2_000) break;
         content.append(line);
       }
@@ -463,6 +476,13 @@ class DiscordService {
     data.put("content", content.toString());
     data.put("allowed_mentions", Map.of("parse", List.of()));
     return new DiscordInteractionResult(Map.of("type", 4, "data", data), "leaderboard", "SUCCESS");
+  }
+
+  private String formatResultDetails(List<ApiModels.ResultDetailView> details) {
+    if (details == null || details.isEmpty()) return "";
+    return details.stream().limit(7)
+        .map(detail -> discordText(detail.label(), 12) + " " + discordText(detail.value(), 24))
+        .collect(java.util.stream.Collectors.joining(" · "));
   }
 
   private String discordText(String value, int maxLength) {

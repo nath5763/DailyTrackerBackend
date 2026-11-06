@@ -180,13 +180,17 @@ class DiscordServiceTest {
         new DailyGamesService.DiscordSubmissionResult(UUID.randomUUID(), game, parsed));
     GameAdapter adapter = mock(GameAdapter.class);
     when(adapter.scoreFormat()).thenReturn(new ApiModels.ScoreFormatView("", "×", 2, 2));
+    when(adapter.resultDetails(parsed.metrics())).thenReturn(List.of(
+        new ApiModels.ResultDetailView("Q1", "1.20×"),
+        new ApiModels.ResultDetailView("Q2", "1.40×"),
+        new ApiModels.ResultDetailView("Q3", "2.10×")));
     when(adapters.require("fermi")).thenReturn(adapter);
 
     DiscordInteractionResult result = service.handle(json.readTree(command("daily", "222222222222222222",
         "111111111111111111", "333333333333333333", "other", "unused", "result", "Fermi #92\n1.31× score")));
     assertEquals("SUCCESS", result.outcome());
     @SuppressWarnings("unchecked") Map<String, Object> data = (Map<String, Object>) result.body().get("data");
-    assertEquals("Saved Fermi.gg #92 at 1.31×.", data.get("content"));
+    assertEquals("Saved Fermi.gg #92 at 1.31×.\nQ1 1.20× · Q2 1.40× · Q3 2.10×", data.get("content"));
     assertFalse(data.containsKey("flags"));
     assertEquals(Map.of("parse", List.of()), data.get("allowed_mentions"));
   }
@@ -380,6 +384,10 @@ class DiscordServiceTest {
         .thenReturn(new DailyGamesService.DiscordSubmissionResult(UUID.randomUUID(), game, parsed));
     GameAdapter adapter = mock(GameAdapter.class);
     when(adapter.scoreFormat()).thenReturn(new ApiModels.ScoreFormatView("", "×", 2, 2));
+    when(adapter.resultDetails(parsed.metrics())).thenReturn(List.of(
+        new ApiModels.ResultDetailView("Q1", "1.20×"),
+        new ApiModels.ResultDetailView("Q2", "1.40×"),
+        new ApiModels.ResultDetailView("Q3", "2.10×")));
     when(adapters.require("fermi")).thenReturn(adapter);
 
     DiscordInteractionResult submitted = service.handle(json.readTree(
@@ -437,6 +445,10 @@ class DiscordServiceTest {
         .thenReturn(new DailyGamesService.DiscordSubmissionResult(UUID.randomUUID(), game, parsed));
     GameAdapter adapter = mock(GameAdapter.class);
     when(adapter.scoreFormat()).thenReturn(new ApiModels.ScoreFormatView("", "×", 2, 2));
+    when(adapter.resultDetails(parsed.metrics())).thenReturn(List.of(
+        new ApiModels.ResultDetailView("Q1", "1.20×"),
+        new ApiModels.ResultDetailView("Q2", "1.40×"),
+        new ApiModels.ResultDetailView("Q3", "2.10×")));
     when(adapters.require("fermi")).thenReturn(adapter);
 
     for (int context : List.of(1, 2)) {
@@ -444,7 +456,7 @@ class DiscordServiceTest {
           "game", "fermi", "result", "Fermi #92\n1.31× score", "leaderboard", boardId.toString())));
       assertPublicOutcome(result, "SUCCESS");
       @SuppressWarnings("unchecked") Map<String, Object> data = (Map<String, Object>) result.body().get("data");
-      assertEquals("Saved Fermi.gg #92 at 1.31×.", data.get("content"));
+      assertEquals("Saved Fermi.gg #92 at 1.31×.\nQ1 1.20× · Q2 1.40× · Q3 2.10×", data.get("content"));
     }
 
     verify(dailyGames, times(2)).submitFromDiscord(userId, boardId, "fermi", "Fermi #92\n1.31× score");
@@ -542,8 +554,14 @@ class DiscordServiceTest {
           index == 1 ? "@everyone *winner*" : "Player " + index,
           index == 1 ? new BigDecimal("1.3150") : new BigDecimal("1.3100"), 2));
     }
+    ApiModels.DailyResultDetailsView firstDetails = new ApiModels.DailyResultDetailsView(ranks.getFirst().userId(), "92",
+        List.of(new ApiModels.ResultDetailView("Q1", "1.20×"),
+            new ApiModels.ResultDetailView("Q2", "1.40×"),
+            new ApiModels.ResultDetailView("Q3", "2.10×")));
     when(dailyGames.board(any(), eq(boardId), eq("today"), eq("fermi")))
-        .thenReturn(board(boardId, "Friday [friends]", game, "today", ranks));
+        .thenReturn(new ApiModels.LeaderboardResponse(boardId, "Friday [friends]", UUID.randomUUID(), game,
+            BoardType.SINGLE_GAME, List.of(game), "today", false, List.of(), ranks, List.of(), List.of(),
+            List.of(firstDetails)));
 
     DiscordInteractionResult result = service.handle(json.readTree(commandWithPermissions("leaderboard", "0", "game", "fermi")));
 
@@ -554,6 +572,7 @@ class DiscordServiceTest {
     assertTrue(content.contains("Fermi.gg · Today"));
     assertTrue(content.contains("1.31× (2 scores)"));
     assertTrue(content.contains("1.32× (2 scores)"));
+    assertTrue(content.contains("Q1 1.20× · Q2 1.40× · Q3 2.10×"));
     assertTrue(content.contains("10. Player 10"));
     assertFalse(content.contains("11. Player 11"));
     assertTrue(content.contains("https://dailytracker.cc/leaderboards/" + boardId + "?game=fermi&range=today"));

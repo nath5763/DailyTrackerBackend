@@ -27,6 +27,23 @@ class FermiParser implements GameAdapter {
         BigDecimal.ONE, null, new BigDecimal("0.01"), Set.of("puzzleKey", "playedOn", "primaryScore"));
   }
 
+  @Override public List<ResultDetailView> resultDetails(Map<String, Object> metrics) {
+    Object rawComponents = metrics.get("components");
+    if (!(rawComponents instanceof Collection<?> components)) return List.of();
+    List<ResultDetailView> details = new ArrayList<>();
+    for (Object raw : components) {
+      if (details.size() == 3) break;
+      try {
+        BigDecimal value = raw instanceof BigDecimal decimal ? decimal : new BigDecimal(raw.toString());
+        details.add(new ResultDetailView("Q" + (details.size() + 1),
+            value.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString() + "×"));
+      } catch (RuntimeException ignored) {
+        // Ignore malformed historical presentation-only metrics without affecting the saved result.
+      }
+    }
+    return List.copyOf(details);
+  }
+
   @Override public ParsedSubmission parse(String rawText) {
     String text = rawText == null ? "" : rawText.trim();
     List<String> errors = new ArrayList<>();
@@ -40,7 +57,8 @@ class FermiParser implements GameAdapter {
     if (puzzle == null || puzzle < 1) errors.add("Could not find a valid Fermi puzzle number.");
 
     Matcher scoreMatch = SCORE.matcher(text);
-    BigDecimal score = scoreMatch.find() ? decimal(scoreMatch.group(1)) : fallbackScore(text);
+    boolean foundLabeledScore = scoreMatch.find();
+    BigDecimal score = foundLabeledScore ? decimal(scoreMatch.group(1)) : fallbackScore(text);
     if (score == null || score.compareTo(BigDecimal.ONE) < 0) errors.add("Could not find a valid final score of 1× or greater.");
     if (!errors.isEmpty()) throw new ApiException(422, "INVALID_SHARE_TEXT", String.join(" ", errors));
 
@@ -50,9 +68,15 @@ class FermiParser implements GameAdapter {
     if (percentile.find()) metrics.put("percentile", decimal(percentile.group(1)));
     List<BigDecimal> components = new ArrayList<>();
     Matcher values = MULTIPLIER.matcher(text);
+    boolean skippedFallbackScore = false;
     while (values.find() && components.size() < 3) {
       BigDecimal value = decimal(values.group(1));
-      if (value.compareTo(score) != 0) components.add(value);
+      boolean finalScoreMatch = foundLabeledScore && values.start() >= scoreMatch.start() && values.end() <= scoreMatch.end();
+      if (finalScoreMatch || !foundLabeledScore && !skippedFallbackScore && value.compareTo(score) == 0) {
+        skippedFallbackScore = true;
+      } else {
+        components.add(value);
+      }
     }
     if (!components.isEmpty()) metrics.put("components", components);
     return new ParsedSubmission(String.valueOf(puzzle), puzzle, FIRST_PUZZLE.plusDays(puzzle - 1L), score, metrics, VERSION);

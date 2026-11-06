@@ -25,6 +25,14 @@ class KrillionParser implements GameAdapter {
       "🦑", new Tier("rare", 60),
       "🏮", new Tier("deep-cut", 85),
       "🌟", new Tier("krillion", 100));
+  private static final Map<String, TierDetail> TIER_DETAILS = Map.of(
+      "miss", new TierDetail("⬛", 0),
+      "plankton", new TierDetail("🫧", 10),
+      "too-clever", new TierDetail("🤡", 15),
+      "schooler", new TierDetail("🐟", 30),
+      "rare", new TierDetail("🦑", 60),
+      "deep-cut", new TierDetail("🏮", 85),
+      "krillion", new TierDetail("🌟", 100));
 
   @Override public String slug() { return "krillion"; }
   @Override public String scoreDirection() { return "HIGHER_IS_BETTER"; }
@@ -32,6 +40,21 @@ class KrillionParser implements GameAdapter {
   @Override public SubmissionConfigView submissionConfig() {
     return new SubmissionConfigView("Krillion #82 🦐\n180\n\n🐟🫧🫧🐟🦑🫧🐟", "Dive number", "Final score",
         BigDecimal.ZERO, BigDecimal.valueOf(700), BigDecimal.ONE, Set.of());
+  }
+
+  @Override public List<ResultDetailView> resultDetails(Map<String, Object> metrics) {
+    Object rawTiers = metrics.get("tiers");
+    if (!(rawTiers instanceof Collection<?> tiers)) return List.of();
+    List<ResultDetailView> details = new ArrayList<>();
+    int guess = 0;
+    for (Object raw : tiers) {
+      if (++guess > 7) break;
+      TierDetail tier = raw == null ? null : TIER_DETAILS.get(raw.toString());
+      if (tier != null) {
+        details.add(new ResultDetailView("G" + guess, tier.symbol() + " " + tier.score()));
+      }
+    }
+    return List.copyOf(details);
   }
 
   @Override public ParsedSubmission parse(String rawText) {
@@ -84,4 +107,5 @@ class KrillionParser implements GameAdapter {
 
   private ApiException invalid(String message) { return new ApiException(422, "INVALID_SHARE_TEXT", message); }
   private record Tier(String id, int score) {}
+  private record TierDetail(String symbol, int score) {}
 }

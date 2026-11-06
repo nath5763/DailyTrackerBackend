@@ -27,6 +27,7 @@ interface GameAdapter {
     return Arrays.stream(lines).anyMatch(line -> signature.matcher(line).find());
   }
   default BigDecimal rankingMetric(BigDecimal primaryScore, Map<String, Object> metrics) { return primaryScore; }
+  default List<ResultDetailView> resultDetails(Map<String, Object> metrics) { return List.of(); }
   default String scoreDirection() { return "LOWER_IS_BETTER"; }
   default Set<String> supportedFormats() { return Set.of("share-text"); }
   default String parserStatus() { return "PARTIAL"; }
@@ -94,6 +95,11 @@ class GameAdapterRegistry {
 
   BigDecimal getRankingMetric(String gameId, ParsedSubmission result) {
     return require(gameId).rankingMetric(result.primaryScore(), result.metrics());
+  }
+
+  List<ResultDetailView> resultDetails(String gameId, Map<String, Object> metrics) {
+    List<ResultDetailView> details = require(gameId).resultDetails(metrics == null ? Map.of() : metrics);
+    return details == null ? List.of() : List.copyOf(details);
   }
 
   NormalizedScore normalizedScore(String gameId, BigDecimal primaryScore, Map<String, Object> metrics,

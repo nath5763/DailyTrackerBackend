@@ -25,9 +25,13 @@ class FermiParserTest {
   }
 
   @Test void acceptsCommaAndComponents() {
-    ParsedSubmission parsed = parser.parse("Fermi #7\n1,50x score\nQ1 1.20x\nQ2 1.40x\nQ3 2.10x");
+    ParsedSubmission parsed = parser.parse("Fermi #7\n1,50x score\nQ1 1.50x\nQ2 1.40x\nQ3 2.10x");
     assertEquals(new BigDecimal("1.50"), parsed.primaryScore());
     assertEquals(3, ((java.util.List<?>) parsed.metrics().get("components")).size());
+    assertEquals(java.util.List.of(
+        new ApiModels.ResultDetailView("Q1", "1.50×"),
+        new ApiModels.ResultDetailView("Q2", "1.40×"),
+        new ApiModels.ResultDetailView("Q3", "2.10×")), parser.resultDetails(parsed.metrics()));
   }
 
   @Test void confirmedShareCannotChangeItsCompletionStatus() {

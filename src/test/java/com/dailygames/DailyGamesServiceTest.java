@@ -426,6 +426,45 @@ class DailyGamesServiceTest {
   }
 
   @Test
+  void todayBoardIncludesVerifiedGameDetailsButLongerRangesDoNot() {
+    UUID userId = UUID.randomUUID();
+    Profile profile = new Profile(userId, "Player", "#dfff4f", Instant.now());
+    Game game = game("fermi", "Fermi", "lower");
+    game.releaseTimezone = "UTC";
+    Leaderboard board = new Leaderboard(userId, "Fermi board", game.id, BoardCreationBasis.FREE, Instant.now());
+    ProfileRepository profiles = mock(ProfileRepository.class);
+    GameRepository games = mock(GameRepository.class);
+    LeaderboardRepository boards = mock(LeaderboardRepository.class);
+    MembershipRepository memberships = mock(MembershipRepository.class);
+    SubmissionRepository submissions = mock(SubmissionRepository.class);
+    BillingService billing = mock(BillingService.class);
+    when(boards.findById(board.id)).thenReturn(Optional.of(board));
+    when(billing.isBoardAccessible(eq(board), any())).thenReturn(true);
+    when(games.findById(game.id)).thenReturn(Optional.of(game));
+    when(profiles.findById(userId)).thenReturn(Optional.of(profile));
+    when(memberships.existsByIdLeaderboardIdAndIdUserId(board.id, userId)).thenReturn(true);
+    when(memberships.findByIdLeaderboardId(board.id))
+        .thenReturn(List.of(new Membership(board.id, userId, userId, Instant.now())));
+    LocalDate today = LocalDate.now(ZoneId.of("UTC"));
+    Submission score = new Submission(userId, game.id, new ParsedSubmission("7", 7, today,
+        new BigDecimal("1.50"), Map.of("completionStatus", "WIN", "components",
+        List.of(new BigDecimal("1.20"), new BigDecimal("1.40"), new BigDecimal("2.10"))), 1),
+        "Fermi share", Instant.now());
+    when(submissions.findByUserIdInAndGameIdAndPlayedOnBetween(any(), eq(game.id), any(), any()))
+        .thenReturn(List.of(score));
+    DailyGamesService service = service(profiles, games, boards, memberships, submissions,
+        new GameAdapterRegistry(List.of(new FermiParser())), billing);
+    CurrentUser current = new CurrentUser(userId, "");
+
+    ApiModels.LeaderboardResponse todayBoard = service.board(current, board.id, "today", "fermi");
+    assertEquals(List.of(new ApiModels.DailyResultDetailsView(userId, "7", List.of(
+        new ApiModels.ResultDetailView("Q1", "1.20×"),
+        new ApiModels.ResultDetailView("Q2", "1.40×"),
+        new ApiModels.ResultDetailView("Q3", "2.10×")))), todayBoard.dailyResults());
+    assertTrue(service.board(current, board.id, "7d", "fermi").dailyResults().isEmpty());
+  }
+
+  @Test
   void memberScoresUseBoardRankingPeriodAndNewestFirstOrdering() {
     UUID viewerId = UUID.randomUUID(), memberId = UUID.randomUUID();
     Profile viewer = new Profile(viewerId, "Viewer", "#dfff4f", Instant.now());

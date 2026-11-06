@@ -90,13 +90,22 @@ final class ApiModels {
       this(rank, userId, shareId, displayName, average, gamesPlayed, 0, 0, 0, 0, 0, null, null, 0, 0);
     }
   }
+  record ResultDetailView(String label, String value) {}
+  record DailyResultDetailsView(UUID userId, String puzzleKey, List<ResultDetailView> details) {}
   record LeaderboardResponse(UUID id, String name, UUID ownerId, GameView game, BoardType boardType,
                              List<GameView> games, String range, boolean owner, List<MemberView> members,
-                             List<RankingView> rankings, List<MemberView> absent, List<RankingView> combinedRankings) {
+                             List<RankingView> rankings, List<MemberView> absent, List<RankingView> combinedRankings,
+                             List<DailyResultDetailsView> dailyResults) {
+    LeaderboardResponse(UUID id, String name, UUID ownerId, GameView game, BoardType boardType,
+                        List<GameView> games, String range, boolean owner, List<MemberView> members,
+                        List<RankingView> rankings, List<MemberView> absent, List<RankingView> combinedRankings) {
+      this(id, name, ownerId, game, boardType, games, range, owner, members, rankings, absent, combinedRankings,
+          List.of());
+    }
     LeaderboardResponse(UUID id, String name, UUID ownerId, GameView game, BoardType boardType,
                         List<GameView> games, String range, boolean owner, List<MemberView> members,
                         List<RankingView> rankings, List<MemberView> absent) {
-      this(id, name, ownerId, game, boardType, games, range, owner, members, rankings, absent, List.of());
+      this(id, name, ownerId, game, boardType, games, range, owner, members, rankings, absent, List.of(), List.of());
     }
   }
   record LeaderboardMemberScoresResponse(MemberView member, GameView game, String period,

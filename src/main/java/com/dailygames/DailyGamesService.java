@@ -128,9 +128,14 @@ class DailyGamesService {
     Set<UUID> ranked = rankings.stream().map(RankingView::userId).collect(Collectors.toSet());
     List<MemberView> members = data.memberProfiles.stream().map(profile -> memberView(profile, board.ownerId)).toList();
     List<MemberView> absent = range.equals("today") ? data.memberProfiles.stream().filter(profile -> !ranked.contains(profile.userId)).map(profile -> memberView(profile, board.ownerId)).toList() : List.of();
+    List<DailyResultDetailsView> dailyResults = range.equals("today") ? data.scores.stream()
+        .map(score -> new DailyResultDetailsView(score.userId, score.puzzleKey,
+            adapters.resultDetails(game.slug, score.metrics)))
+        .filter(result -> !result.details().isEmpty())
+        .toList() : List.of();
     return new LeaderboardResponse(board.id, board.name, board.ownerId, gameView(game), boardType(board),
         data.allowedGames.stream().map(this::gameView).toList(), range, board.ownerId.equals(current.id()),
-        members, rankings, absent, combinedRankings);
+        members, rankings, absent, combinedRankings, dailyResults);
   }
 
   LeaderboardMemberScoresResponse memberScores(CurrentUser current, UUID boardId, UUID userId,

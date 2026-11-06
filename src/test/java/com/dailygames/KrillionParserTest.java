@@ -22,6 +22,14 @@ class KrillionParserTest {
     assertEquals("WIN", parsed.metrics().get("completionStatus"));
     assertEquals(List.of("schooler", "plankton", "plankton", "schooler", "rare", "plankton", "schooler"),
         parsed.metrics().get("tiers"));
+    assertEquals(List.of(
+        new ApiModels.ResultDetailView("G1", "🐟 30"),
+        new ApiModels.ResultDetailView("G2", "🫧 10"),
+        new ApiModels.ResultDetailView("G3", "🫧 10"),
+        new ApiModels.ResultDetailView("G4", "🐟 30"),
+        new ApiModels.ResultDetailView("G5", "🦑 60"),
+        new ApiModels.ResultDetailView("G6", "🫧 10"),
+        new ApiModels.ResultDetailView("G7", "🐟 30")), parser.resultDetails(parsed.metrics()));
     assertEquals(parsed, parser.validateConfirmed(confirmed(parsed), share));
   }
 
