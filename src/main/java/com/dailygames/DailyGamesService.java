@@ -302,13 +302,8 @@ class DailyGamesService {
       List<Submission> ordered = contest.stream().sorted((left, right) ->
           adapters.compareScores(normalized.get(left), normalized.get(right))).toList();
       List<Submission> valid = ordered.stream().filter(value -> validPerformance(normalized.get(value))).toList();
-      int validCount = valid.size();
-      int rank = 0;
-      Submission previous = null;
-      for (int index = 0; index < ordered.size(); index++) {
-        Submission value = ordered.get(index);
+      for (Submission value : ordered) {
         NormalizedScore score = normalized.get(value);
-        if (previous == null || !adapters.sameRank(score, normalized.get(previous))) rank = index + 1;
         BigDecimal points = BigDecimal.ZERO;
         if (validPerformance(score)) {
           int validRank = valid.indexOf(value) + 1;
@@ -317,11 +312,9 @@ class DailyGamesService {
             while (cursor > 0 && adapters.sameRank(score, normalized.get(valid.get(cursor - 1)))) cursor--;
             validRank = cursor + 1;
           }
-          points = validCount == 1 ? BigDecimal.valueOf(100) :
-              BigDecimal.valueOf(100L * (validCount - validRank)).divide(BigDecimal.valueOf(validCount - 1L), 4, RoundingMode.HALF_UP);
+          points = BigDecimal.valueOf(placementPoints(validRank));
         }
         pointsByUser.computeIfAbsent(value.userId, ignored -> new ArrayList<>()).add(points);
-        previous = value;
       }
     }
     List<RankingSeed> seeds = pointsByUser.entrySet().stream().map(entry -> {
@@ -346,6 +339,13 @@ class DailyGamesService {
       previous = seed;
     }
     return results;
+  }
+
+  static int placementPoints(int rank) {
+    if (rank < 1) throw new IllegalArgumentException("Placement rank must be positive.");
+    int points = 100;
+    for (int place = 1; place < rank && points > 0; place++) points = points * 4 / 5;
+    return points;
   }
 
   private List<RankingView> combinedRankings(List<Profile> memberProfiles, List<UUID> memberIds,

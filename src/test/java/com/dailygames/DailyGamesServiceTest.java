@@ -14,6 +14,60 @@ import static org.mockito.Mockito.*;
 
 class DailyGamesServiceTest {
   @Test
+  void placementPointsLoseTwentyPercentOfThePreviousPlaceAndRoundDown() {
+    List<Integer> expected = List.of(100, 80, 64, 51, 40, 32, 25, 20, 16, 12, 9, 7, 5, 4, 3, 2, 1, 0, 0);
+    List<Integer> actual = new ArrayList<>();
+    for (int rank = 1; rank <= expected.size(); rank++) actual.add(DailyGamesService.placementPoints(rank));
+    assertEquals(expected, actual);
+    assertThrows(IllegalArgumentException.class, () -> DailyGamesService.placementPoints(0));
+  }
+
+  @Test
+  void tiedPlacementPointsUseCompetitionRanksAndSkipTheNextPlace() {
+    UUID firstId = UUID.randomUUID(), tiedId = UUID.randomUUID(), thirdId = UUID.randomUUID();
+    Profile first = new Profile(firstId, "Alpha", "#dfff4f", Instant.now());
+    Profile tied = new Profile(tiedId, "Bravo", "#a8c7ff", Instant.now());
+    Profile third = new Profile(thirdId, "Charlie", "#ff8db6", Instant.now());
+    Game game = game("timeguessr", "TimeGuessr", "higher");
+    Leaderboard board = new Leaderboard(firstId, "All games", null, BoardType.MULTI_GAME,
+        BoardCreationBasis.SUBSCRIPTION, Instant.now());
+    ProfileRepository profiles = mock(ProfileRepository.class);
+    GameRepository games = mock(GameRepository.class);
+    LeaderboardRepository boards = mock(LeaderboardRepository.class);
+    MembershipRepository memberships = mock(MembershipRepository.class);
+    SubmissionRepository submissions = mock(SubmissionRepository.class);
+    BillingService billing = mock(BillingService.class);
+    GameAdapterRegistry adapters = new GameAdapterRegistry(List.of(new TimeGuessrParser()));
+    when(boards.findById(board.id)).thenReturn(Optional.of(board));
+    when(games.findByActiveTrueOrderByNameAsc()).thenReturn(List.of(game));
+    when(memberships.existsByIdLeaderboardIdAndIdUserId(board.id, firstId)).thenReturn(true);
+    when(memberships.findByIdLeaderboardId(board.id)).thenReturn(List.of(
+        new Membership(board.id, firstId, firstId, Instant.now()),
+        new Membership(board.id, tiedId, firstId, Instant.now()),
+        new Membership(board.id, thirdId, firstId, Instant.now())));
+    when(profiles.findById(firstId)).thenReturn(Optional.of(first));
+    when(profiles.findById(tiedId)).thenReturn(Optional.of(tied));
+    when(profiles.findById(thirdId)).thenReturn(Optional.of(third));
+    when(billing.isBoardAccessible(eq(board), any())).thenReturn(true);
+    Submission firstScore = submission(firstId, game.id,
+        adapters.parseResult("timeguessr", "TimeGuessr #807 — 45,000/50,000"));
+    Submission tiedScore = submission(tiedId, game.id,
+        adapters.parseResult("timeguessr", "TimeGuessr #807 — 45,000/50,000"));
+    Submission thirdScore = submission(thirdId, game.id,
+        adapters.parseResult("timeguessr", "TimeGuessr #807 — 40,000/50,000"));
+    when(submissions.findByUserIdInAndGameId(any(), eq(game.id)))
+        .thenReturn(List.of(firstScore, tiedScore, thirdScore));
+    when(submissions.findByUserIdInAndGameIdIn(any(), any()))
+        .thenReturn(List.of(firstScore, tiedScore, thirdScore));
+    DailyGamesService service = service(profiles, games, boards, memberships, submissions, adapters, billing);
+
+    var combined = service.board(new CurrentUser(firstId, ""), board.id, "all", game.slug).combinedRankings();
+    assertEquals(List.of(1, 1, 3), combined.stream().map(ApiModels.RankingView::rank).toList());
+    assertEquals(List.of(new BigDecimal("100.0000"), new BigDecimal("100.0000"), new BigDecimal("64.0000")),
+        combined.stream().map(ApiModels.RankingView::leaderboardPoints).toList());
+  }
+
+  @Test
   void discordGameSearchUsesLiveBoardGamesAndLimitsChoices() {
     UUID ownerId = UUID.randomUUID();
     Leaderboard board = new Leaderboard(ownerId, "All games", null, BoardType.MULTI_GAME,
@@ -624,7 +678,7 @@ class DailyGamesServiceTest {
     assertEquals(2, combined.size());
     assertEquals(1, combined.get(0).rank());
     assertEquals(1, combined.get(1).rank());
-    assertEquals(new BigDecimal("50.0000"), combined.get(0).leaderboardPoints());
+    assertEquals(new BigDecimal("90.0000"), combined.get(0).leaderboardPoints());
     assertEquals(2, combined.get(0).participationPoints());
   }
 
@@ -666,7 +720,7 @@ class DailyGamesServiceTest {
     var combined = service.board(new CurrentUser(ownerId, ""), board.id, "all", "pokedoku").combinedRankings();
     assertEquals(ownerId, combined.getFirst().userId());
     assertEquals(new BigDecimal("100.0000"), combined.getFirst().leaderboardPoints());
-    assertEquals(new BigDecimal("0.0000"), combined.get(1).leaderboardPoints());
+    assertEquals(new BigDecimal("80.0000"), combined.get(1).leaderboardPoints());
   }
 
   @Test
@@ -729,7 +783,7 @@ class DailyGamesServiceTest {
     assertEquals(1, rankings.getFirst().rank());
     assertEquals(new BigDecimal("100.0000"), rankings.getFirst().leaderboardPoints());
     assertEquals(manualPlayerId, rankings.get(1).userId());
-    assertEquals(new BigDecimal("0.0000"), rankings.get(1).leaderboardPoints());
+    assertEquals(new BigDecimal("80.0000"), rankings.get(1).leaderboardPoints());
   }
 
   private Game game(String slug, String name, String direction) {
