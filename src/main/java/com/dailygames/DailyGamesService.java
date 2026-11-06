@@ -119,6 +119,36 @@ class DailyGamesService {
   }
 
   LeaderboardResponse board(CurrentUser current, UUID boardId, String range, String gameSlug) {
+    LeaderboardData data = leaderboardData(current, boardId, range, gameSlug);
+    Leaderboard board = data.board;
+    Game game = data.game;
+    List<RankingView> rankings = rankScores(data.memberProfiles, data.scores, game);
+    List<RankingView> combinedRankings = boardType(board) == BoardType.MULTI_GAME
+        ? combinedRankings(data.memberProfiles, data.memberIds, data.allowedGames, range) : List.of();
+    Set<UUID> ranked = rankings.stream().map(RankingView::userId).collect(Collectors.toSet());
+    List<MemberView> members = data.memberProfiles.stream().map(profile -> memberView(profile, board.ownerId)).toList();
+    List<MemberView> absent = range.equals("today") ? data.memberProfiles.stream().filter(profile -> !ranked.contains(profile.userId)).map(profile -> memberView(profile, board.ownerId)).toList() : List.of();
+    return new LeaderboardResponse(board.id, board.name, board.ownerId, gameView(game), boardType(board),
+        data.allowedGames.stream().map(this::gameView).toList(), range, board.ownerId.equals(current.id()),
+        members, rankings, absent, combinedRankings);
+  }
+
+  LeaderboardMemberScoresResponse memberScores(CurrentUser current, UUID boardId, UUID userId,
+                                                 String range, String gameSlug) {
+    LeaderboardData data = leaderboardData(current, boardId, range, gameSlug);
+    Profile member = data.memberProfiles.stream().filter(profile -> profile.userId.equals(userId)).findFirst()
+        .orElseThrow(this::notFound);
+    List<RankingView> rankings = rankScores(data.memberProfiles, data.scores, data.game);
+    RankingView ranking = rankings.stream().filter(value -> value.userId().equals(userId)).findFirst().orElse(null);
+    List<ScoreView> memberScores = data.scores.stream().filter(value -> value.userId.equals(userId))
+        .sorted(Comparator.comparing((Submission value) -> value.playedOn).reversed()
+            .thenComparing(value -> value.createdAt, Comparator.reverseOrder()))
+        .map(this::scoreView).toList();
+    return new LeaderboardMemberScoresResponse(memberView(member, data.board.ownerId), gameView(data.game),
+        range, ranking, rankings.size(), memberScores);
+  }
+
+  private LeaderboardData leaderboardData(CurrentUser current, UUID boardId, String range, String gameSlug) {
     requireMembership(boardId, current.id());
     Leaderboard board = boards.findById(boardId).orElseThrow(this::notFound);
     requireUnlocked(board);
@@ -127,23 +157,19 @@ class DailyGamesService {
         .map(member -> profiles.findById(member.id.userId).orElseThrow(this::notFound)).toList();
     List<UUID> memberIds = memberProfiles.stream().map(profile -> profile.userId).toList();
     Game game = selectLeaderboardGame(board, allowedGames, gameSlug, memberIds);
+    List<Submission> scores = periodScores(memberIds, game, range);
+    return new LeaderboardData(board, allowedGames, memberProfiles, memberIds, game, scores);
+  }
+
+  private List<Submission> periodScores(List<UUID> memberIds, Game game, String range) {
     LocalDate today = LocalDate.now(ZoneId.of(game.releaseTimezone));
-    List<Submission> scores = switch (range) {
+    return switch (range) {
       case "today" -> submissions.findByUserIdInAndGameIdAndPlayedOnBetween(memberIds, game.id, today, today);
       case "7d" -> submissions.findByUserIdInAndGameIdAndPlayedOnBetween(memberIds, game.id, today.minusDays(6), today);
       case "30d" -> submissions.findByUserIdInAndGameIdAndPlayedOnBetween(memberIds, game.id, today.minusDays(29), today);
       case "all" -> submissions.findByUserIdInAndGameId(memberIds, game.id);
       default -> throw new ApiException(400, "INVALID_RANGE", "Range must be today, 7d, 30d, or all.");
     };
-    List<RankingView> rankings = rankScores(memberProfiles, scores, game);
-    List<RankingView> combinedRankings = boardType(board) == BoardType.MULTI_GAME
-        ? combinedRankings(memberProfiles, memberIds, allowedGames, range) : List.of();
-    Set<UUID> ranked = rankings.stream().map(RankingView::userId).collect(Collectors.toSet());
-    List<MemberView> members = memberProfiles.stream().map(profile -> memberView(profile, board.ownerId)).toList();
-    List<MemberView> absent = range.equals("today") ? memberProfiles.stream().filter(profile -> !ranked.contains(profile.userId)).map(profile -> memberView(profile, board.ownerId)).toList() : List.of();
-    return new LeaderboardResponse(board.id, board.name, board.ownerId, gameView(game), boardType(board),
-        allowedGames.stream().map(this::gameView).toList(), range, board.ownerId.equals(current.id()),
-        members, rankings, absent, combinedRankings);
   }
 
   LeaderboardInsightsResponse insights(CurrentUser current, UUID boardId, String gameSlug) {
@@ -668,4 +694,6 @@ class DailyGamesService {
           && gamesPlayed.equals(other.gamesPlayed);
     }
   }
+  private record LeaderboardData(Leaderboard board, List<Game> allowedGames, List<Profile> memberProfiles,
+                                 List<UUID> memberIds, Game game, List<Submission> scores) {}
 }

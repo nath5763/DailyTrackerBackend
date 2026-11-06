@@ -99,6 +99,8 @@ final class ApiModels {
       this(id, name, ownerId, game, boardType, games, range, owner, members, rankings, absent, List.of());
     }
   }
+  record LeaderboardMemberScoresResponse(MemberView member, GameView game, String period,
+                                         RankingView ranking, int rankedPlayerCount, List<ScoreView> scores) {}
   record RankPoint(LocalDate date, Integer rank) {}
   record RankSeries(UUID userId, String displayName, String avatarColor, List<RankPoint> points) {}
   record DailyPerformance(LocalDate date, BigDecimal score, int assistanceTier) {}

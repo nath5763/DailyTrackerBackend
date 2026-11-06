@@ -413,6 +413,109 @@ class DailyGamesServiceTest {
   }
 
   @Test
+  void memberScoresUseBoardRankingPeriodAndNewestFirstOrdering() {
+    UUID viewerId = UUID.randomUUID(), memberId = UUID.randomUUID();
+    Profile viewer = new Profile(viewerId, "Viewer", "#dfff4f", Instant.now());
+    Profile member = new Profile(memberId, "Member", "#ff8db6", Instant.now());
+    Game game = game("fermi", "Fermi", "lower");
+    game.releaseTimezone = "America/Los_Angeles";
+    Leaderboard board = new Leaderboard(viewerId, "Friends", game.id, BoardCreationBasis.FREE, Instant.now());
+    ProfileRepository profiles = mock(ProfileRepository.class);
+    GameRepository games = mock(GameRepository.class);
+    LeaderboardRepository boards = mock(LeaderboardRepository.class);
+    MembershipRepository memberships = mock(MembershipRepository.class);
+    SubmissionRepository submissions = mock(SubmissionRepository.class);
+    BillingService billing = mock(BillingService.class);
+    GameAdapterRegistry adapters = mock(GameAdapterRegistry.class);
+    GameAdapter adapter = mock(GameAdapter.class);
+    when(adapter.scoreFormat()).thenReturn(new ApiModels.ScoreFormatView("", "", 0, 2));
+    when(adapter.rankingMetric(any(), anyMap())).thenAnswer(invocation -> invocation.getArgument(0));
+    when(adapters.require(game.slug)).thenReturn(adapter);
+    when(boards.findById(board.id)).thenReturn(Optional.of(board));
+    when(games.findById(game.id)).thenReturn(Optional.of(game));
+    when(billing.isBoardAccessible(eq(board), any())).thenReturn(true);
+    when(memberships.existsByIdLeaderboardIdAndIdUserId(board.id, viewerId)).thenReturn(true);
+    when(memberships.findByIdLeaderboardId(board.id)).thenReturn(List.of(
+        new Membership(board.id, viewerId, viewerId, Instant.now()),
+        new Membership(board.id, memberId, viewerId, Instant.now())));
+    when(profiles.findById(viewerId)).thenReturn(Optional.of(viewer));
+    when(profiles.findById(memberId)).thenReturn(Optional.of(member));
+    LocalDate today = LocalDate.now(ZoneId.of(game.releaseTimezone));
+    Submission older = new Submission(memberId, game.id, new ParsedSubmission("old", 1, today.minusDays(2),
+        BigDecimal.valueOf(20), Map.of(), 1), "share", Instant.now().minusSeconds(10));
+    older.submissionMethod = SubmissionMethod.MANUAL;
+    Submission newest = new Submission(memberId, game.id, new ParsedSubmission("new", 2, today,
+        BigDecimal.valueOf(10), Map.of("hints", 1), 1), "share", Instant.now());
+    Submission viewerScore = new Submission(viewerId, game.id, new ParsedSubmission("viewer", 3, today,
+        BigDecimal.valueOf(30), Map.of(), 1), "share", Instant.now());
+    when(submissions.findByUserIdInAndGameIdAndPlayedOnBetween(any(), eq(game.id), any(), any()))
+        .thenReturn(List.of(older, viewerScore, newest));
+    DailyGamesService service = service(profiles, games, boards, memberships, submissions, adapters, billing);
+    CurrentUser current = new CurrentUser(viewerId, "");
+
+    var boardView = service.board(current, board.id, "7d", game.slug);
+    var details = service.memberScores(current, board.id, memberId, "7d", game.slug);
+
+    assertEquals(boardView.rankings().stream().filter(value -> value.userId().equals(memberId)).findFirst().orElseThrow(),
+        details.ranking());
+    assertEquals(boardView.rankings().size(), details.rankedPlayerCount());
+    assertEquals(List.of("new", "old"), details.scores().stream().map(ApiModels.ScoreView::puzzleKey).toList());
+    assertEquals(1, details.ranking().assistedResults());
+    assertEquals(1, details.ranking().manualResults());
+    assertEquals("7d", details.period());
+    verify(submissions, times(2)).findByUserIdInAndGameIdAndPlayedOnBetween(any(), eq(game.id),
+        eq(today.minusDays(6)), eq(today));
+
+    when(submissions.findByUserIdInAndGameIdAndPlayedOnBetween(any(), eq(game.id), any(), any()))
+        .thenReturn(List.of(viewerScore));
+    var empty = service.memberScores(current, board.id, memberId, "today", game.slug);
+    assertNull(empty.ranking());
+    assertTrue(empty.scores().isEmpty());
+    assertEquals(1, empty.rankedPlayerCount());
+  }
+
+  @Test
+  void memberScoresEnforceViewerTargetLockGameAndRange() {
+    UUID viewerId = UUID.randomUUID(), memberId = UUID.randomUUID(), outsiderId = UUID.randomUUID();
+    Game game = game("fermi", "Fermi", "lower");
+    Leaderboard board = new Leaderboard(viewerId, "Friends", game.id, BoardCreationBasis.FREE, Instant.now());
+    ProfileRepository profiles = mock(ProfileRepository.class);
+    GameRepository games = mock(GameRepository.class);
+    LeaderboardRepository boards = mock(LeaderboardRepository.class);
+    MembershipRepository memberships = mock(MembershipRepository.class);
+    BillingService billing = mock(BillingService.class);
+    GameAdapterRegistry adapters = mock(GameAdapterRegistry.class);
+    GameAdapter adapter = mock(GameAdapter.class);
+    when(adapter.scoreFormat()).thenReturn(new ApiModels.ScoreFormatView("", "", 0, 2));
+    when(adapters.require(game.slug)).thenReturn(adapter);
+    when(boards.findById(board.id)).thenReturn(Optional.of(board));
+    when(games.findById(game.id)).thenReturn(Optional.of(game));
+    when(billing.isBoardAccessible(eq(board), any())).thenReturn(true);
+    when(memberships.existsByIdLeaderboardIdAndIdUserId(board.id, viewerId)).thenReturn(true);
+    when(memberships.findByIdLeaderboardId(board.id)).thenReturn(List.of(
+        new Membership(board.id, viewerId, viewerId, Instant.now()),
+        new Membership(board.id, memberId, viewerId, Instant.now())));
+    when(profiles.findById(viewerId)).thenReturn(Optional.of(new Profile(viewerId, "Viewer", "#dfff4f", Instant.now())));
+    when(profiles.findById(memberId)).thenReturn(Optional.of(new Profile(memberId, "Member", "#ff8db6", Instant.now())));
+    DailyGamesService service = service(profiles, games, boards, memberships, mock(SubmissionRepository.class), adapters, billing);
+    CurrentUser current = new CurrentUser(viewerId, "");
+
+    assertEquals("NOT_FOUND", assertThrows(ApiException.class,
+        () -> service.memberScores(current, board.id, outsiderId, "today", game.slug)).code);
+    assertEquals("GAME_NOT_ALLOWED", assertThrows(ApiException.class,
+        () -> service.memberScores(current, board.id, memberId, "today", "krillion")).code);
+    assertEquals("INVALID_RANGE", assertThrows(ApiException.class,
+        () -> service.memberScores(current, board.id, memberId, "week", game.slug)).code);
+    when(memberships.existsByIdLeaderboardIdAndIdUserId(board.id, viewerId)).thenReturn(false);
+    assertEquals("NOT_FOUND", assertThrows(ApiException.class,
+        () -> service.memberScores(current, board.id, memberId, "today", game.slug)).code);
+    when(memberships.existsByIdLeaderboardIdAndIdUserId(board.id, viewerId)).thenReturn(true);
+    when(billing.isBoardAccessible(eq(board), any())).thenReturn(false);
+    assertEquals("OWNER_SUBSCRIPTION_REQUIRED", assertThrows(ApiException.class,
+        () -> service.memberScores(current, board.id, memberId, "today", game.slug)).code);
+  }
+
+  @Test
   void multiGameBoardsUsePerPuzzlePlacementsForCombinedPoints() {
     UUID ownerId = UUID.randomUUID(), friendId = UUID.randomUUID();
     Profile owner = new Profile(ownerId, "Owner", "#dfff4f", Instant.now());

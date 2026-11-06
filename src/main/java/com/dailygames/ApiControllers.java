@@ -157,6 +157,11 @@ class DailyGamesController {
                                                                @RequestParam(required = false) String game) {
     return service.board(current(authentication), id, range, game);
   }
+  @GetMapping("/leaderboards/{id}/members/{userId}/scores") LeaderboardMemberScoresResponse memberScores(
+      Authentication authentication, @PathVariable UUID id, @PathVariable UUID userId,
+      @RequestParam String game, @RequestParam String range) {
+    return service.memberScores(current(authentication), id, userId, range, game);
+  }
   @GetMapping("/leaderboards/{id}/insights") LeaderboardInsightsResponse insights(Authentication authentication,
       @PathVariable UUID id, @RequestParam(required = false) String game) {
     return service.insights(current(authentication), id, game);
