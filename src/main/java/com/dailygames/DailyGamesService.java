@@ -144,7 +144,7 @@ class DailyGamesService {
         .toList() : List.of();
     return new LeaderboardResponse(board.id, board.name, board.ownerId, gameView(game), boardType(board),
         data.allowedGames.stream().map(this::gameView).toList(), range, board.ownerId.equals(current.id()),
-        members, rankings, absent, combinedRankings, dailyResults);
+        members, rankings, absent, combinedRankings, dailyResults, recentlyPlayedGameSlugs(data));
   }
 
   LeaderboardMemberScoresResponse memberScores(CurrentUser current, UUID boardId, UUID userId,
@@ -184,6 +184,31 @@ class DailyGamesService {
       case "all" -> submissions.findByUserIdInAndGameId(memberIds, game.id);
       default -> throw new ApiException(400, "INVALID_RANGE", "Range must be today, 7d, 30d, or all.");
     };
+  }
+
+  private List<String> recentlyPlayedGameSlugs(LeaderboardData data) {
+    if (boardType(data.board) != BoardType.MULTI_GAME || data.allowedGames.isEmpty()) return List.of();
+    Map<UUID, Game> gamesById = data.allowedGames.stream()
+        .collect(Collectors.toMap(game -> game.id, game -> game));
+    Map<UUID, LocalDate> todayByGame = data.allowedGames.stream()
+        .collect(Collectors.toMap(game -> game.id, game -> LocalDate.now(ZoneId.of(game.releaseTimezone))));
+    LocalDate from = todayByGame.values().stream().map(today -> today.minusDays(29)).min(LocalDate::compareTo).orElseThrow();
+    LocalDate to = todayByGame.values().stream().max(LocalDate::compareTo).orElseThrow();
+    Comparator<Submission> newestFirst = Comparator.comparing((Submission value) -> value.playedOn)
+        .thenComparing(value -> value.createdAt).reversed();
+    return submissions.findByUserIdInAndGameIdInAndPlayedOnBetween(
+            data.memberIds, gamesById.keySet(), from, to).stream()
+        .filter(value -> {
+          LocalDate today = todayByGame.get(value.gameId);
+          return today != null && !value.playedOn.isBefore(today.minusDays(29)) && !value.playedOn.isAfter(today);
+        })
+        .sorted(newestFirst)
+        .map(value -> gamesById.get(value.gameId))
+        .filter(Objects::nonNull)
+        .map(value -> value.slug)
+        .distinct()
+        .limit(5)
+        .toList();
   }
 
   LeaderboardInsightsResponse insights(CurrentUser current, UUID boardId, String gameSlug) {

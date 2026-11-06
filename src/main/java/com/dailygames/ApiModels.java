@@ -95,17 +95,25 @@ final class ApiModels {
   record LeaderboardResponse(UUID id, String name, UUID ownerId, GameView game, BoardType boardType,
                              List<GameView> games, String range, boolean owner, List<MemberView> members,
                              List<RankingView> rankings, List<MemberView> absent, List<RankingView> combinedRankings,
-                             List<DailyResultDetailsView> dailyResults) {
+                             List<DailyResultDetailsView> dailyResults, List<String> recentGameSlugs) {
+    LeaderboardResponse(UUID id, String name, UUID ownerId, GameView game, BoardType boardType,
+                        List<GameView> games, String range, boolean owner, List<MemberView> members,
+                        List<RankingView> rankings, List<MemberView> absent, List<RankingView> combinedRankings,
+                        List<DailyResultDetailsView> dailyResults) {
+      this(id, name, ownerId, game, boardType, games, range, owner, members, rankings, absent, combinedRankings,
+          dailyResults, List.of());
+    }
     LeaderboardResponse(UUID id, String name, UUID ownerId, GameView game, BoardType boardType,
                         List<GameView> games, String range, boolean owner, List<MemberView> members,
                         List<RankingView> rankings, List<MemberView> absent, List<RankingView> combinedRankings) {
       this(id, name, ownerId, game, boardType, games, range, owner, members, rankings, absent, combinedRankings,
-          List.of());
+          List.of(), List.of());
     }
     LeaderboardResponse(UUID id, String name, UUID ownerId, GameView game, BoardType boardType,
                         List<GameView> games, String range, boolean owner, List<MemberView> members,
                         List<RankingView> rankings, List<MemberView> absent) {
-      this(id, name, ownerId, game, boardType, games, range, owner, members, rankings, absent, List.of(), List.of());
+      this(id, name, ownerId, game, boardType, games, range, owner, members, rankings, absent, List.of(), List.of(),
+          List.of());
     }
   }
   record LeaderboardMemberScoresResponse(MemberView member, GameView game, String period,

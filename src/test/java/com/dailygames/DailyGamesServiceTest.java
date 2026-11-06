@@ -470,17 +470,24 @@ class DailyGamesServiceTest {
       when(memberships.existsByIdLeaderboardIdAndIdUserId(boardId, userId)).thenReturn(true);
       when(memberships.findByIdLeaderboardId(boardId)).thenReturn(List.of(new Membership(boardId, userId, userId, Instant.now())));
     }
-    Submission recent = new Submission(userId, krillion.id, new ParsedSubmission("recent", 1, LocalDate.now(),
+    LocalDate today = LocalDate.now(ZoneOffset.UTC);
+    Submission recent = new Submission(userId, krillion.id, new ParsedSubmission("recent", 1, today,
         BigDecimal.TEN, Map.of(), 1), "share", Instant.now());
+    Submission previous = new Submission(userId, fermi.id, new ParsedSubmission("previous", 1,
+        today.minusDays(1), BigDecimal.ONE, Map.of(), 1), "share", Instant.now().minusSeconds(60));
     when(submissions.findFirstByUserIdInAndGameIdInOrderByPlayedOnDescCreatedAtDesc(any(), any()))
         .thenReturn(Optional.of(recent));
+    when(submissions.findByUserIdInAndGameIdInAndPlayedOnBetween(any(), any(), eq(today.minusDays(29)), eq(today)))
+        .thenReturn(List.of(previous, recent));
     DailyGamesService service = service(profiles, games, boards, memberships,
         submissions, adapters, billing);
     CurrentUser current = new CurrentUser(userId, "");
 
     assertEquals("fermi", service.board(current, single.id, "today", "fermi").game().slug());
     assertEquals("krillion", service.board(current, multi.id, "7d", "krillion").game().slug());
-    assertEquals("krillion", service.board(current, multi.id, "today").game().slug());
+    var recentBoard = service.board(current, multi.id, "today");
+    assertEquals("krillion", recentBoard.game().slug());
+    assertEquals(List.of("krillion", "fermi"), recentBoard.recentGameSlugs());
     assertEquals("GAME_NOT_ALLOWED", assertThrows(ApiException.class,
         () -> service.board(current, single.id, "today", "krillion")).code);
     when(memberships.existsByIdLeaderboardIdAndIdUserId(single.id, userId)).thenReturn(false);
