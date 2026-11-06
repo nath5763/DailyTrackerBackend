@@ -123,10 +123,10 @@ class DailyGamesService {
     Leaderboard board = boards.findById(boardId).orElseThrow(this::notFound);
     requireUnlocked(board);
     List<Game> allowedGames = allowedGames(board);
-    Game game = selectGame(board, allowedGames, gameSlug);
     List<Profile> memberProfiles = memberships.findByIdLeaderboardId(boardId).stream()
         .map(member -> profiles.findById(member.id.userId).orElseThrow(this::notFound)).toList();
     List<UUID> memberIds = memberProfiles.stream().map(profile -> profile.userId).toList();
+    Game game = selectLeaderboardGame(board, allowedGames, gameSlug, memberIds);
     LocalDate today = LocalDate.now(ZoneId.of(game.releaseTimezone));
     List<Submission> scores = switch (range) {
       case "today" -> submissions.findByUserIdInAndGameIdAndPlayedOnBetween(memberIds, game.id, today, today);
@@ -599,6 +599,20 @@ class DailyGamesService {
     String slug = rawSlug.trim();
     return allowedGames.stream().filter(game -> game.slug.equals(slug)).findFirst().orElseThrow(() ->
         new ApiException(400, "GAME_NOT_ALLOWED", "That game is not available on this leaderboard."));
+  }
+
+  private Game selectLeaderboardGame(Leaderboard board, List<Game> allowedGames, String rawSlug,
+                                     List<UUID> memberIds) {
+    if (rawSlug != null && !rawSlug.isBlank() || boardType(board) != BoardType.MULTI_GAME) {
+      return selectGame(board, allowedGames, rawSlug);
+    }
+    if (allowedGames.isEmpty()) return selectGame(board, allowedGames, rawSlug);
+    Map<UUID, Game> gamesById = allowedGames.stream().collect(Collectors.toMap(game -> game.id, game -> game));
+    return submissions.findFirstByUserIdInAndGameIdInOrderByPlayedOnDescCreatedAtDesc(
+            memberIds, new ArrayList<>(gamesById.keySet()))
+        .map(value -> gamesById.get(value.gameId))
+        .filter(Objects::nonNull)
+        .orElse(allowedGames.getFirst());
   }
   private MemberView memberView(Profile p, UUID ownerId) { return new MemberView(p.userId, p.shareId, p.displayName, p.avatarColor, p.userId.equals(ownerId)); }
   private ScoreView scoreView(Submission value) {

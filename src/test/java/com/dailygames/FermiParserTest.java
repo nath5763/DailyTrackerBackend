@@ -10,6 +10,10 @@ import static org.junit.jupiter.api.Assertions.*;
 class FermiParserTest {
   private final FermiParser parser = new FermiParser();
 
+  @Test void lowerMultiplierIsBetter() {
+    assertEquals("LOWER_IS_BETTER", parser.scoreDirection());
+  }
+
   @Test void parsesShareText() {
     ParsedSubmission parsed = parser.parse("Fermi #92\n1.31× score\ntop 8%");
     assertEquals("92", parsed.puzzleKey());

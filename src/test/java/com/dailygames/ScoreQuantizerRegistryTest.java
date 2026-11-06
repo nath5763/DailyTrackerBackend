@@ -81,6 +81,15 @@ class ScoreQuantizerRegistryTest {
     assertNull(missing.rankingPrimary());
   }
 
+  @Test void currentGameDirectionOverridesStaleDerivedDirection() {
+    NormalizedScore low = registry.quantize("fermi", new ParsedSubmission("1", 1, LocalDate.of(2026, 1, 1),
+        BigDecimal.ONE, Map.of("rankingPrimary", 1, "rankingPrimaryDirection", "DESCENDING"), 1), "lower");
+    NormalizedScore high = registry.quantize("fermi", new ParsedSubmission("1", 1, LocalDate.of(2026, 1, 1),
+        BigDecimal.TEN, Map.of("rankingPrimary", 10, "rankingPrimaryDirection", "DESCENDING"), 1), "lower");
+    assertEquals(MetricDirection.ASCENDING, low.rankingPrimaryDirection());
+    assertTrue(registry.compare(low, high) < 0);
+  }
+
   @Test void allFandomAttemptProfilesRemainCompletionFirstAndLowerAttemptsWins() {
     Stream<String> attemptsGames = FandomGames.ALL.stream()
         .filter(game -> game.scoreKind() == FandomScoreKind.ATTEMPTS).map(FandomGameDefinition::slug);

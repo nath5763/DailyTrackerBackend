@@ -100,7 +100,7 @@ class ScoreQuantizerRegistry {
     BigDecimal secondary = spec == null ? decimal(metrics.get("rankingSecondary")) :
         spec.secondaryMetric() == null ? null : decimal(metrics.get(spec.secondaryMetric()));
     MetricDirection primaryDirection = spec == null
-        ? direction(metrics.get("rankingPrimaryDirection"), databaseDirection(fallbackDirection))
+        ? databaseDirection(fallbackDirection)
         : spec.primaryDirection();
     MetricDirection secondaryDirection = spec == null
         ? direction(metrics.get("rankingSecondaryDirection"), null)

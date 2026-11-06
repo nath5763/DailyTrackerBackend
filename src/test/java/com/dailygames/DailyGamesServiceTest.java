@@ -357,7 +357,7 @@ class DailyGamesServiceTest {
     Profile profile = new Profile(userId, "Player", "#dfff4f", Instant.now());
     Game fermi = new Game();
     fermi.id = UUID.randomUUID(); fermi.slug = "fermi"; fermi.name = "Fermi";
-    fermi.active = true; fermi.releaseTimezone = "UTC"; fermi.rankingDirection = "higher";
+    fermi.active = true; fermi.releaseTimezone = "UTC"; fermi.rankingDirection = "lower";
     Game krillion = new Game();
     krillion.id = UUID.randomUUID(); krillion.slug = "krillion"; krillion.name = "Krillion";
     krillion.active = true; krillion.releaseTimezone = "UTC"; krillion.rankingDirection = "higher";
@@ -368,6 +368,7 @@ class DailyGamesServiceTest {
     GameRepository games = mock(GameRepository.class);
     LeaderboardRepository boards = mock(LeaderboardRepository.class);
     MembershipRepository memberships = mock(MembershipRepository.class);
+    SubmissionRepository submissions = mock(SubmissionRepository.class);
     BillingService billing = mock(BillingService.class);
     GameAdapterRegistry adapters = mock(GameAdapterRegistry.class);
     when(boards.findById(single.id)).thenReturn(Optional.of(single));
@@ -386,12 +387,17 @@ class DailyGamesServiceTest {
       when(memberships.existsByIdLeaderboardIdAndIdUserId(boardId, userId)).thenReturn(true);
       when(memberships.findByIdLeaderboardId(boardId)).thenReturn(List.of(new Membership(boardId, userId, userId, Instant.now())));
     }
+    Submission recent = new Submission(userId, krillion.id, new ParsedSubmission("recent", 1, LocalDate.now(),
+        BigDecimal.TEN, Map.of(), 1), "share", Instant.now());
+    when(submissions.findFirstByUserIdInAndGameIdInOrderByPlayedOnDescCreatedAtDesc(any(), any()))
+        .thenReturn(Optional.of(recent));
     DailyGamesService service = service(profiles, games, boards, memberships,
-        mock(SubmissionRepository.class), adapters, billing);
+        submissions, adapters, billing);
     CurrentUser current = new CurrentUser(userId, "");
 
     assertEquals("fermi", service.board(current, single.id, "today", "fermi").game().slug());
     assertEquals("krillion", service.board(current, multi.id, "7d", "krillion").game().slug());
+    assertEquals("krillion", service.board(current, multi.id, "today").game().slug());
     assertEquals("GAME_NOT_ALLOWED", assertThrows(ApiException.class,
         () -> service.board(current, single.id, "today", "krillion")).code);
     when(memberships.existsByIdLeaderboardIdAndIdUserId(single.id, userId)).thenReturn(false);
