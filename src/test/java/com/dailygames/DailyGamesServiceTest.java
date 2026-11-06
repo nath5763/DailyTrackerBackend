@@ -328,11 +328,14 @@ class DailyGamesServiceTest {
   }
 
   @Test
-  void discordLegacyInferenceFailsForMultiGameButExplicitActiveGameSucceeds() {
+  void discordInfersSingleGameButRequiresAnExplicitGameForMultiGame() {
     UUID userId = UUID.randomUUID();
     Profile profile = new Profile(userId, "Player", "#dfff4f", Instant.now());
+    Game fermi = new Game();
+    fermi.id = UUID.randomUUID(); fermi.slug = "fermi"; fermi.name = "Fermi"; fermi.active = true;
     Leaderboard board = new Leaderboard(userId, "All Games", null, BoardType.MULTI_GAME,
         BoardCreationBasis.SUBSCRIPTION, Instant.now());
+    Leaderboard single = new Leaderboard(userId, "Fermi", fermi.id, BoardCreationBasis.FREE, Instant.now());
     Game krillion = new Game();
     krillion.id = UUID.randomUUID(); krillion.slug = "krillion"; krillion.name = "Krillion"; krillion.active = true;
     ProfileRepository profiles = mock(ProfileRepository.class);
@@ -345,22 +348,35 @@ class DailyGamesServiceTest {
     when(profiles.findById(userId)).thenReturn(Optional.of(profile));
     when(profiles.findByIdForUpdate(userId)).thenReturn(Optional.of(profile));
     when(boards.findById(board.id)).thenReturn(Optional.of(board));
+    when(boards.findById(single.id)).thenReturn(Optional.of(single));
     when(memberships.existsByIdLeaderboardIdAndIdUserId(board.id, userId)).thenReturn(true);
+    when(memberships.existsByIdLeaderboardIdAndIdUserId(single.id, userId)).thenReturn(true);
     when(billing.isBoardAccessible(eq(board), any())).thenReturn(true);
+    when(billing.isBoardAccessible(eq(single), any())).thenReturn(true);
+    when(games.findById(fermi.id)).thenReturn(Optional.of(fermi));
     when(games.findByActiveTrueOrderByNameAsc()).thenReturn(List.of(krillion));
+    ParsedSubmission fermiParsed = new ParsedSubmission("92", 92, LocalDate.of(2026, 11, 4),
+        new BigDecimal("1.31"), Map.of(), 1);
     ParsedSubmission parsed = new ParsedSubmission("82", 82, LocalDate.of(2026, 11, 4),
         new BigDecimal("700"), Map.of(), 1);
+    when(adapters.parseResult("fermi", "Fermi share")).thenReturn(fermiParsed);
     when(adapters.parseResult("krillion", "Krillion share")).thenReturn(parsed);
     when(submissions.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
     DailyGamesService service = service(profiles, games, boards, memberships, submissions, adapters, billing);
 
+    DailyGamesService.DiscordSubmissionResult inferred =
+        service.submitFromDiscord(userId, single.id, "Fermi share");
+    assertEquals("fermi", inferred.game().slug);
+
     ApiException missing = assertThrows(ApiException.class,
         () -> service.submitFromDiscord(userId, board.id, "Krillion share"));
     assertEquals("GAME_REQUIRED", missing.code);
+    assertEquals("Select the game option when submitting to an all-games leaderboard.", missing.getMessage());
 
     DailyGamesService.DiscordSubmissionResult saved =
         service.submitFromDiscord(userId, board.id, "krillion", "Krillion share");
     assertEquals("krillion", saved.game().slug);
+    verify(adapters).parseResult("fermi", "Fermi share");
     verify(adapters).parseResult("krillion", "Krillion share");
   }
 

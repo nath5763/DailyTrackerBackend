@@ -69,10 +69,13 @@ class DiscordCommandRegistrarTest {
     assertEquals(List.of("help", "signup", "my-id", "add-member", "link", "unlink", "setup", "daily", "leaderboard"),
         bodies.subList(0, 9).stream().map(body -> body.path("name").asText()).toList());
     assertEquals("32", bodies.get(6).path("default_member_permissions").asText());
-    assertEquals("result", bodies.get(7).path("options").get(1).path("name").asText());
+    assertEquals("result", bodies.get(7).path("options").get(0).path("name").asText());
+    assertTrue(bodies.get(7).path("options").get(0).path("required").asBoolean());
+    assertEquals("game", bodies.get(7).path("options").get(1).path("name").asText());
+    assertFalse(bodies.get(7).path("options").get(1).path("required").asBoolean());
     assertEquals("leaderboard", bodies.get(7).path("options").get(2).path("name").asText());
     assertFalse(bodies.get(7).path("options").get(2).path("required").asBoolean());
-    assertTrue(bodies.get(7).path("options").get(0).path("autocomplete").asBoolean());
+    assertTrue(bodies.get(7).path("options").get(1).path("autocomplete").asBoolean());
     assertEquals("[0,1,2]", bodies.get(7).path("contexts").toString());
     assertEquals("[0,1]", bodies.get(7).path("integration_types").toString());
     assertTrue(bodies.subList(0, 9).stream().allMatch(body ->

@@ -2,6 +2,7 @@ package com.dailygames;
 
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,17 +20,25 @@ class DailyGamesService {
   private static final ObjectMapper JSON = new ObjectMapper();
   private final UserRepository users;
   private final ProfileRepository profiles;
-  private final GameRepository games;
+  private final GameLookup games;
   private final LeaderboardRepository boards;
   private final MembershipRepository memberships;
   private final SubmissionRepository submissions;
   private final GameAdapterRegistry adapters;
   private final BillingService billing;
 
-  DailyGamesService(UserRepository users, ProfileRepository profiles, GameRepository games, LeaderboardRepository boards,
+  @Autowired
+  DailyGamesService(UserRepository users, ProfileRepository profiles, GameCatalog games, LeaderboardRepository boards,
                     MembershipRepository memberships, SubmissionRepository submissions, GameAdapterRegistry adapters,
                     BillingService billing) {
     this.users = users; this.profiles = profiles; this.games = games; this.boards = boards;
+    this.memberships = memberships; this.submissions = submissions; this.adapters = adapters; this.billing = billing;
+  }
+
+  DailyGamesService(UserRepository users, ProfileRepository profiles, GameRepository games, LeaderboardRepository boards,
+                    MembershipRepository memberships, SubmissionRepository submissions, GameAdapterRegistry adapters,
+                    BillingService billing) {
+    this.users = users; this.profiles = profiles; this.games = new RepositoryGameLookup(games); this.boards = boards;
     this.memberships = memberships; this.submissions = submissions; this.adapters = adapters; this.billing = billing;
   }
 
@@ -65,7 +74,7 @@ class DailyGamesService {
   }
 
   List<GameView> listGames() {
-    return games.findByActiveTrueOrderByNameAsc().stream().map(this::gameView).toList();
+    return games.activeGames().stream().map(this::gameView).toList();
   }
 
   @Transactional
@@ -499,7 +508,7 @@ class DailyGamesService {
     requireUnlocked(board);
     if ((gameSlug == null || gameSlug.isBlank()) && boardType(board) == BoardType.MULTI_GAME) {
       throw new ApiException(400, "GAME_REQUIRED",
-          "Choose a game when submitting to a multi-game leaderboard.");
+          "Select the game option when submitting to an all-games leaderboard.");
     }
     List<Game> allowedGames = allowedGames(board);
     Game game = selectGame(board, allowedGames, gameSlug);
@@ -548,7 +557,7 @@ class DailyGamesService {
 
   private Profile requireProfile(UUID userId) { return profiles.findById(userId).orElseThrow(() -> new ApiException(409, "PROFILE_REQUIRED", "Finish setting up your profile.")); }
   private Game requireGame(String slug) {
-    return games.findBySlugAndActiveTrue(slug).orElseThrow(() -> new ApiException(404, "GAME_NOT_FOUND", "Game not found."));
+    return games.findActiveBySlug(slug).orElseThrow(() -> new ApiException(404, "GAME_NOT_FOUND", "Game not found."));
   }
   private void requireMembership(UUID boardId, UUID userId) { if (!memberships.existsByIdLeaderboardIdAndIdUserId(boardId, userId)) throw notFound(); }
   private Leaderboard requireOwnedBoard(UUID id, UUID userId) {
@@ -620,7 +629,7 @@ class DailyGamesService {
   }
 
   private List<Game> allowedGames(Leaderboard board) {
-    if (boardType(board) == BoardType.MULTI_GAME) return games.findByActiveTrueOrderByNameAsc();
+    if (boardType(board) == BoardType.MULTI_GAME) return games.activeGames();
     Game game = games.findById(board.gameId)
         .orElseThrow(() -> new ApiException(404, "GAME_NOT_FOUND", "The leaderboard's game no longer exists."));
     if (!game.active) throw new ApiException(400, "INACTIVE_GAME", "That game is not currently active.");

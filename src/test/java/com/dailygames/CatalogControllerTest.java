@@ -22,7 +22,7 @@ class CatalogControllerTest {
   @Autowired MockMvc mvc;
   @MockitoBean AuthService auth;
   @MockitoBean CatalogGameRepository catalog;
-  @MockitoBean GameRepository games;
+  @MockitoBean GameCatalog games;
   @MockitoBean GameAdapterRegistry adapters;
 
   @Test void directoryIsPublicAndCatalogOnlyGamesStayUntracked() throws Exception {
@@ -34,7 +34,7 @@ class CatalogControllerTest {
     waffle.sourceUrl = "https://wafflegame.net/";
     Game tracked = new Game(); tracked.slug = "wordle";
     when(catalog.findAllByOrderByDisplayOrderAsc()).thenReturn(List.of(wordle, waffle));
-    when(games.findByActiveTrueOrderByNameAsc()).thenReturn(List.of(tracked));
+    when(games.activeGames()).thenReturn(List.of(tracked));
     mvc.perform(get("/api/v1/catalog/games"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$[0].slug").value("wordle"))

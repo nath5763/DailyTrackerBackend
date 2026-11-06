@@ -212,7 +212,7 @@ class DiscordService {
         + "Run `/signup` to create or connect your account. In a connected server channel, signup can also join that channel's leaderboard.\n"
         + "1. **Link your account:** Sign in at " + publicBaseUrl + "/dashboard, generate a link code in the Discord section, then run `/link` and enter the code. Codes expire after 10 minutes.\n"
         + "2. **Choose a Group DM leaderboard:** Its owner can run `/set-leaderboard` once. In a one-to-one DM or an unconfigured Group DM, enter the leaderboard UUID on each command.\n"
-        + "3. **Submit a game result:** Run `/daily`, choose a game, and paste the complete game share text into `result`.\n"
+        + "3. **Submit a game result:** Run `/daily` and paste the complete game share text into `result`. Choose `game` only for an all-games leaderboard.\n"
         + "4. **See rankings:** Run `/leaderboard`, choose a game, and optionally choose a range (today, 7 days, 30 days, or all time).\n"
         + "Each player links their own account and must belong to the selected leaderboard. Server and configured Group DM channels use their saved leaderboard.",
         "SUCCESS", "help");
