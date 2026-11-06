@@ -3,6 +3,8 @@ package com.dailygames;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
 import java.time.LocalDate;
 import java.util.*;
 import java.util.regex.*;
@@ -15,13 +17,13 @@ class FermiParser implements GameAdapter {
   private static final LocalDate FIRST_PUZZLE = LocalDate.of(2026, 7, 27);
   private static final Pattern PUZZLE = Pattern.compile("(?i)(?:fermi\\s*)?#\\s*(\\d+)");
   private static final Pattern NUMBERED = Pattern.compile("(?i)\\bNo\\.?\\s*(\\d+)");
-  private static final Pattern SCORE = Pattern.compile("(?i)(\\d+(?:[.,]\\d+)?)\\s*[×x]\\s*score\\b");
+  private static final Pattern SCORE = Pattern.compile("(?i)(\\d+(?:[.,]\\d+)*)\\s*[×x]\\s*score\\b");
   private static final Pattern PERCENTILE = Pattern.compile("(?i)top\\s*(\\d+(?:\\.\\d+)?)\\s*%");
-  private static final Pattern MULTIPLIER = Pattern.compile("(?i)(\\d+(?:[.,]\\d+)?)\\s*[×x]");
+  private static final Pattern MULTIPLIER = Pattern.compile("(?i)(\\d+(?:[.,]\\d+)*)\\s*[×x]");
 
   @Override public String slug() { return "fermi"; }
   @Override public String scoreDirection() { return "LOWER_IS_BETTER"; }
-  @Override public ScoreFormatView scoreFormat() { return new ScoreFormatView("", "×", 2, 2); }
+  @Override public ScoreFormatView scoreFormat() { return new ScoreFormatView("", "×", 2, 4); }
   @Override public SubmissionConfigView submissionConfig() {
     return new SubmissionConfigView("Fermi #92\n1.31× score\ntop 8%", "Puzzle number", "Final score",
         BigDecimal.ONE, null, new BigDecimal("0.01"), Set.of("puzzleKey", "playedOn", "primaryScore"));
@@ -35,8 +37,7 @@ class FermiParser implements GameAdapter {
         if (details.size() == 3) break;
         try {
           BigDecimal value = raw instanceof BigDecimal decimal ? decimal : new BigDecimal(raw.toString());
-          details.add(new ResultDetailView("Q" + (details.size() + 1),
-              value.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString() + "×"));
+          details.add(new ResultDetailView("Q" + (details.size() + 1), displayMultiplier(value)));
         } catch (RuntimeException ignored) {
           // Ignore malformed historical presentation-only metrics without affecting the saved result.
         }
@@ -75,6 +76,8 @@ class FermiParser implements GameAdapter {
 
     Map<String, Object> metrics = new LinkedHashMap<>();
     metrics.put("completionStatus", "WIN");
+    metrics.put("scoreRaw", score.toPlainString());
+    metrics.put("displayScore", displayMultiplier(score));
     Matcher percentile = PERCENTILE.matcher(text);
     if (percentile.find()) metrics.put("percentile", decimal(percentile.group(1)));
     List<BigDecimal> components = new ArrayList<>();
@@ -104,6 +107,8 @@ class FermiParser implements GameAdapter {
     }
     Map<String, Object> metrics = new LinkedHashMap<>(confirmed.metrics() == null ? original.metrics() : confirmed.metrics());
     metrics.put("completionStatus", "WIN");
+    metrics.put("scoreRaw", confirmed.primaryScore().toPlainString());
+    metrics.put("displayScore", displayMultiplier(confirmed.primaryScore()));
     return new ParsedSubmission(confirmed.puzzleKey(), puzzleNumber, confirmed.playedOn(), confirmed.primaryScore(), metrics, VERSION);
   }
 
@@ -117,5 +122,17 @@ class FermiParser implements GameAdapter {
     return null;
   }
 
-  private BigDecimal decimal(String value) { return new BigDecimal(value.replace(',', '.')); }
+  private BigDecimal decimal(String value) {
+    String normalized = value.matches("[0-9]{1,3}(,[0-9]{3})+(?:\\.[0-9]+)?")
+        ? value.replace(",", "") : value.replace(',', '.');
+    return new BigDecimal(normalized);
+  }
+
+  private String displayMultiplier(BigDecimal value) {
+    int decimals = Math.max(0, Math.min(4, value.scale()));
+    DecimalFormat format = new DecimalFormat("#,##0", DecimalFormatSymbols.getInstance(Locale.US));
+    format.setMinimumFractionDigits(decimals);
+    format.setMaximumFractionDigits(decimals);
+    return format.format(value) + "×";
+  }
 }
