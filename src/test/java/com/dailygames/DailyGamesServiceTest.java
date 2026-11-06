@@ -601,6 +601,69 @@ class DailyGamesServiceTest {
     assertEquals(new BigDecimal("0.0000"), combined.get(1).leaderboardPoints());
   }
 
+  @Test
+  void fermiShareResultsBeatHigherManualScoresInTheSameContests() {
+    UUID sharePlayerId = UUID.randomUUID(), manualPlayerId = UUID.randomUUID();
+    Profile sharePlayer = new Profile(sharePlayerId, "Share Player", "#dfff4f", Instant.now());
+    Profile manualPlayer = new Profile(manualPlayerId, "Manual Player", "#ff8db6", Instant.now());
+    Game fermi = game("fermi", "Fermi", "lower");
+    Leaderboard board = new Leaderboard(sharePlayerId, "Fermi Friends", fermi.id,
+        BoardCreationBasis.FREE, Instant.now());
+    ProfileRepository profiles = mock(ProfileRepository.class);
+    GameRepository games = mock(GameRepository.class);
+    LeaderboardRepository boards = mock(LeaderboardRepository.class);
+    MembershipRepository memberships = mock(MembershipRepository.class);
+    SubmissionRepository submissions = mock(SubmissionRepository.class);
+    BillingService billing = mock(BillingService.class);
+    GameAdapterRegistry adapters = new GameAdapterRegistry(List.of(new FermiParser()));
+    when(boards.findById(board.id)).thenReturn(Optional.of(board));
+    when(games.findById(fermi.id)).thenReturn(Optional.of(fermi));
+    when(memberships.existsByIdLeaderboardIdAndIdUserId(board.id, sharePlayerId)).thenReturn(true);
+    when(memberships.findByIdLeaderboardId(board.id)).thenReturn(List.of(
+        new Membership(board.id, sharePlayerId, sharePlayerId, Instant.now()),
+        new Membership(board.id, manualPlayerId, sharePlayerId, Instant.now())));
+    when(profiles.findById(sharePlayerId)).thenReturn(Optional.of(sharePlayer));
+    when(profiles.findById(manualPlayerId)).thenReturn(Optional.of(manualPlayer));
+    when(billing.isBoardAccessible(eq(board), any())).thenReturn(true);
+
+    List<ParsedSubmission> shared = List.of(
+        adapters.parseResult("fermi", "Fermi #99\n4.06x score"),
+        adapters.parseResult("fermi", "Fermi #100\n3.71x score"),
+        adapters.parseResult("fermi", "Fermi #101\n2.25x score"),
+        adapters.parseResult("fermi", "Fermi #102\n9.76x score"));
+    List<ParsedSubmission> manual = List.of(
+        adapters.normalizeManualResult("fermi", new ApiModels.ManualSubmissionRequest(
+            "fermi", "101", LocalDate.of(2026, 11, 4), "WIN", Map.of("score", "6.32"))),
+        adapters.normalizeManualResult("fermi", new ApiModels.ManualSubmissionRequest(
+            "fermi", "102", LocalDate.of(2026, 11, 5), "WIN", Map.of("score", "18.60"))));
+    List<Submission> scores = new ArrayList<>();
+    shared.forEach(value -> scores.add(submission(sharePlayerId, fermi.id, value)));
+    manual.forEach(value -> scores.add(new Submission(manualPlayerId, fermi.id, value, "manual",
+        SubmissionMethod.MANUAL, Instant.now())));
+    when(submissions.findByUserIdInAndGameId(any(), eq(fermi.id))).thenReturn(scores);
+
+    for (int index = 0; index < manual.size(); index++) {
+      ParsedSubmission sharedContest = shared.get(index + 2);
+      ParsedSubmission manualContest = manual.get(index);
+      NormalizedScore sharedScore = adapters.normalizedScore("fermi", sharedContest.primaryScore(),
+          sharedContest.metrics(), sharedContest.puzzleKey(), sharedContest.playedOn(),
+          sharedContest.parserVersion(), "lower");
+      NormalizedScore manualScore = adapters.normalizedScore("fermi", manualContest.primaryScore(),
+          manualContest.metrics(), manualContest.puzzleKey(), manualContest.playedOn(),
+          manualContest.parserVersion(), "lower");
+      assertTrue(adapters.compareScores(sharedScore, manualScore) < 0);
+    }
+
+    DailyGamesService service = service(profiles, games, boards, memberships, submissions, adapters, billing);
+    List<ApiModels.RankingView> rankings = service.board(
+        new CurrentUser(sharePlayerId, ""), board.id, "all").rankings();
+    assertEquals(sharePlayerId, rankings.getFirst().userId());
+    assertEquals(1, rankings.getFirst().rank());
+    assertEquals(new BigDecimal("100.0000"), rankings.getFirst().leaderboardPoints());
+    assertEquals(manualPlayerId, rankings.get(1).userId());
+    assertEquals(new BigDecimal("0.0000"), rankings.get(1).leaderboardPoints());
+  }
+
   private Game game(String slug, String name, String direction) {
     Game game = new Game(); game.id = UUID.randomUUID(); game.slug = slug; game.name = name;
     game.sourceUrl = "https://example.com"; game.releaseTimezone = "UTC";

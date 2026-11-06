@@ -45,6 +45,7 @@ class FermiParser implements GameAdapter {
     if (!errors.isEmpty()) throw new ApiException(422, "INVALID_SHARE_TEXT", String.join(" ", errors));
 
     Map<String, Object> metrics = new LinkedHashMap<>();
+    metrics.put("completionStatus", "WIN");
     Matcher percentile = PERCENTILE.matcher(text);
     if (percentile.find()) metrics.put("percentile", decimal(percentile.group(1)));
     List<BigDecimal> components = new ArrayList<>();
@@ -66,7 +67,8 @@ class FermiParser implements GameAdapter {
         confirmed.primaryScore() == null || confirmed.primaryScore().compareTo(BigDecimal.ONE) < 0) {
       throw new ApiException(422, "INVALID_SUBMISSION", "Check the confirmed puzzle, date, and score.");
     }
-    Map<String, Object> metrics = confirmed.metrics() == null ? original.metrics() : confirmed.metrics();
+    Map<String, Object> metrics = new LinkedHashMap<>(confirmed.metrics() == null ? original.metrics() : confirmed.metrics());
+    metrics.put("completionStatus", "WIN");
     return new ParsedSubmission(confirmed.puzzleKey(), puzzleNumber, confirmed.playedOn(), confirmed.primaryScore(), metrics, VERSION);
   }
 

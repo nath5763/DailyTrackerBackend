@@ -69,7 +69,7 @@ class KrillionParser implements GameAdapter {
     if (calculated != score) throw invalid("The Krillion score does not match its seven result symbols.");
 
     return new ParsedSubmission(String.valueOf(puzzle), puzzle, FIRST_PUZZLE.plusDays(puzzle - 1L),
-        BigDecimal.valueOf(score), Map.of("tiers", List.copyOf(tierIds)), VERSION);
+        BigDecimal.valueOf(score), Map.of("completionStatus", "WIN", "tiers", List.copyOf(tierIds)), VERSION);
   }
 
   @Override public ParsedSubmission validateConfirmed(ConfirmedSubmission confirmed, String rawText) {

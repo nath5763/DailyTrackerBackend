@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.LinkedHashMap;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -19,6 +20,7 @@ class FermiParserTest {
     assertEquals("92", parsed.puzzleKey());
     assertEquals(new BigDecimal("1.31"), parsed.primaryScore());
     assertEquals(LocalDate.of(2026, 10, 26), parsed.playedOn());
+    assertEquals("WIN", parsed.metrics().get("completionStatus"));
     assertEquals(new BigDecimal("8"), parsed.metrics().get("percentile"));
   }
 
@@ -26,6 +28,17 @@ class FermiParserTest {
     ParsedSubmission parsed = parser.parse("Fermi #7\n1,50x score\nQ1 1.20x\nQ2 1.40x\nQ3 2.10x");
     assertEquals(new BigDecimal("1.50"), parsed.primaryScore());
     assertEquals(3, ((java.util.List<?>) parsed.metrics().get("components")).size());
+  }
+
+  @Test void confirmedShareCannotChangeItsCompletionStatus() {
+    String share = "Fermi #92\n1.31× score\ntop 8%";
+    ParsedSubmission parsed = parser.parse(share);
+    var metrics = new LinkedHashMap<>(parsed.metrics());
+    metrics.put("completionStatus", "LOSS");
+    ParsedSubmission confirmed = parser.validateConfirmed(new ApiModels.ConfirmedSubmission(parsed.puzzleKey(),
+        parsed.puzzleNumber(), parsed.playedOn(), parsed.primaryScore(), metrics, parsed.parserVersion()), share);
+
+    assertEquals("WIN", confirmed.metrics().get("completionStatus"));
   }
 
   @Test void rejectsWrongGameAndInvalidScore() {

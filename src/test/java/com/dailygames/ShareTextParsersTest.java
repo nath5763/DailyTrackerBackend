@@ -23,6 +23,7 @@ class ShareTextParsersTest {
     for (int i = 0; i < adapters.size(); i++) {
       ParsedSubmission parsed = adapters.get(i).parse(shares.get(i));
       assertEquals(BigDecimal.valueOf(scores.get(i)), parsed.primaryScore(), adapters.get(i).slug());
+      assertEquals("WIN", parsed.metrics().get("completionStatus"), adapters.get(i).slug());
       assertNotNull(parsed.playedOn());
       assertEquals(1, parsed.parserVersion());
       assertEquals(parsed, adapters.get(i).validateConfirmed(new ApiModels.ConfirmedSubmission(parsed.puzzleKey(),
@@ -35,6 +36,7 @@ class ShareTextParsersTest {
     String loss = "Wordle 1,962 X/6\n⬛⬛⬛⬛⬛\n⬛⬛⬛⬛⬛\n⬛⬛⬛⬛⬛\n⬛⬛⬛⬛⬛\n⬛⬛⬛⬛⬛\n⬛⬛⬛⬛⬛";
     assertEquals(BigDecimal.valueOf(7), new WordleParser().parse(loss).primaryScore());
     assertEquals("X/6", new WordleParser().parse(loss).metrics().get("displayScore"));
+    assertEquals("LOSS", new WordleParser().parse(loss).metrics().get("completionStatus"));
     assertEquals(BigDecimal.valueOf(4), new WordleParser().parse(WORDLE + "\nhttps://www.nytimes.com/games/wordle/index.html").primaryScore());
     assertEquals(2, new QueensParser().parse(QUEENS.replace("no hints", "2 hints")).metrics().get("hints"));
     assertEquals("unknown", new QueensParser().parse(QUEENS).metrics().get("assistanceStatus"));

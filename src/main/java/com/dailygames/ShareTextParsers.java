@@ -37,7 +37,8 @@ class WordleParser implements GameAdapter {
     boolean solved = lines[lines.length - 1].equals("🟩🟩🟩🟩🟩");
     if (solved != (guesses != 7)) throw ShareTextParserSupport.invalid("Wordle grid and score disagree.");
     return new ParsedSubmission(String.valueOf(number), number, FIRST.plusDays(number - 1L), BigDecimal.valueOf(guesses),
-        Map.of("displayScore", header.group(2).toUpperCase(Locale.ROOT) + "/6" + (header.group(3) == null ? "" : "*"),
+        Map.of("completionStatus", solved ? "WIN" : "LOSS",
+            "displayScore", header.group(2).toUpperCase(Locale.ROOT) + "/6" + (header.group(3) == null ? "" : "*"),
             "hardMode", header.group(3) != null), 1);
   }
   @Override public ParsedSubmission validateConfirmed(ConfirmedSubmission confirmed, String rawText) {
@@ -89,6 +90,7 @@ abstract class LinkedInParser implements GameAdapter {
     String assistanceStatus = hints > 0 || mistakes > 0 || beginner > 0 ? "assisted" :
         noHints && (slug.equals("zip") || noMistakes) ? "unassisted" : "unknown";
     Map<String, Object> metrics = new LinkedHashMap<>();
+    metrics.put("completionStatus", "WIN");
     metrics.put("hints", hints); metrics.put("mistakes", mistakes); metrics.put("beginnerAssists", beginner);
     metrics.put("assistanceStatus", assistanceStatus);
     metrics.put("displayScore", timed ? String.format(Locale.ROOT, "%d:%02d", value / 60, value % 60) : value + (value == 1 ? " guess" : " guesses"));

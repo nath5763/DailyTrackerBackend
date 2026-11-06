@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -77,5 +78,38 @@ class GameAdapterRegistryTest {
     var confirmed = new ApiModels.ConfirmedSubmission(preview.puzzleKey(), preview.puzzleNumber(), preview.playedOn(),
         preview.primaryScore(), preview.metrics(), preview.parserVersion());
     assertEquals(preview, registry.validateResult("worldle", confirmed, share));
+  }
+
+  @Test void manualAndShareFermiResultsUseTheSameCompletionAndNumericRanking() {
+    GameAdapterRegistry fermi = new GameAdapterRegistry(List.of(new FermiParser()));
+    ParsedSubmission shared = fermi.parseResult("fermi", "Fermi #101\n6.32x score");
+    ParsedSubmission manual = fermi.normalizeManualResult("fermi", new ApiModels.ManualSubmissionRequest(
+        "fermi", "101", LocalDate.of(2026, 11, 4), "WIN", Map.of("score", "6.32")));
+    NormalizedScore sharedScore = fermi.normalizedScore("fermi", shared.primaryScore(), shared.metrics(),
+        shared.puzzleKey(), shared.playedOn(), shared.parserVersion(), "lower");
+    NormalizedScore manualScore = fermi.normalizedScore("fermi", manual.primaryScore(), manual.metrics(),
+        manual.puzzleKey(), manual.playedOn(), manual.parserVersion(), "lower");
+
+    assertEquals("WIN", sharedScore.completionStatus());
+    assertEquals("WIN", manualScore.completionStatus());
+    assertEquals(0, fermi.compareScores(sharedScore, manualScore));
+    assertTrue(fermi.sameRank(sharedScore, manualScore));
+
+    ParsedSubmission fasterShare = fermi.parseResult("fermi", "Fermi #101\n4.06x score");
+    NormalizedScore fasterScore = fermi.normalizedScore("fermi", fasterShare.primaryScore(), fasterShare.metrics(),
+        fasterShare.puzzleKey(), fasterShare.playedOn(), fasterShare.parserVersion(), "lower");
+    assertTrue(fermi.compareScores(fasterScore, manualScore) < 0);
+  }
+
+  @Test void wordleWinsOutrankLosses() {
+    GameAdapterRegistry wordle = new GameAdapterRegistry(List.of(new WordleParser()));
+    ParsedSubmission win = wordle.parseResult("wordle", "Wordle 1,961 2/6\n⬛⬛⬛⬛⬛\n🟩🟩🟩🟩🟩");
+    ParsedSubmission loss = wordle.parseResult("wordle", "Wordle 1,962 X/6\n⬛⬛⬛⬛⬛\n⬛⬛⬛⬛⬛\n⬛⬛⬛⬛⬛\n⬛⬛⬛⬛⬛\n⬛⬛⬛⬛⬛\n⬛⬛⬛⬛⬛");
+    NormalizedScore winScore = wordle.normalizedScore("wordle", win.primaryScore(), win.metrics(),
+        win.puzzleKey(), win.playedOn(), win.parserVersion(), "lower");
+    NormalizedScore lossScore = wordle.normalizedScore("wordle", loss.primaryScore(), loss.metrics(),
+        loss.puzzleKey(), loss.playedOn(), loss.parserVersion(), "lower");
+
+    assertTrue(wordle.compareScores(winScore, lossScore) < 0);
   }
 }

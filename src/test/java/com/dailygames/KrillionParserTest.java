@@ -19,6 +19,7 @@ class KrillionParserTest {
     assertEquals("82", parsed.puzzleKey());
     assertEquals(new BigDecimal("180"), parsed.primaryScore());
     assertEquals(LocalDate.of(2026, 10, 5), parsed.playedOn());
+    assertEquals("WIN", parsed.metrics().get("completionStatus"));
     assertEquals(List.of("schooler", "plankton", "plankton", "schooler", "rare", "plankton", "schooler"),
         parsed.metrics().get("tiers"));
     assertEquals(parsed, parser.validateConfirmed(confirmed(parsed), share));
