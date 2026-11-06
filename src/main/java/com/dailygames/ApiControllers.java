@@ -226,7 +226,7 @@ class CatalogController {
     return adapters.scoreStrategies().stream().map(strategy -> new ScoreStrategyView(strategy.gameId(),
         strategy.rankingRule(), strategy.primaryMetric(), strategy.primaryDirection().name(),
         strategy.secondaryMetric(), strategy.secondaryDirection() == null ? null : strategy.secondaryDirection().name(),
-        strategy.compatibilityFields(), strategy.completionOnlyAllowed())).toList();
+        strategy.compatibilityFields(), strategy.completionOnlyAllowed(), strategy.completionPolicy().name())).toList();
   }
 }
 

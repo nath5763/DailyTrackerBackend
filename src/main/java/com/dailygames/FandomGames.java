@@ -7,7 +7,7 @@ import java.util.*;
 
 import static com.dailygames.ApiModels.*;
 
-enum FandomScoreKind { ATTEMPTS, CONNECTION_MISTAKES, GRID_RARITY }
+enum FandomScoreKind { ATTEMPTS, CONNECTION_MISTAKES, GRID_RARITY, POKEDOKU_UNIQUENESS }
 
 record FandomGameDefinition(String slug, String name, String description, String category, String sourceUrl,
                             FandomScoreKind scoreKind, boolean hasModes) {}
@@ -21,7 +21,7 @@ final class FandomGames {
 
   static final List<FandomGameDefinition> ALL = List.of(
       game("squirdle", "Squirdle", "Guess a Pokémon using generation, type, height, and weight.", "Pokémon", "https://squirdle.fireblend.com/", FandomScoreKind.ATTEMPTS, false),
-      game("pokedoku", "PokeDoku", "Fill a 3×3 grid with Pokémon matching row and column categories.", "Pokémon", "https://pokedoku.com/", FandomScoreKind.GRID_RARITY, false),
+      game("pokedoku", "PokeDoku", "Fill a 3×3 grid with Pokémon matching row and column categories.", "Pokémon", "https://pokedoku.com/", FandomScoreKind.POKEDOKU_UNIQUENESS, false),
       game("pokennection", "Pokennection", "Sort Pokémon-related clues into related groups.", "Pokémon", "https://pokennection.com/", FandomScoreKind.CONNECTION_MISTAKES, true),
       game("pokegrid", "PokeGrid", "Fill a Pokémon trivia grid; uncommon answers score better.", "Pokémon", "https://pokegrid.net/", FandomScoreKind.GRID_RARITY, false),
       game("weakdle", "Weakdle", "Deduce a mystery Pokémon type from matchup clues.", "Pokémon", "https://dentotino.com/", FandomScoreKind.ATTEMPTS, false),
@@ -92,6 +92,7 @@ final class FandomGameAdapter implements GameAdapter {
       case ATTEMPTS -> new ScoreFormatView("", " guesses", 0, 0, "guesses");
       case CONNECTION_MISTAKES -> new ScoreFormatView("", " mistakes", 0, 0, "mistakes");
       case GRID_RARITY -> new ScoreFormatView("", "/9", 0, 0, "completed-cells");
+      case POKEDOKU_UNIQUENESS -> new ScoreFormatView("UNIQ ", "", 0, 2, "uniqueness");
     };
   }
   @Override public SubmissionConfigView submissionConfig() {
@@ -99,6 +100,7 @@ final class FandomGameAdapter implements GameAdapter {
       case ATTEMPTS -> "Guesses or clues";
       case CONNECTION_MISTAKES -> "Mistakes";
       case GRID_RARITY -> "Correct cells";
+      case POKEDOKU_UNIQUENESS -> "UNIQ score";
     }, BigDecimal.ZERO, null, BigDecimal.ONE, Set.of());
   }
   @Override public Set<String> supportedFormats() { return Set.of(); }

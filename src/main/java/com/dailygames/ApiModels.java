@@ -72,7 +72,7 @@ final class ApiModels {
   record ParserCapabilityView(String gameId, String status, Set<String> supportedFormats) {}
   record ScoreStrategyView(String gameId, String rankingRule, String primaryMetric, String primaryDirection,
                            String secondaryMetric, String secondaryDirection, List<String> compatibilityFields,
-                           boolean completionOnlyAllowed) {}
+                           boolean completionOnlyAllowed, String completionPolicy) {}
   record BoardSummary(UUID id, String name, UUID ownerId, boolean owner, GameView game, BoardType boardType,
                       List<GameView> games, boolean locked, Instant createdAt) {}
   record ScoreView(UUID id, String puzzleKey, LocalDate playedOn, BigDecimal primaryScore, String gameName, String gameSlug,

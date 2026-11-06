@@ -12,10 +12,18 @@ compatibility key.
 |---|---|---|---|
 | Squirdle, Weakdle, Dotadle, Valodle, Genshindle, Smashdle, MCdle, Minecraftle, Balatrodle, Stardewdle, Pufferdle, Clasherdle, Royaledle, Fortnitedle, R6dle, TFTdle, TF2dle, WoWdle, Runedle, Spiredle, Terradle, StreetFighterdle, Ace Attorneydle, Silksongdle, Narutodle, Onepiecedle, Grandlinedle, Animedle, Daily Animedle, GuessThe.Game, Gamedle, Steamdle, Retro Game Trivia, Actorle | Native guesses or progressive clues used | Wins before losses, then lower count | MANUAL_ONLY |
 | Pokennection, CraftConnections, Isaaconnect | Incorrect group submissions | Wins before losses, then fewer mistakes | MANUAL_ONLY |
-| PokeDoku, PokeGrid | Correct cells and optional displayed rarity | Wins before losses, then more correct cells, then lower known rarity | MANUAL_ONLY |
+| PokeDoku | Displayed `UNIQ` total and correct cells | Lower `UNIQ`, then more correct cells, then completion status | MANUAL_ONLY |
+| PokeGrid | Correct cells and optional displayed rarity | Wins before losses, then more correct cells, then lower known rarity | MANUAL_ONLY |
 
-Missing rarity remains null and sorts after a known rarity at the same completion count; it is never converted to zero.
-A completed grid must have nine correct cells, while a failed grid must have fewer than nine.
+PokeDoku's native [`UNIQ` total](https://www.reddit.com/r/pokemon/comments/16n35f8/pokedoku/) is the sum of the selection
+percentages for the nine answers; unfilled cells already contribute the game's native 100-point penalty. Lower is
+better. It is the sole metrics-first exception: a more unique
+incomplete grid may rank above a completed grid and receives ordinary combined-leaderboard placement points. Correct
+cells break equal-`UNIQ` ties, and completion status is considered only after both metrics.
+
+PokeGrid remains completion-first and correct-cells-first. Its missing rarity remains null and sorts after a known
+rarity at the same completion count; it is never converted to zero. For both grid games, a completed grid must have nine
+correct cells, while a failed grid must have fewer than nine.
 
 ## Evidence still required for clipboard parsing
 

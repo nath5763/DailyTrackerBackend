@@ -451,6 +451,47 @@ class DailyGamesServiceTest {
     assertEquals(2, combined.get(0).participationPoints());
   }
 
+  @Test
+  void incompletePokedokuReceivesCombinedPointsForItsMetricsFirstPlacement() {
+    UUID ownerId = UUID.randomUUID(), friendId = UUID.randomUUID();
+    Profile owner = new Profile(ownerId, "Owner", "#dfff4f", Instant.now());
+    Profile friend = new Profile(friendId, "Friend", "#ff8db6", Instant.now());
+    Game pokedoku = game("pokedoku", "PokeDoku", "lower");
+    Leaderboard board = new Leaderboard(ownerId, "All games", null, BoardType.MULTI_GAME,
+        BoardCreationBasis.SUBSCRIPTION, Instant.now());
+    ProfileRepository profiles = mock(ProfileRepository.class);
+    GameRepository games = mock(GameRepository.class);
+    LeaderboardRepository boards = mock(LeaderboardRepository.class);
+    MembershipRepository memberships = mock(MembershipRepository.class);
+    SubmissionRepository submissions = mock(SubmissionRepository.class);
+    BillingService billing = mock(BillingService.class);
+    GameAdapterRegistry adapters = new GameAdapterRegistry(List.of());
+    when(boards.findById(board.id)).thenReturn(Optional.of(board));
+    when(games.findByActiveTrueOrderByNameAsc()).thenReturn(List.of(pokedoku));
+    when(memberships.existsByIdLeaderboardIdAndIdUserId(board.id, ownerId)).thenReturn(true);
+    when(memberships.findByIdLeaderboardId(board.id)).thenReturn(List.of(
+        new Membership(board.id, ownerId, ownerId, Instant.now()),
+        new Membership(board.id, friendId, ownerId, Instant.now())));
+    when(profiles.findById(ownerId)).thenReturn(Optional.of(owner));
+    when(profiles.findById(friendId)).thenReturn(Optional.of(friend));
+    when(billing.isBoardAccessible(eq(board), any())).thenReturn(true);
+    LocalDate date = LocalDate.of(2026, 11, 5);
+    ParsedSubmission incomplete = adapters.normalizeManualResult("pokedoku", new ApiModels.ManualSubmissionRequest(
+        "pokedoku", null, date, "LOSS", Map.of("uniquenessScore", 10, "correctCells", 8)));
+    ParsedSubmission completed = adapters.normalizeManualResult("pokedoku", new ApiModels.ManualSubmissionRequest(
+        "pokedoku", null, date, "WIN", Map.of("uniquenessScore", 20, "correctCells", 9)));
+    Submission ownerScore = submission(ownerId, pokedoku.id, incomplete);
+    Submission friendScore = submission(friendId, pokedoku.id, completed);
+    when(submissions.findByUserIdInAndGameId(any(), eq(pokedoku.id))).thenReturn(List.of(ownerScore, friendScore));
+    when(submissions.findByUserIdInAndGameIdIn(any(), any())).thenReturn(List.of(ownerScore, friendScore));
+    DailyGamesService service = service(profiles, games, boards, memberships, submissions, adapters, billing);
+
+    var combined = service.board(new CurrentUser(ownerId, ""), board.id, "all", "pokedoku").combinedRankings();
+    assertEquals(ownerId, combined.getFirst().userId());
+    assertEquals(new BigDecimal("100.0000"), combined.getFirst().leaderboardPoints());
+    assertEquals(new BigDecimal("0.0000"), combined.get(1).leaderboardPoints());
+  }
+
   private Game game(String slug, String name, String direction) {
     Game game = new Game(); game.id = UUID.randomUUID(); game.slug = slug; game.name = name;
     game.sourceUrl = "https://example.com"; game.releaseTimezone = "UTC";

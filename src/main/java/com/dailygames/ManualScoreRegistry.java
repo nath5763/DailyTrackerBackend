@@ -215,6 +215,22 @@ final class ManualScoreRegistry {
         metrics.put("displayScore", correct + "/9" + (rarity == null ? "" : " · rarity " + rarity.stripTrailingZeros().toPlainString()));
         yield BigDecimal.valueOf(correct);
       }
+      case POKEDOKU_UNIQUENESS -> {
+        BigDecimal uniqueness = decimal(raw, "uniquenessScore", true, BigDecimal.ZERO, new BigDecimal("900"));
+        int correct = integer(raw, "correctCells", true, 0, 9);
+        if ("WIN".equals(status) && correct != 9 || "LOSS".equals(status) && correct == 9)
+          throw invalid("Completed grids must have nine correct cells; incomplete grids must have fewer than nine.");
+        metrics.put("uniquenessScore", uniqueness);
+        metrics.put("correctCells", correct);
+        metrics.put("nativeScore", uniqueness);
+        metrics.put("rankingPrimary", uniqueness);
+        metrics.put("rankingSecondary", correct);
+        metrics.put("rankingPrimaryDirection", "ASCENDING");
+        metrics.put("rankingSecondaryDirection", "DESCENDING");
+        metrics.put("scoreUnit", "uniqueness");
+        metrics.put("displayScore", "UNIQ " + uniqueness.stripTrailingZeros().toPlainString() + " · " + correct + "/9");
+        yield uniqueness;
+      }
     };
   }
 
@@ -291,6 +307,11 @@ final class ManualScoreRegistry {
         fields.add(integer("correctCells", "Correct cells", true, 0, 9, "Enter the number completed out of nine."));
         fields.add(decimal("rarityScore", "Rarity score", false, "0", "1000000", "0.01",
             "Optional. Leave blank when the game does not display rarity."));
+      }
+      case POKEDOKU_UNIQUENESS -> {
+        fields.add(decimal("uniquenessScore", "UNIQ score", true, "0", "900", "0.01",
+            "Enter the displayed UNIQ total."));
+        fields.add(integer("correctCells", "Correct cells", true, 0, 9, "Enter the number completed out of nine."));
       }
     }
     return new ManualEntryConfigView(true, false, WIN_LOSS, List.copyOf(fields));

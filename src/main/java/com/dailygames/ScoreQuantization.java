@@ -6,17 +6,18 @@ import java.math.BigDecimal;
 import java.util.*;
 
 enum MetricDirection { ASCENDING, DESCENDING }
+enum CompletionPolicy { COMPLETION_FIRST, METRICS_FIRST }
 
 record NormalizedScore(String gameId, String puzzleId, String completionStatus, BigDecimal nativeScore,
                        String scoreUnit, String scoreDirection, BigDecimal rankingPrimary,
                        BigDecimal rankingSecondary, MetricDirection rankingPrimaryDirection,
                        MetricDirection rankingSecondaryDirection, String displayScore, String gameMode,
-                       String difficulty, String compatibilityKey) {}
+                       String difficulty, String compatibilityKey, CompletionPolicy completionPolicy) {}
 
 record ScoreStrategySpec(String gameId, String rankingRule, String primaryMetric,
                          MetricDirection primaryDirection, String secondaryMetric,
                          MetricDirection secondaryDirection, List<String> compatibilityFields,
-                         boolean completionOnlyAllowed) {}
+                         boolean completionOnlyAllowed, CompletionPolicy completionPolicy) {}
 
 interface ScoreQuantizer {
   ScoreStrategySpec spec();
@@ -76,6 +77,8 @@ class ScoreQuantizerRegistry {
             null, null, compatibility, false);
         case GRID_RARITY -> spec(game.slug(), "most correct cells, then lowest available rarity", "correctCells", DESC,
             "rarityScore", ASC, compatibility, false);
+        case POKEDOKU_UNIQUENESS -> spec(game.slug(), "lowest UNIQ score, then most correct cells", "uniquenessScore", ASC,
+            "correctCells", DESC, compatibility, false, CompletionPolicy.METRICS_FIRST);
       });
     }
     return List.copyOf(values);
@@ -93,16 +96,16 @@ class ScoreQuantizerRegistry {
   private NormalizedScore quantizeConfigured(String gameId, ScoreStrategySpec spec, ParsedSubmission submission,
                                               String fallbackDirection) {
     Map<String, Object> metrics = submission.metrics();
-    BigDecimal primary = decimal(metrics.get("rankingPrimary"));
-    BigDecimal secondary = decimal(metrics.get("rankingSecondary"));
-    MetricDirection primaryDirection = direction(metrics.get("rankingPrimaryDirection"),
-        spec == null ? databaseDirection(fallbackDirection) : spec.primaryDirection());
-    MetricDirection secondaryDirection = direction(metrics.get("rankingSecondaryDirection"),
-        spec == null ? null : spec.secondaryDirection());
-    if (primary == null && spec != null) primary = decimal(metrics.get(spec.primaryMetric()));
-    if (secondary == null && spec != null && spec.secondaryMetric() != null)
-      secondary = decimal(metrics.get(spec.secondaryMetric()));
-    if (primary == null && (spec == null || !spec.completionOnlyAllowed())) primary = submission.primaryScore();
+    BigDecimal primary = spec == null ? decimal(metrics.get("rankingPrimary")) : decimal(metrics.get(spec.primaryMetric()));
+    BigDecimal secondary = spec == null ? decimal(metrics.get("rankingSecondary")) :
+        spec.secondaryMetric() == null ? null : decimal(metrics.get(spec.secondaryMetric()));
+    MetricDirection primaryDirection = spec == null
+        ? direction(metrics.get("rankingPrimaryDirection"), databaseDirection(fallbackDirection))
+        : spec.primaryDirection();
+    MetricDirection secondaryDirection = spec == null
+        ? direction(metrics.get("rankingSecondaryDirection"), null)
+        : spec.secondaryDirection();
+    if (primary == null && spec == null) primary = submission.primaryScore();
     BigDecimal nativeScore = decimal(metrics.get("nativeScore"));
     if (nativeScore == null) nativeScore = submission.primaryScore();
     String mode = string(metrics.get("gameMode"));
@@ -114,7 +117,7 @@ class ScoreQuantizerRegistry {
         primaryDirection == MetricDirection.DESCENDING ? "HIGHER_IS_BETTER" : "LOWER_IS_BETTER",
         primary, secondary, primaryDirection, secondaryDirection,
         Objects.toString(metrics.getOrDefault("displayScore", submission.primaryScore().toPlainString())),
-        mode, difficulty, compatibility);
+        mode, difficulty, compatibility, spec == null ? CompletionPolicy.COMPLETION_FIRST : spec.completionPolicy());
   }
 
   private final class ConfiguredScoreQuantizer implements ScoreQuantizer {
@@ -127,11 +130,15 @@ class ScoreQuantizerRegistry {
   }
 
   int compare(NormalizedScore left, NormalizedScore right) {
-    int completion = Integer.compare(completionTier(left.completionStatus()), completionTier(right.completionStatus()));
-    if (completion != 0) return completion;
+    if (left.completionPolicy() == CompletionPolicy.COMPLETION_FIRST) {
+      int completion = compareCompletion(left, right);
+      if (completion != 0) return completion;
+    }
     int primary = compareNullable(left.rankingPrimary(), right.rankingPrimary(), left.rankingPrimaryDirection());
     if (primary != 0) return primary;
-    return compareNullable(left.rankingSecondary(), right.rankingSecondary(), left.rankingSecondaryDirection());
+    int secondary = compareNullable(left.rankingSecondary(), right.rankingSecondary(), left.rankingSecondaryDirection());
+    if (secondary != 0) return secondary;
+    return left.completionPolicy() == CompletionPolicy.METRICS_FIRST ? compareCompletion(left, right) : 0;
   }
 
   boolean sameRank(NormalizedScore left, NormalizedScore right) {
@@ -144,7 +151,13 @@ class ScoreQuantizerRegistry {
                                         String secondary, MetricDirection secondaryDirection,
                                         List<String> compatibility, boolean completionOnly) {
     return new ScoreStrategySpec(id, rule, primary, primaryDirection, secondary, secondaryDirection,
-        List.copyOf(compatibility), completionOnly);
+        List.copyOf(compatibility), completionOnly, CompletionPolicy.COMPLETION_FIRST);
+  }
+  private static ScoreStrategySpec spec(String id, String rule, String primary, MetricDirection primaryDirection,
+                                        String secondary, MetricDirection secondaryDirection,
+                                        List<String> compatibility, boolean completionOnly, CompletionPolicy completionPolicy) {
+    return new ScoreStrategySpec(id, rule, primary, primaryDirection, secondary, secondaryDirection,
+        List.copyOf(compatibility), completionOnly, completionPolicy);
   }
   private String compatibility(ScoreStrategySpec spec, Map<String, Object> metrics, String mode, String difficulty) {
     if (spec == null || spec.compatibilityFields().isEmpty()) return "default";
@@ -166,7 +179,10 @@ class ScoreQuantizerRegistry {
     return left == null ? right == null : right != null && left.compareTo(right) == 0;
   }
   private int completionTier(String status) {
-    return switch (status) { case "WIN" -> 0; case "UNKNOWN" -> 1; case "LOSS" -> 2; default -> 3; };
+    return switch (status) { case "WIN" -> 0; case "UNKNOWN" -> 1; case "LOSS", "INCOMPLETE" -> 2; default -> 3; };
+  }
+  private int compareCompletion(NormalizedScore left, NormalizedScore right) {
+    return Integer.compare(completionTier(left.completionStatus()), completionTier(right.completionStatus()));
   }
   private BigDecimal decimal(Object value) {
     if (value instanceof BigDecimal decimal) return decimal;

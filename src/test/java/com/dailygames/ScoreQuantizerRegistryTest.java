@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Map;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -40,6 +41,68 @@ class ScoreQuantizerRegistryTest {
   @Test void completionOnlyStrategiesDoNotFabricateRankingValues() {
     NormalizedScore completion = score("guardian-quick-crossword", 0, Map.of("completionStatus", "WIN"));
     assertNull(completion.rankingPrimary());
+  }
+
+  @Test void pokedokuRanksUniquenessThenCellsThenCompletion() {
+    NormalizedScore incompleteRare = score("pokedoku", 10, Map.of(
+        "completionStatus", "LOSS", "uniquenessScore", 10, "correctCells", 8));
+    NormalizedScore completedCommon = score("pokedoku", 20, Map.of(
+        "completionStatus", "WIN", "uniquenessScore", 20, "correctCells", 9));
+    assertTrue(registry.compare(incompleteRare, completedCommon) < 0);
+
+    NormalizedScore eightCells = score("pokedoku", 10, Map.of(
+        "completionStatus", "LOSS", "uniquenessScore", 10, "correctCells", 8));
+    NormalizedScore sevenCells = score("pokedoku", 10, Map.of(
+        "completionStatus", "LOSS", "uniquenessScore", 10, "correctCells", 7));
+    assertTrue(registry.compare(eightCells, sevenCells) < 0);
+
+    NormalizedScore completed = score("pokedoku", 10, Map.of(
+        "completionStatus", "WIN", "uniquenessScore", 10, "correctCells", 9));
+    NormalizedScore incomplete = score("pokedoku", 10, Map.of(
+        "completionStatus", "LOSS", "uniquenessScore", 10, "correctCells", 9));
+    NormalizedScore tied = score("pokedoku", 10, Map.of(
+        "completionStatus", "WIN", "uniquenessScore", "10.0", "correctCells", 9));
+    assertTrue(registry.compare(completed, incomplete) < 0);
+    assertTrue(registry.sameRank(completed, tied));
+  }
+
+  @Test void configuredNativeMetricsOverrideStaleDerivedFieldsAndMissingNativeMetricsStayNull() {
+    NormalizedScore historical = score("pokedoku", 999, Map.of(
+        "completionStatus", "WIN", "uniquenessScore", "42.50", "correctCells", 9,
+        "rankingPrimary", 1, "rankingSecondary", 0,
+        "rankingPrimaryDirection", "DESCENDING", "rankingSecondaryDirection", "ASCENDING"));
+    assertEquals(new BigDecimal("42.50"), historical.rankingPrimary());
+    assertEquals(new BigDecimal("9"), historical.rankingSecondary());
+    assertEquals(MetricDirection.ASCENDING, historical.rankingPrimaryDirection());
+    assertEquals(MetricDirection.DESCENDING, historical.rankingSecondaryDirection());
+
+    NormalizedScore missing = score("pokedoku", 7, Map.of(
+        "completionStatus", "LOSS", "correctCells", 7, "rankingPrimary", 7));
+    assertNull(missing.rankingPrimary());
+  }
+
+  @Test void allFandomAttemptProfilesRemainCompletionFirstAndLowerAttemptsWins() {
+    Stream<String> attemptsGames = FandomGames.ALL.stream()
+        .filter(game -> game.scoreKind() == FandomScoreKind.ATTEMPTS).map(FandomGameDefinition::slug);
+    attemptsGames.forEach(gameId -> {
+      ScoreStrategySpec strategy = registry.strategy(gameId).orElseThrow();
+      assertEquals(CompletionPolicy.COMPLETION_FIRST, strategy.completionPolicy(), gameId);
+      assertEquals(MetricDirection.ASCENDING, strategy.primaryDirection(), gameId);
+      NormalizedScore win = score(gameId, 8, Map.of("completionStatus", "WIN", "attemptsUsed", 8));
+      NormalizedScore loss = score(gameId, 1, Map.of("completionStatus", "LOSS", "attemptsUsed", 1));
+      NormalizedScore fast = score(gameId, 2, Map.of("completionStatus", "WIN", "attemptsUsed", 2));
+      assertTrue(registry.compare(win, loss) < 0, gameId);
+      assertTrue(registry.compare(fast, win) < 0, gameId);
+    });
+  }
+
+  @Test void pokegridKeepsItsCorrectCellsFirstCompletionFirstStrategy() {
+    ScoreStrategySpec strategy = registry.strategy("pokegrid").orElseThrow();
+    assertEquals("correctCells", strategy.primaryMetric());
+    assertEquals(MetricDirection.DESCENDING, strategy.primaryDirection());
+    assertEquals("rarityScore", strategy.secondaryMetric());
+    assertEquals(MetricDirection.ASCENDING, strategy.secondaryDirection());
+    assertEquals(CompletionPolicy.COMPLETION_FIRST, strategy.completionPolicy());
   }
 
   private NormalizedScore score(String gameId, int primary, Map<String, Object> metrics) {

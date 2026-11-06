@@ -352,7 +352,8 @@ class DailyGamesService {
   }
 
   private boolean validPerformance(NormalizedScore score) {
-    return score.rankingPrimary() != null && ("WIN".equals(score.completionStatus()) || "UNKNOWN".equals(score.completionStatus()));
+    return score.rankingPrimary() != null && (score.completionPolicy() == CompletionPolicy.METRICS_FIRST ||
+        "WIN".equals(score.completionStatus()) || "UNKNOWN".equals(score.completionStatus()));
   }
 
   private boolean assisted(Submission value) {

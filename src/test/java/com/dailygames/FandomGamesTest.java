@@ -36,6 +36,7 @@ class FandomGamesTest {
       case ATTEMPTS -> Map.of("attempts", 3);
       case CONNECTION_MISTAKES -> Map.of("mistakes", 1);
       case GRID_RARITY -> Map.of("correctCells", 9, "rarityScore", "42.5");
+      case POKEDOKU_UNIQUENESS -> Map.of("uniquenessScore", "42.5", "correctCells", 9);
     };
     Map<String, Object> values = new java.util.LinkedHashMap<>(nativeValues);
     if (game.hasModes()) values.put("gameMode", "Classic");
@@ -55,15 +56,25 @@ class FandomGamesTest {
     assertEquals("gameMode=ability-daily", decorated.metrics().get("compatibilityKey"));
   }
 
-  @Test void gridRarityIsOptionalAndNeverDefaultsToZero() {
+  @Test void pokedokuRequiresNativeUniquenessAndConsistentCompletion() {
     ParsedSubmission result = adapters.normalizeManualResult("pokedoku", request("pokedoku", "LOSS",
-        Map.of("correctCells", 8)));
-    assertEquals(new BigDecimal("8"), result.primaryScore());
-    assertEquals(new BigDecimal("8"), result.metrics().get("rankingPrimary"));
-    assertFalse(result.metrics().containsKey("rankingSecondary"));
-    assertFalse(result.metrics().containsKey("rarityScore"));
-    assertThrows(ApiException.class, () -> manual.normalize("pokedoku", request("pokedoku", "WIN",
-        Map.of("correctCells", 8))));
+        Map.of("uniquenessScore", "42.5", "correctCells", 8)));
+    assertEquals(new BigDecimal("42.5"), result.primaryScore());
+    assertEquals(new BigDecimal("42.5"), result.metrics().get("nativeScore"));
+    assertEquals(new BigDecimal("42.5"), result.metrics().get("rankingPrimary"));
+    assertEquals(new BigDecimal("8"), result.metrics().get("rankingSecondary"));
+    assertEquals("UNIQ 42.5 · 8/9", result.metrics().get("displayScore"));
+
+    assertInvalidPokedoku(Map.of("correctCells", 8), "LOSS");
+    assertInvalidPokedoku(Map.of("uniquenessScore", "900.01", "correctCells", 8), "LOSS");
+    assertInvalidPokedoku(Map.of("uniquenessScore", 42, "correctCells", 8), "WIN");
+    assertInvalidPokedoku(Map.of("uniquenessScore", 42, "correctCells", 9), "LOSS");
+    assertInvalidPokedoku(Map.of("uniquenessScore", 42, "correctCells", 9, "rankingPrimary", 0), "WIN");
+  }
+
+  private void assertInvalidPokedoku(Map<String, Object> values, String status) {
+    assertEquals("INVALID_MANUAL_RESULT", assertThrows(ApiException.class,
+        () -> manual.normalize("pokedoku", request("pokedoku", status, values))).code);
   }
 
   static Stream<FandomGameDefinition> games() { return FandomGames.ALL.stream(); }

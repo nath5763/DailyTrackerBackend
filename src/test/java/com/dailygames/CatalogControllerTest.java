@@ -57,14 +57,20 @@ class CatalogControllerTest {
   }
 
   @Test void scoreStrategiesArePublicAndKeepPrimaryAndSecondaryDirectionsExplicit() throws Exception {
-    when(adapters.scoreStrategies()).thenReturn(List.of(new ScoreStrategySpec("quordle", "failures then total",
-        "failed", MetricDirection.ASCENDING, "penalizedGuessTotal", MetricDirection.ASCENDING,
-        List.of("gameMode"), false)));
+    when(adapters.scoreStrategies()).thenReturn(List.of(
+        new ScoreStrategySpec("quordle", "failures then total", "failed", MetricDirection.ASCENDING,
+            "penalizedGuessTotal", MetricDirection.ASCENDING, List.of("gameMode"), false,
+            CompletionPolicy.COMPLETION_FIRST),
+        new ScoreStrategySpec("pokedoku", "uniqueness then cells", "uniquenessScore", MetricDirection.ASCENDING,
+            "correctCells", MetricDirection.DESCENDING, List.of(), false, CompletionPolicy.METRICS_FIRST)));
     mvc.perform(get("/api/v1/catalog/games/score-strategies"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$[0].gameId").value("quordle"))
         .andExpect(jsonPath("$[0].primaryDirection").value("ASCENDING"))
         .andExpect(jsonPath("$[0].secondaryMetric").value("penalizedGuessTotal"))
-        .andExpect(jsonPath("$[0].compatibilityFields[0]").value("gameMode"));
+        .andExpect(jsonPath("$[0].compatibilityFields[0]").value("gameMode"))
+        .andExpect(jsonPath("$[0].completionPolicy").value("COMPLETION_FIRST"))
+        .andExpect(jsonPath("$[1].gameId").value("pokedoku"))
+        .andExpect(jsonPath("$[1].completionPolicy").value("METRICS_FIRST"));
   }
 }
