@@ -286,6 +286,23 @@ class DiscordChannelLeaderboard {
   }
 }
 
+@Entity @Table(name = "discord_group_dm_leaderboards")
+class DiscordGroupDmLeaderboard {
+  @Id @Column(name = "channel_id", length = 20) String channelId;
+  @Column(name = "leaderboard_id", nullable = false) UUID leaderboardId;
+  @Column(name = "configured_by_user_id", nullable = false) UUID configuredByUserId;
+  @Column(name = "configured_by_discord_user_id", nullable = false, length = 20) String configuredByDiscordUserId;
+  @Column(name = "created_at", nullable = false) Instant createdAt;
+  @Column(name = "updated_at", nullable = false) Instant updatedAt;
+  protected DiscordGroupDmLeaderboard() {}
+  DiscordGroupDmLeaderboard(String channelId, UUID leaderboardId, UUID configuredByUserId,
+                            String configuredByDiscordUserId, Instant now) {
+    this.channelId = channelId; this.leaderboardId = leaderboardId;
+    this.configuredByUserId = configuredByUserId; this.configuredByDiscordUserId = configuredByDiscordUserId;
+    createdAt = now; updatedAt = now;
+  }
+}
+
 @Entity @Table(name = "processed_discord_interactions")
 class ProcessedDiscordInteraction {
   @Id @Column(name = "interaction_id", length = 20) String interactionId;

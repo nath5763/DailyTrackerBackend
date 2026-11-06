@@ -206,10 +206,23 @@ class DiscordCommandRegistrar {
             Map.of("name", "Last 30 days", "value", "30d"), Map.of("name", "All time", "value", "all")));
     commands.add(command("leaderboard", "Show leaderboard rankings",
         List.of(leaderboardGame, range, leaderboardOption())));
-    if (global) commands.forEach(command -> {
-      command.put("contexts", List.of(0, 1, 2));
-      command.put("integration_types", List.of(0, 1));
-    });
+    if (global) {
+      commands.forEach(command -> {
+        command.put("contexts", List.of(0, 1, 2));
+        command.put("integration_types", List.of(0, 1));
+      });
+      Map<String, Object> setLeaderboard = command("set-leaderboard",
+          "Connect this Group DM to a Daily Tracker leaderboard",
+          List.of(stringOption("leaderboard", "Leaderboard UUID", true, 36, 36)));
+      setLeaderboard.put("contexts", List.of(2));
+      setLeaderboard.put("integration_types", List.of(1));
+      commands.add(setLeaderboard);
+      Map<String, Object> unsetLeaderboard = command("unset-leaderboard",
+          "Disconnect this Group DM from its leaderboard", List.of());
+      unsetLeaderboard.put("contexts", List.of(2));
+      unsetLeaderboard.put("integration_types", List.of(1));
+      commands.add(unsetLeaderboard);
+    }
     return commands;
   }
 
@@ -237,6 +250,6 @@ class DiscordCommandRegistrar {
   }
 
   private static Map<String, Object> leaderboardOption() {
-    return stringOption("leaderboard", "Leaderboard UUID (required in DMs and Group DMs)", false, 36, 36);
+    return stringOption("leaderboard", "Leaderboard UUID (required in DMs or unconfigured Group DMs)", false, 36, 36);
   }
 }

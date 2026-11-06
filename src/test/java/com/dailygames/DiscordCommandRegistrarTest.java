@@ -63,8 +63,8 @@ class DiscordCommandRegistrarTest {
   @Test void registersGlobalAndExistingGuildCommandsWithoutReplacingOtherCommands() {
     when(mappings.findDistinctGuildIds()).thenReturn(List.of(GUILD_ID));
     registrar.reconcile();
-    assertEquals(18, paths.size());
-    assertEquals(9, paths.stream().filter(path -> path.endsWith("/applications/123456789012345678/commands")).count());
+    assertEquals(20, paths.size());
+    assertEquals(11, paths.stream().filter(path -> path.endsWith("/applications/123456789012345678/commands")).count());
     assertEquals(9, paths.stream().filter(path -> path.endsWith("/guilds/" + GUILD_ID + "/commands")).count());
     assertEquals(List.of("help", "signup", "my-id", "add-member", "link", "unlink", "setup", "daily", "leaderboard"),
         bodies.subList(0, 9).stream().map(body -> body.path("name").asText()).toList());
@@ -79,16 +79,22 @@ class DiscordCommandRegistrarTest {
         "[0,1,2]".equals(body.path("contexts").toString())
             && "[0,1]".equals(body.path("integration_types").toString())));
     assertTrue(bodies.subList(0, 9).stream().noneMatch(body -> body.has("dm_permission")));
-    assertTrue(bodies.get(16).path("contexts").isMissingNode());
-    assertTrue(bodies.get(16).path("integration_types").isMissingNode());
+    assertEquals("set-leaderboard", bodies.get(9).path("name").asText());
+    assertEquals("[2]", bodies.get(9).path("contexts").toString());
+    assertEquals("[1]", bodies.get(9).path("integration_types").toString());
+    assertEquals("unset-leaderboard", bodies.get(10).path("name").asText());
+    assertEquals("[2]", bodies.get(10).path("contexts").toString());
+    assertEquals("[1]", bodies.get(10).path("integration_types").toString());
+    assertTrue(bodies.get(18).path("contexts").isMissingNode());
+    assertTrue(bodies.get(18).path("integration_types").isMissingNode());
     registrar.reconcile();
     registrar.registerGuild(GUILD_ID);
-    assertEquals(18, paths.size());
+    assertEquals(20, paths.size());
     DiscordCommandRegistrar restarted = new DiscordCommandRegistrar(HttpClient.newHttpClient(), json, mappings,
         registrations, URI.create("http://127.0.0.1:" + server.getAddress().getPort() + "/api/v10"),
         "123456789012345678", "bot-token");
     restarted.reconcile();
-    assertEquals(18, paths.size(), "A restart must not call Discord for unchanged commands");
+    assertEquals(20, paths.size(), "A restart must not call Discord for unchanged commands");
   }
 
   @Test void failedRegistrationIsRetried() {
@@ -112,12 +118,12 @@ class DiscordCommandRegistrarTest {
   @Test void removedGuildIsNotRetriedAndReconnectionRegistersAgain() {
     when(mappings.findDistinctGuildIds()).thenReturn(List.of(GUILD_ID), List.of(), List.of(GUILD_ID));
     registrar.reconcile();
-    assertEquals(18, paths.size());
+    assertEquals(20, paths.size());
     registrar.reconcile();
-    assertEquals(18, paths.size());
+    assertEquals(20, paths.size());
     persisted.keySet().removeIf(key -> key.contains(":" + GUILD_ID + ":"));
     registrar.reconcile();
-    assertEquals(27, paths.size());
+    assertEquals(29, paths.size());
   }
 
   @Test void diagnosticTextRedactsSecretsNormalizesLinesAndTruncates() {

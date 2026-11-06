@@ -21,6 +21,7 @@ class DiscordServiceTest {
   private DiscordLinkCodeRepository codes;
   private LeaderboardRepository boards;
   private DiscordChannelLeaderboardRepository channels;
+  private DiscordGroupDmLeaderboardRepository groupDms;
   private DiscordCommandRegistrationStore registrations;
   private ProcessedDiscordInteractionRepository interactions;
   private BillingService billing;
@@ -36,6 +37,7 @@ class DiscordServiceTest {
     codes = mock(DiscordLinkCodeRepository.class);
     boards = mock(LeaderboardRepository.class);
     channels = mock(DiscordChannelLeaderboardRepository.class);
+    groupDms = mock(DiscordGroupDmLeaderboardRepository.class);
     registrations = mock(DiscordCommandRegistrationStore.class);
     interactions = mock(ProcessedDiscordInteractionRepository.class);
     billing = mock(BillingService.class);
@@ -43,7 +45,7 @@ class DiscordServiceTest {
     signup = mock(DiscordSignupService.class);
     adapters = mock(GameAdapterRegistry.class);
     DiscordSignatureVerifier configured = new DiscordSignatureVerifier("123", "00".repeat(32), clock);
-    service = new DiscordService(profiles, links, codes, boards, channels, registrations, interactions, billing, dailyGames, signup,
+    service = new DiscordService(profiles, links, codes, boards, channels, groupDms, registrations, interactions, billing, dailyGames, signup,
         adapters, configured, clock, "test-pepper-that-is-never-logged", "https://dailytracker.cc/");
     json = new ObjectMapper();
   }
@@ -185,6 +187,7 @@ class DiscordServiceTest {
     assertEquals("SUCCESS", result.outcome());
     @SuppressWarnings("unchecked") Map<String, Object> data = (Map<String, Object>) result.body().get("data");
     assertEquals("Saved Fermi.gg #92 at 1.31×.", data.get("content"));
+    assertFalse(data.containsKey("flags"));
     assertEquals(Map.of("parse", List.of()), data.get("allowed_mentions"));
   }
 
@@ -226,6 +229,7 @@ class DiscordServiceTest {
     UUID ownerId = UUID.randomUUID();
     service.unlinkWebsite(ownerId);
     verify(channels).deleteOwnedChannels(ownerId);
+    verify(groupDms).deleteOwnedChannels(ownerId);
     verify(registrations).pruneUnmappedGuilds();
     verify(links).deleteByUserId(ownerId);
   }
@@ -237,6 +241,7 @@ class DiscordServiceTest {
     when(links.findById(discordUserId)).thenReturn(Optional.of(new DiscordAccountLink(discordUserId, ownerId, now)));
     assertEquals("SUCCESS", service.handle(json.readTree(commandWithPermissions("unlink", "0", null, null))).outcome());
     verify(channels).deleteOwnedChannels(ownerId);
+    verify(groupDms).deleteOwnedChannels(ownerId);
     verify(registrations).pruneUnmappedGuilds();
     verify(links).deleteById(discordUserId);
   }
@@ -270,7 +275,7 @@ class DiscordServiceTest {
     assertEquals(status.installUrl(), service.status(userId).installUrl());
 
     DiscordSignatureVerifier unconfigured = new DiscordSignatureVerifier("", "", clock);
-    DiscordService disabled = new DiscordService(profiles, links, codes, boards, channels, registrations, interactions, billing,
+    DiscordService disabled = new DiscordService(profiles, links, codes, boards, channels, groupDms, registrations, interactions, billing,
         dailyGames, signup, adapters, unconfigured, clock, "pepper", "https://dailytracker.cc");
     assertNull(disabled.status(userId).installUrl());
     assertFalse(disabled.status(userId).configured());
@@ -335,13 +340,92 @@ class DiscordServiceTest {
     @SuppressWarnings("unchecked") Map<String, Object> data = (Map<String, Object>) missing.body().get("data");
     assertTrue(((String) data.get("content")).contains("`leaderboard` option"));
 
+    DiscordInteractionResult failedDaily = service.handle(json.readTree(
+        groupDmCommand("daily", "game", "fermi", "result", "Fermi #92")));
+    assertPrivateOutcome(failedDaily, "PRIVATE_LEADERBOARD_REQUIRED");
+
     DiscordInteractionResult setup = service.handle(json.readTree(
         groupDmCommand("setup", "leaderboard", boardId.toString())));
     assertPrivateOutcome(setup, "GUILD_REQUIRED");
     verifyNoInteractions(channels, boards, billing, dailyGames);
   }
 
-  @Test void groupDmSubmitsToAnExplicitLeaderboardWithoutPaidChannelChecks() throws Exception {
+  @Test void ownerConnectsGroupDmAndMembersUseTheSavedLeaderboard() throws Exception {
+    UUID ownerId = UUID.randomUUID(), memberId = UUID.randomUUID(), boardId = UUID.randomUUID();
+    when(interactions.insertIfAbsent(anyString(), anyString(), eq(2), anyString(), eq(now))).thenReturn(1);
+    when(links.findById("222222222222222222"))
+        .thenReturn(Optional.of(new DiscordAccountLink("222222222222222222", ownerId, now)));
+    Leaderboard board = new Leaderboard(ownerId, "Friends", UUID.randomUUID(), BoardCreationBasis.FREE, now);
+    when(boards.findById(boardId)).thenReturn(Optional.of(board));
+    when(billing.isBoardAccessible(board, now)).thenReturn(true);
+    when(groupDms.findForUpdate("333333333333333333")).thenReturn(Optional.empty());
+
+    DiscordInteractionResult configured = service.handle(json.readTree(
+        groupDmCommand("set-leaderboard", "leaderboard", boardId.toString())));
+
+    assertPrivateOutcome(configured, "SUCCESS");
+    ArgumentCaptor<DiscordGroupDmLeaderboard> savedMapping = ArgumentCaptor.forClass(DiscordGroupDmLeaderboard.class);
+    verify(groupDms).save(savedMapping.capture());
+    assertEquals("333333333333333333", savedMapping.getValue().channelId);
+    assertEquals(boardId, savedMapping.getValue().leaderboardId);
+    assertEquals(ownerId, savedMapping.getValue().configuredByUserId);
+
+    when(links.findById("222222222222222222"))
+        .thenReturn(Optional.of(new DiscordAccountLink("222222222222222222", memberId, now)));
+    when(groupDms.findById("333333333333333333")).thenReturn(Optional.of(savedMapping.getValue()));
+    Game game = new Game(); game.id = UUID.randomUUID(); game.slug = "fermi"; game.name = "Fermi.gg";
+    ParsedSubmission parsed = new ParsedSubmission("92", 92, LocalDate.of(2026, 10, 26),
+        new BigDecimal("1.31"), Map.of(), 1);
+    when(dailyGames.submitFromDiscord(memberId, boardId, "fermi", "Fermi #92"))
+        .thenReturn(new DailyGamesService.DiscordSubmissionResult(UUID.randomUUID(), game, parsed));
+    GameAdapter adapter = mock(GameAdapter.class);
+    when(adapter.scoreFormat()).thenReturn(new ApiModels.ScoreFormatView("", "×", 2, 2));
+    when(adapters.require("fermi")).thenReturn(adapter);
+
+    DiscordInteractionResult submitted = service.handle(json.readTree(
+        groupDmCommand("daily", "game", "fermi", "result", "Fermi #92")));
+
+    assertPublicOutcome(submitted, "SUCCESS");
+    verify(dailyGames).submitFromDiscord(memberId, boardId, "fermi", "Fermi #92");
+    verifyNoInteractions(channels);
+  }
+
+  @Test void setLeaderboardRejectsOneToOnePrivateChannels() throws Exception {
+    when(interactions.insertIfAbsent(anyString(), anyString(), eq(2), eq("set-leaderboard"), eq(now))).thenReturn(1);
+    DiscordInteractionResult result = service.handle(json.readTree(privateChatCommand(2, 1,
+        "set-leaderboard", "leaderboard", UUID.randomUUID().toString())));
+    assertPrivateOutcome(result, "GROUP_DM_REQUIRED");
+    verifyNoInteractions(links, boards, groupDms);
+  }
+
+  @Test void onlyCurrentLeaderboardOwnerCanReplaceOrRemoveGroupDmMapping() throws Exception {
+    UUID currentOwnerId = UUID.randomUUID(), otherOwnerId = UUID.randomUUID();
+    UUID currentBoardId = UUID.randomUUID(), otherBoardId = UUID.randomUUID();
+    when(interactions.insertIfAbsent(anyString(), anyString(), eq(2), anyString(), eq(now))).thenReturn(1);
+    when(links.findById("222222222222222222"))
+        .thenReturn(Optional.of(new DiscordAccountLink("222222222222222222", otherOwnerId, now)));
+    Leaderboard currentBoard = new Leaderboard(currentOwnerId, "Current", UUID.randomUUID(), BoardCreationBasis.FREE, now);
+    Leaderboard otherBoard = new Leaderboard(otherOwnerId, "Other", UUID.randomUUID(), BoardCreationBasis.FREE, now);
+    when(boards.findById(currentBoardId)).thenReturn(Optional.of(currentBoard));
+    when(boards.findById(otherBoardId)).thenReturn(Optional.of(otherBoard));
+    when(billing.isBoardAccessible(otherBoard, now)).thenReturn(true);
+    DiscordGroupDmLeaderboard mapping = new DiscordGroupDmLeaderboard("333333333333333333", currentBoardId,
+        currentOwnerId, "999999999999999999", now);
+    when(groupDms.findForUpdate("333333333333333333")).thenReturn(Optional.of(mapping));
+
+    assertPrivateOutcome(service.handle(json.readTree(groupDmCommand(
+        "set-leaderboard", "leaderboard", otherBoardId.toString()))), "NOT_OWNER");
+    assertPrivateOutcome(service.handle(json.readTree(groupDmCommand("unset-leaderboard"))), "NOT_OWNER");
+    verify(groupDms, never()).save(any());
+    verify(groupDms, never()).delete(any());
+
+    when(links.findById("222222222222222222"))
+        .thenReturn(Optional.of(new DiscordAccountLink("222222222222222222", currentOwnerId, now)));
+    assertPrivateOutcome(service.handle(json.readTree(groupDmCommand("unset-leaderboard"))), "SUCCESS");
+    verify(groupDms).delete(mapping);
+  }
+
+  @Test void privateChatsPublishSuccessfulDailySubmissionsWithoutPaidChannelChecks() throws Exception {
     UUID userId = UUID.randomUUID(), boardId = UUID.randomUUID();
     when(interactions.insertIfAbsent(anyString(), anyString(), eq(2), eq("daily"), eq(now))).thenReturn(1);
     when(links.findById("222222222222222222"))
@@ -355,25 +439,31 @@ class DiscordServiceTest {
     when(adapter.scoreFormat()).thenReturn(new ApiModels.ScoreFormatView("", "×", 2, 2));
     when(adapters.require("fermi")).thenReturn(adapter);
 
-    DiscordInteractionResult result = service.handle(json.readTree(groupDmCommand("daily",
-        "game", "fermi", "result", "Fermi #92\n1.31× score", "leaderboard", boardId.toString())));
+    for (int context : List.of(1, 2)) {
+      DiscordInteractionResult result = service.handle(json.readTree(privateChatCommand(context, "daily",
+          "game", "fermi", "result", "Fermi #92\n1.31× score", "leaderboard", boardId.toString())));
+      assertPublicOutcome(result, "SUCCESS");
+      @SuppressWarnings("unchecked") Map<String, Object> data = (Map<String, Object>) result.body().get("data");
+      assertEquals("Saved Fermi.gg #92 at 1.31×.", data.get("content"));
+    }
 
-    assertPrivateOutcome(result, "SUCCESS");
-    verify(dailyGames).submitFromDiscord(userId, boardId, "fermi", "Fermi #92\n1.31× score");
+    verify(dailyGames, times(2)).submitFromDiscord(userId, boardId, "fermi", "Fermi #92\n1.31× score");
     verifyNoInteractions(channels, boards, billing);
   }
 
-  @Test void groupDmViewsAnExplicitLeaderboardWithoutAChannelMapping() throws Exception {
+  @Test void groupDmViewsItsMappedLeaderboardWithoutRepeatingTheUuid() throws Exception {
     UUID userId = UUID.randomUUID(), boardId = UUID.randomUUID();
     when(interactions.insertIfAbsent(anyString(), anyString(), eq(2), eq("leaderboard"), eq(now))).thenReturn(1);
     when(links.findById("222222222222222222"))
         .thenReturn(Optional.of(new DiscordAccountLink("222222222222222222", userId, now)));
     ApiModels.GameView game = game("fermi", "Fermi.gg");
+    when(groupDms.findById("333333333333333333")).thenReturn(Optional.of(
+        new DiscordGroupDmLeaderboard("333333333333333333", boardId, userId, "222222222222222222", now)));
     when(dailyGames.board(any(), eq(boardId), eq("7d"), eq("fermi")))
         .thenReturn(board(boardId, "Private Friends", game, "7d", List.of()));
 
     DiscordInteractionResult result = service.handle(json.readTree(groupDmCommand("leaderboard",
-        "game", "fermi", "range", "7d", "leaderboard", boardId.toString())));
+        "game", "fermi", "range", "7d")));
 
     assertEquals("SUCCESS", result.outcome());
     @SuppressWarnings("unchecked") Map<String, Object> data = (Map<String, Object>) result.body().get("data");
@@ -383,7 +473,7 @@ class DiscordServiceTest {
     verifyNoInteractions(channels, boards, billing);
   }
 
-  @Test void groupDmAutocompleteUsesOnlyTheExplicitLeaderboard() throws Exception {
+  @Test void groupDmAutocompleteUsesExplicitOrMappedLeaderboard() throws Exception {
     UUID userId = UUID.randomUUID(), boardId = UUID.randomUUID();
     when(links.findById("222222222222222222"))
         .thenReturn(Optional.of(new DiscordAccountLink("222222222222222222", userId, now)));
@@ -399,6 +489,15 @@ class DiscordServiceTest {
     @SuppressWarnings("unchecked") Map<String, Object> data = (Map<String, Object>) result.body().get("data");
     assertEquals("fermi", ((List<?>) data.get("choices")).stream()
         .map(value -> ((Map<?, ?>) value).get("value")).findFirst().orElseThrow());
+
+    when(groupDms.findById("333333333333333333")).thenReturn(Optional.of(
+        new DiscordGroupDmLeaderboard("333333333333333333", boardId, userId, "222222222222222222", now)));
+    String mappedPayload = groupDmCommand("daily", "game", "fe")
+        .replace("\"type\":2", "\"type\":4")
+        .replace("\"name\":\"game\",\"value\"", "\"name\":\"game\",\"focused\":true,\"value\"");
+    DiscordInteractionResult mappedResult = service.handle(json.readTree(mappedPayload));
+    assertEquals(8, mappedResult.body().get("type"));
+    verify(dailyGames, times(2)).searchDiscordGames(userId, boardId, "fe", true);
     verifyNoInteractions(channels);
   }
 
@@ -542,6 +641,13 @@ class DiscordServiceTest {
     assertEquals(Map.of("parse", List.of()), data.get("allowed_mentions"));
   }
 
+  private void assertPublicOutcome(DiscordInteractionResult result, String outcome) {
+    assertEquals(outcome, result.outcome());
+    @SuppressWarnings("unchecked") Map<String, Object> data = (Map<String, Object>) result.body().get("data");
+    assertFalse(data.containsKey("flags"));
+    assertEquals(Map.of("parse", List.of()), data.get("allowed_mentions"));
+  }
+
   private String commandWithPermissions(String name, String permissions, String optionName, String optionValue) {
     String options = optionName == null ? "[]" : "[{\"type\":3,\"name\":\"" + optionName + "\",\"value\":\"" + optionValue + "\"}]";
     return "{\"type\":2,\"id\":\"111111111111111111\",\"guild_id\":\"444444444444444444\","
@@ -559,6 +665,14 @@ class DiscordServiceTest {
   }
 
   private String groupDmCommand(String name, String... optionPairs) {
+    return privateChatCommand(2, 3, name, optionPairs);
+  }
+
+  private String privateChatCommand(int context, String name, String... optionPairs) {
+    return privateChatCommand(context, context == 2 ? 3 : 1, name, optionPairs);
+  }
+
+  private String privateChatCommand(int context, int channelType, String name, String... optionPairs) {
     if (optionPairs.length % 2 != 0) throw new IllegalArgumentException("Options must be name/value pairs");
     StringBuilder options = new StringBuilder("[");
     for (int index = 0; index < optionPairs.length; index += 2) {
@@ -566,8 +680,9 @@ class DiscordServiceTest {
       options.append("{\"type\":3,\"name\":\"").append(escape(optionPairs[index]))
           .append("\",\"value\":\"").append(escape(optionPairs[index + 1])).append("\"}");
     }
-    return "{\"type\":2,\"id\":\"111111111111111111\",\"context\":2,"
-        + "\"channel_id\":\"333333333333333333\",\"user\":{\"id\":\"222222222222222222\"},"
+    return "{\"type\":2,\"id\":\"111111111111111111\",\"context\":" + context + ","
+        + "\"channel_id\":\"333333333333333333\",\"channel\":{\"id\":\"333333333333333333\",\"type\":"
+        + channelType + "},\"user\":{\"id\":\"222222222222222222\"},"
         + "\"data\":{\"name\":\"" + name + "\",\"options\":" + options + "]}}";
   }
 

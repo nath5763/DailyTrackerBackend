@@ -38,7 +38,7 @@ $commands = @(
     description = "Add a profile to a leaderboard"
     options = @(
       @{ type = 3; name = "uuid"; description = "Shareable profile UUID"; required = $true; min_length = 36; max_length = 36 },
-      @{ type = 3; name = "leaderboard"; description = "Leaderboard UUID (required in DMs and Group DMs)"; required = $false; min_length = 36; max_length = 36 }
+      @{ type = 3; name = "leaderboard"; description = "Leaderboard UUID (required in DMs or unconfigured Group DMs)"; required = $false; min_length = 36; max_length = 36 }
     )
   },
   @{
@@ -70,7 +70,7 @@ $commands = @(
         autocomplete = $true
       },
       @{ type = 3; name = "result"; description = "Complete game share text"; required = $true; min_length = 1; max_length = 6000 },
-      @{ type = 3; name = "leaderboard"; description = "Leaderboard UUID (required in DMs and Group DMs)"; required = $false; min_length = 36; max_length = 36 }
+      @{ type = 3; name = "leaderboard"; description = "Leaderboard UUID (required in DMs or unconfigured Group DMs)"; required = $false; min_length = 36; max_length = 36 }
     )
   },
   @{
@@ -98,7 +98,7 @@ $commands = @(
           @{ name = "All time"; value = "all" }
         )
       },
-      @{ type = 3; name = "leaderboard"; description = "Leaderboard UUID (required in DMs and Group DMs)"; required = $false; min_length = 36; max_length = 36 }
+      @{ type = 3; name = "leaderboard"; description = "Leaderboard UUID (required in DMs or unconfigured Group DMs)"; required = $false; min_length = 36; max_length = 36 }
     )
   }
 )
@@ -108,6 +108,21 @@ if ($Scope -eq "Global") {
     $command.contexts = @(0, 1, 2)
     $command.integration_types = @(0, 1)
   }
+  $commands += @(
+    @{
+      name = "set-leaderboard"
+      description = "Connect this Group DM to a Daily Tracker leaderboard"
+      contexts = @(2)
+      integration_types = @(1)
+      options = @(@{ type = 3; name = "leaderboard"; description = "Leaderboard UUID"; required = $true; min_length = 36; max_length = 36 })
+    },
+    @{
+      name = "unset-leaderboard"
+      description = "Disconnect this Group DM from its leaderboard"
+      contexts = @(2)
+      integration_types = @(1)
+    }
+  )
 }
 
 $headers = @{ Authorization = "Bot $botToken"; "User-Agent" = "DiscordBot (https://dailytracker.cc, 0.1.0)" }

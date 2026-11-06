@@ -117,6 +117,15 @@ import java.util.*;
   Optional<DiscordChannelLeaderboard> findForUpdate(@Param("id") DiscordChannelLeaderboardId id);
 }
 
+@Repository interface DiscordGroupDmLeaderboardRepository extends JpaRepository<DiscordGroupDmLeaderboard, String> {
+  @Modifying @Query(value = "delete from discord_group_dm_leaderboards where leaderboard_id in " +
+      "(select id from leaderboards where owner_id = :ownerId)", nativeQuery = true)
+  int deleteOwnedChannels(@Param("ownerId") UUID ownerId);
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query("select c from DiscordGroupDmLeaderboard c where c.channelId = :channelId")
+  Optional<DiscordGroupDmLeaderboard> findForUpdate(@Param("channelId") String channelId);
+}
+
 @Repository interface DiscordSetupRepository extends JpaRepository<DiscordSetup, UUID> {
   @Lock(LockModeType.PESSIMISTIC_WRITE)
   Optional<DiscordSetup> findByStateHash(String stateHash);

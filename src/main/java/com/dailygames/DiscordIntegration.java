@@ -95,6 +95,7 @@ class DiscordService {
   private final DiscordLinkCodeRepository codes;
   private final LeaderboardRepository boards;
   private final DiscordChannelLeaderboardRepository channels;
+  private final DiscordGroupDmLeaderboardRepository groupDms;
   private final DiscordCommandRegistrationStore registrations;
   private final ProcessedDiscordInteractionRepository interactions;
   private final BillingService billing;
@@ -108,12 +109,14 @@ class DiscordService {
 
   DiscordService(ProfileRepository profiles, DiscordAccountLinkRepository links, DiscordLinkCodeRepository codes,
                  LeaderboardRepository boards, DiscordChannelLeaderboardRepository channels,
+                 DiscordGroupDmLeaderboardRepository groupDms,
                  DiscordCommandRegistrationStore registrations,
                  ProcessedDiscordInteractionRepository interactions, BillingService billing,
                  DailyGamesService dailyGames, DiscordSignupService signup, GameAdapterRegistry adapters, DiscordSignatureVerifier configuration,
                  Clock clock, @Value("${app.token-pepper}") String pepper,
                  @Value("${app.public-base-url}") String publicBaseUrl) {
     this.profiles = profiles; this.links = links; this.codes = codes; this.boards = boards; this.channels = channels;
+    this.groupDms = groupDms;
     this.registrations = registrations;
     this.interactions = interactions; this.billing = billing; this.dailyGames = dailyGames; this.signup = signup; this.adapters = adapters;
     this.configuration = configuration; this.clock = clock; this.pepper = pepper;
@@ -153,6 +156,7 @@ class DiscordService {
 
   private void disconnectOwnedChannels(UUID userId) {
     channels.deleteOwnedChannels(userId);
+    groupDms.deleteOwnedChannels(userId);
     registrations.pruneUnmappedGuilds();
   }
 
@@ -174,20 +178,24 @@ class DiscordService {
     try {
       String guildId = optionalSnowflake(payload, "guild_id");
       String channelId = optionalSnowflake(payload, "channel_id");
+      boolean groupDm = isGroupDm(payload);
       result = switch (command) {
         case "help" -> help();
         case "signup" -> signup(discordUserId, guildId, channelId);
         case "my-id" -> myId(discordUserId);
-        case "add-member" -> addMember(discordUserId, guildId, channelId,
+        case "add-member" -> addMember(discordUserId, groupDm, guildId, channelId,
             option(payload, "uuid", 36), optionalOption(payload, "leaderboard", 36));
         case "link" -> link(discordUserId, option(payload, "code", 32), now);
         case "unlink" -> unlink(discordUserId);
         case "setup" -> setup(discordUserId, guildId, channelId, member,
             option(payload, "leaderboard", 36), now);
-        case "daily" -> daily(discordUserId, guildId, channelId,
+        case "set-leaderboard" -> setGroupDmLeaderboard(discordUserId, groupDm, guildId, channelId,
+            option(payload, "leaderboard", 36), now);
+        case "unset-leaderboard" -> unsetGroupDmLeaderboard(discordUserId, groupDm, guildId, channelId);
+        case "daily" -> daily(discordUserId, groupDm, guildId, channelId,
             optionalOption(payload, "game", 80), option(payload, "result", 6_000),
             optionalOption(payload, "leaderboard", 36));
-        case "leaderboard" -> leaderboard(discordUserId, guildId, channelId,
+        case "leaderboard" -> leaderboard(discordUserId, groupDm, guildId, channelId,
             option(payload, "game", 80), optionalOption(payload, "range", 8),
             optionalOption(payload, "leaderboard", 36));
         default -> throw new ApiException(400, "UNKNOWN_COMMAND", "That command is not supported.");
@@ -203,9 +211,10 @@ class DiscordService {
     return ephemeral("**Daily Tracker help**\n"
         + "Run `/signup` to create or connect your account. In a connected server channel, signup can also join that channel's leaderboard.\n"
         + "1. **Link your account:** Sign in at " + publicBaseUrl + "/dashboard, generate a link code in the Discord section, then run `/link` and enter the code. Codes expire after 10 minutes.\n"
-        + "2. **Submit a game result:** Run `/daily`, choose a game, and paste the complete game share text into `result`. In DMs and Group DMs, also enter the leaderboard UUID from its Daily Tracker URL.\n"
-        + "3. **See rankings:** Run `/leaderboard`, choose a game, and optionally choose a range (today, 7 days, 30 days, or all time). In DMs and Group DMs, also enter the leaderboard UUID.\n"
-        + "Each player links their own account. Server channels use their configured leaderboard; private chats never create or reuse a channel mapping.",
+        + "2. **Choose a Group DM leaderboard:** Its owner can run `/set-leaderboard` once. In a one-to-one DM or an unconfigured Group DM, enter the leaderboard UUID on each command.\n"
+        + "3. **Submit a game result:** Run `/daily`, choose a game, and paste the complete game share text into `result`.\n"
+        + "4. **See rankings:** Run `/leaderboard`, choose a game, and optionally choose a range (today, 7 days, 30 days, or all time).\n"
+        + "Each player links their own account and must belong to the selected leaderboard. Server and configured Group DM channels use their saved leaderboard.",
         "SUCCESS", "help");
   }
 
@@ -228,10 +237,10 @@ class DiscordService {
     return ephemeral("Your shareable profile UUID is `" + profile.shareId + "`.", "SUCCESS", "my-id");
   }
 
-  private DiscordInteractionResult addMember(String discordUserId, String guildId, String channelId, String rawId,
+  private DiscordInteractionResult addMember(String discordUserId, boolean groupDm, String guildId, String channelId, String rawId,
                                              String rawLeaderboardId) {
     UUID userId = linkedUser(discordUserId);
-    UUID leaderboardId = resolveLeaderboard(guildId, channelId, rawLeaderboardId);
+    UUID leaderboardId = resolveLeaderboard(groupDm, guildId, channelId, rawLeaderboardId);
     UUID shareId;
     try { shareId = UUID.fromString(rawId); }
     catch (IllegalArgumentException exception) { throw new ApiException(400, "INVALID_PROFILE_ID", "Enter a valid profile UUID."); }
@@ -253,12 +262,14 @@ class DiscordService {
     if (query == null || query.length() > 80) return emptyChoices(command);
     try {
       String guildId = optionalSnowflake(payload, "guild_id");
+      boolean groupDm = isGroupDm(payload);
       List<ApiModels.GameView> games;
       if (guildId == null) {
         String rawLeaderboardId = optionalOption(payload, "leaderboard", 36);
-        if (rawLeaderboardId == null) return emptyChoices(command);
+        String channelId = optionalSnowflake(payload, "channel_id");
         UUID userId = linkedUser(interactionUserId(payload));
-        games = dailyGames.searchDiscordGames(userId, parseLeaderboardId(rawLeaderboardId), query,
+        games = dailyGames.searchDiscordGames(userId,
+            resolveLeaderboard(groupDm, null, channelId, rawLeaderboardId), query,
             "daily".equals(command));
       } else {
         String channelId = optionalSnowflake(payload, "channel_id");
@@ -348,23 +359,74 @@ class DiscordService {
     return ephemeral("This channel is now connected to leaderboard `" + leaderboardId + "`.", "SUCCESS", "setup");
   }
 
-  private DiscordInteractionResult daily(String discordUserId, String guildId, String channelId,
+  private DiscordInteractionResult setGroupDmLeaderboard(String discordUserId, boolean groupDm, String guildId,
+                                                         String channelId, String rawLeaderboardId, Instant now) {
+    requireGroupDm(groupDm, guildId, channelId);
+    UUID userId = linkedUser(discordUserId);
+    UUID leaderboardId = parseLeaderboardId(rawLeaderboardId);
+    Leaderboard selected = boards.findById(leaderboardId)
+        .orElseThrow(() -> new ApiException(404, "LEADERBOARD_NOT_FOUND", "That leaderboard was not found."));
+    if (!selected.ownerId.equals(userId)) {
+      throw new ApiException(403, "NOT_OWNER", "Only the leaderboard owner can connect it to a Group DM.");
+    }
+    if (!billing.isBoardAccessible(selected, now)) {
+      throw new ApiException(402, "OWNER_SUBSCRIPTION_REQUIRED",
+          "This leaderboard is locked until its owner restores their subscription.");
+    }
+    DiscordGroupDmLeaderboard mapping = groupDms.findForUpdate(channelId).orElse(null);
+    if (mapping != null) {
+      Leaderboard current = boards.findById(mapping.leaderboardId)
+          .orElseThrow(() -> new ApiException(404, "LEADERBOARD_NOT_FOUND", "The connected leaderboard no longer exists."));
+      if (!current.ownerId.equals(userId)) {
+        throw new ApiException(403, "NOT_OWNER",
+            "Only the owner of the currently connected leaderboard can replace this Group DM's selection.");
+      }
+      mapping.leaderboardId = leaderboardId;
+      mapping.configuredByUserId = userId;
+      mapping.configuredByDiscordUserId = discordUserId;
+      mapping.updatedAt = now;
+    } else {
+      mapping = new DiscordGroupDmLeaderboard(channelId, leaderboardId, userId, discordUserId, now);
+    }
+    groupDms.save(mapping);
+    return ephemeral("This Group DM now uses leaderboard `" + leaderboardId
+        + "`. Members can omit the `leaderboard` option.", "SUCCESS", "set-leaderboard");
+  }
+
+  private DiscordInteractionResult unsetGroupDmLeaderboard(String discordUserId, boolean groupDm, String guildId,
+                                                           String channelId) {
+    requireGroupDm(groupDm, guildId, channelId);
+    UUID userId = linkedUser(discordUserId);
+    DiscordGroupDmLeaderboard mapping = groupDms.findForUpdate(channelId)
+        .orElseThrow(() -> new ApiException(404, "GROUP_DM_NOT_CONFIGURED",
+            "This Group DM is not connected to a leaderboard."));
+    Leaderboard current = boards.findById(mapping.leaderboardId)
+        .orElseThrow(() -> new ApiException(404, "LEADERBOARD_NOT_FOUND", "The connected leaderboard no longer exists."));
+    if (!current.ownerId.equals(userId)) {
+      throw new ApiException(403, "NOT_OWNER",
+          "Only the connected leaderboard's owner can disconnect this Group DM.");
+    }
+    groupDms.delete(mapping);
+    return ephemeral("This Group DM is no longer connected to a leaderboard.", "SUCCESS", "unset-leaderboard");
+  }
+
+  private DiscordInteractionResult daily(String discordUserId, boolean groupDm, String guildId, String channelId,
                                           String gameSlug, String rawText, String rawLeaderboardId) {
     UUID userId = linkedUser(discordUserId);
-    UUID leaderboardId = resolveLeaderboard(guildId, channelId, rawLeaderboardId);
+    UUID leaderboardId = resolveLeaderboard(groupDm, guildId, channelId, rawLeaderboardId);
     if (guildId != null) requirePaidOwner(leaderboardId);
     DailyGamesService.DiscordSubmissionResult saved = gameSlug == null
         ? dailyGames.submitFromDiscord(userId, leaderboardId, rawText)
         : dailyGames.submitFromDiscord(userId, leaderboardId, gameSlug, rawText);
     String score = formatScore(saved.submission().primaryScore(), adapters.require(saved.game().slug).scoreFormat());
-    return ephemeral("Saved " + saved.game().name + " #" + saved.submission().puzzleKey() + " at " + score + ".",
+    return publicReply("Saved " + saved.game().name + " #" + saved.submission().puzzleKey() + " at " + score + ".",
         "SUCCESS", "daily");
   }
 
-  private DiscordInteractionResult leaderboard(String discordUserId, String guildId, String channelId,
+  private DiscordInteractionResult leaderboard(String discordUserId, boolean groupDm, String guildId, String channelId,
                                                String gameSlug, String requestedRange, String rawLeaderboardId) {
     UUID userId = linkedUser(discordUserId);
-    UUID leaderboardId = resolveLeaderboard(guildId, channelId, rawLeaderboardId);
+    UUID leaderboardId = resolveLeaderboard(groupDm, guildId, channelId, rawLeaderboardId);
     if (guildId != null) requirePaidOwner(leaderboardId);
     String range = requestedRange == null ? "today" : requestedRange;
     if (!Set.of("today", "7d", "30d", "all").contains(range)) {
@@ -417,7 +479,7 @@ class DiscordService {
         .orElseThrow(() -> new ApiException(403, "NOT_LINKED", "Link your Daily Tracker account first with /link."));
   }
 
-  private UUID resolveLeaderboard(String guildId, String channelId, String rawLeaderboardId) {
+  private UUID resolveLeaderboard(boolean groupDm, String guildId, String channelId, String rawLeaderboardId) {
     if (guildId != null) {
       requireChannel(channelId);
       return channels.findById(new DiscordChannelLeaderboardId(guildId, channelId))
@@ -425,12 +487,25 @@ class DiscordService {
           .orElseThrow(() -> new ApiException(404, "CHANNEL_NOT_CONFIGURED",
               "This server channel is not connected to a leaderboard."));
     }
+    if (groupDm && channelId != null) {
+      Optional<DiscordGroupDmLeaderboard> mapping = groupDms.findById(channelId);
+      if (mapping.isPresent()) return mapping.get().leaderboardId;
+    }
     if (rawLeaderboardId == null) {
+      String instruction = groupDm
+          ? "Run /set-leaderboard in this Group DM, or enter the leaderboard UUID in the `leaderboard` option. "
+          : "Enter the leaderboard UUID in the `leaderboard` option. ";
       throw new ApiException(400, "PRIVATE_LEADERBOARD_REQUIRED",
-          "In a DM or Group DM, enter the leaderboard UUID in the `leaderboard` option. "
-              + "Copy it from the leaderboard URL in Daily Tracker.");
+          instruction + "Copy the UUID from the leaderboard URL in Daily Tracker.");
     }
     return parseLeaderboardId(rawLeaderboardId);
+  }
+
+  private void requireGroupDm(boolean groupDm, String guildId, String channelId) {
+    if (guildId != null || !groupDm) {
+      throw new ApiException(400, "GROUP_DM_REQUIRED", "Run this command in a Discord Group DM.");
+    }
+    requireChannel(channelId);
   }
 
   private UUID parseLeaderboardId(String rawLeaderboardId) {
@@ -540,6 +615,18 @@ class DiscordService {
     return snowflake(node, field);
   }
 
+  private static Integer optionalInt(JsonNode node, String field) {
+    JsonNode value = node.path(field);
+    if (value.isMissingNode() || value.isNull()) return null;
+    if (!value.canConvertToInt()) throw new ApiException(400, "INVALID_INTERACTION", "Discord sent an invalid interaction.");
+    return value.intValue();
+  }
+
+  private static boolean isGroupDm(JsonNode payload) {
+    return Objects.equals(optionalInt(payload, "context"), 2)
+        && Objects.equals(optionalInt(payload.path("channel"), "type"), 3);
+  }
+
   private static String interactionUserId(JsonNode payload) {
     JsonNode memberUser = payload.path("member").path("user");
     if (memberUser.path("id").isTextual()) return snowflake(memberUser, "id");
@@ -564,6 +651,13 @@ class DiscordService {
     Map<String, Object> data = new LinkedHashMap<>();
     data.put("content", content);
     data.put("flags", 64);
+    data.put("allowed_mentions", Map.of("parse", List.of()));
+    return new DiscordInteractionResult(Map.of("type", 4, "data", data), command, outcome);
+  }
+
+  static DiscordInteractionResult publicReply(String content, String outcome, String command) {
+    Map<String, Object> data = new LinkedHashMap<>();
+    data.put("content", content);
     data.put("allowed_mentions", Map.of("parse", List.of()));
     return new DiscordInteractionResult(Map.of("type", 4, "data", data), command, outcome);
   }

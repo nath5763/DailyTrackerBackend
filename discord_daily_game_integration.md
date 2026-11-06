@@ -2,7 +2,7 @@
 
 > Historical implementation plan, reconciled against the backend on 2026-11-03. The shipped `/daily` command now requires a fixed `game` choice plus `result`, and mapped multi-game leaderboards accept every active game.
 >
-> 2026-11-06 update: global commands now support `GUILD_INSTALL` and `USER_INSTALL` with `GUILD`, `BOT_DM`, and `PRIVATE_CHANNEL` interaction contexts. In DMs and Group DMs, identity comes from `interaction.user.id` and `/daily`, `/leaderboard`, and `/add-member` require an explicit `leaderboard` UUID. Private channels are never persisted as server/channel mappings, `/setup` remains server-only, and no passive Group DM message access is used. The current installation and deployment procedure is documented in `README.md`; guild-only statements below describe the original MVP.
+> 2026-11-06 update: global commands now support `GUILD_INSTALL` and `USER_INSTALL` with `GUILD`, `BOT_DM`, and `PRIVATE_CHANNEL` interaction contexts. In DMs and Group DMs, identity comes from `interaction.user.id`. A leaderboard owner can explicitly persist a Group DM selection with `/set-leaderboard` and remove it with `/unset-leaderboard`; one-to-one DMs and unconfigured Group DMs use the explicit `leaderboard` option. `/setup` remains server-only, and no passive Group DM message access is used. The current installation and deployment procedure is documented in `README.md`; guild-only statements below describe the original MVP.
 
 ## 1. Objective
 
@@ -84,7 +84,7 @@ Leaderboard UUIDs are identifiers, not secrets. Authorization comes from the lin
 7. Parse with the mapped game's existing `FermiParser` or `KrillionParser`.
 8. Persist through a shared submission core using the parsed values. Discord does not expose the website preview/edit screen.
 9. Reuse the current unique rule: one result per user, game, and puzzle regardless of initiating channel.
-10. Return an ephemeral response with the game, puzzle, and formatted score, or an actionable existing error.
+10. Return a public, mention-safe success response with the game, puzzle, and formatted score. Keep actionable errors ephemeral.
 
 Example:
 
