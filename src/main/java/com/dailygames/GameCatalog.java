@@ -1,5 +1,6 @@
 package com.dailygames;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -29,6 +30,7 @@ class GameCatalog implements GameLookup {
   private final Map<UUID, Game> byId;
   private final Map<String, Game> activeBySlug;
 
+  @Autowired
   GameCatalog(GameRepository repository) {
     this(repository.findAll());
   }

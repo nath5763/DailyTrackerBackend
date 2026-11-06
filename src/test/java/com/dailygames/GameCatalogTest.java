@@ -1,6 +1,7 @@
 package com.dailygames;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
 import java.util.List;
 import java.util.UUID;
@@ -13,6 +14,21 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class GameCatalogTest {
+  @Test void springUsesTheRepositoryBackedConstructor() {
+    Game active = game("wordle", "Wordle", true);
+    GameRepository repository = mock(GameRepository.class);
+    when(repository.findAll()).thenReturn(List.of(active));
+
+    try (AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext()) {
+      context.registerBean(GameRepository.class, () -> repository);
+      context.register(GameCatalog.class);
+      context.refresh();
+
+      assertEquals(List.of("wordle"), context.getBean(GameCatalog.class).activeGames().stream()
+          .map(game -> game.slug).toList());
+    }
+  }
+
   @Test void loadsEveryGameOnceAndKeepsAnImmutableDeploymentSnapshot() {
     Game active = game("wordle", "Wordle", true);
     Game inactive = game("archived", "Archived", false);
