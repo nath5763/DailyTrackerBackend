@@ -101,7 +101,7 @@ class DiscordServiceTest {
     UUID userId = UUID.randomUUID();
     UUID boardId = UUID.randomUUID();
     Leaderboard board = new Leaderboard();
-    board.id = boardId; board.ownerId = userId;
+    board.id = boardId; board.ownerId = userId; board.boardType = BoardType.MULTI_GAME;
     when(interactions.insertIfAbsent(anyString(), anyString(), eq(2), eq("setup"), eq(now))).thenReturn(1);
     when(links.findById("222222222222222222")).thenReturn(Optional.of(new DiscordAccountLink("222222222222222222", userId, now)));
     when(boards.findById(boardId)).thenReturn(Optional.of(board));
@@ -119,9 +119,33 @@ class DiscordServiceTest {
     verifyNoInteractions(channels);
   }
 
+  @Test void singleGameBoardsAndMissingGameAreRejected() throws Exception {
+    UUID ownerId = UUID.randomUUID(), boardId = UUID.randomUUID();
+    Leaderboard single = new Leaderboard(ownerId, "Single", UUID.randomUUID(), BoardCreationBasis.FREE, now);
+    when(interactions.insertIfAbsent(anyString(), anyString(), eq(2), anyString(), eq(now))).thenReturn(1);
+    when(links.findById("222222222222222222"))
+        .thenReturn(Optional.of(new DiscordAccountLink("222222222222222222", ownerId, now)));
+    when(boards.findById(boardId)).thenReturn(Optional.of(single));
+    when(billing.allGameLimit(ownerId, now)).thenReturn(1);
+    assertPrivateOutcome(service.handle(json.readTree(commandWithPermissions(
+        "setup", "32", "leaderboard", boardId.toString()))), "MULTI_GAME_REQUIRED");
+    assertPrivateOutcome(service.handle(json.readTree(groupDmCommand(
+        "set-leaderboard", "leaderboard", boardId.toString()))), "MULTI_GAME_REQUIRED");
+    when(channels.findById(any())).thenReturn(Optional.of(new DiscordChannelLeaderboard(
+        "444444444444444444", "333333333333333333", boardId, ownerId, "222222222222222222", now)));
+    assertPrivateOutcome(service.handle(json.readTree(commandWithPermissions(
+        "leaderboard", "0", "game", "fermi"))), "MULTI_GAME_REQUIRED");
+    assertPrivateOutcome(service.handle(json.readTree(command(
+        "daily", "222222222222222222", "111111111111111111", "333333333333333333",
+        "game", "fermi", "result", "Fermi #92"))), "MULTI_GAME_REQUIRED");
+    assertPrivateOutcome(service.handle(json.readTree(commandWithPermissions(
+        "daily", "0", "result", "Fermi #92"))), "INVALID_COMMAND");
+    verifyNoInteractions(dailyGames);
+  }
+
   @Test void freeOwnerCannotSetUpOrUseAnExistingConnectedChannel() throws Exception {
     UUID ownerId = UUID.randomUUID(), boardId = UUID.randomUUID();
-    Leaderboard board = new Leaderboard(ownerId, "Friends", UUID.randomUUID(), BoardCreationBasis.FREE, now);
+    Leaderboard board = new Leaderboard(ownerId, "Friends", null, BoardType.MULTI_GAME, BoardCreationBasis.SUBSCRIPTION, now);
     when(interactions.insertIfAbsent(anyString(), anyString(), eq(2), anyString(), eq(now))).thenReturn(1);
     when(links.findById("222222222222222222"))
         .thenReturn(Optional.of(new DiscordAccountLink("222222222222222222", ownerId, now)));
@@ -132,7 +156,7 @@ class DiscordServiceTest {
     assertEquals("OWNER_SUBSCRIPTION_REQUIRED", service.handle(json.readTree(
         commandWithPermissions("setup", "32", "leaderboard", boardId.toString()))).outcome());
     assertEquals("OWNER_SUBSCRIPTION_REQUIRED", service.handle(json.readTree(
-        commandWithPermissions("daily", "0", "result", "Fermi #92"))).outcome());
+        command("daily", "222222222222222222", "111111111111111111", "333333333333333333", "game", "fermi", "result", "Fermi #92"))).outcome());
     assertEquals("OWNER_SUBSCRIPTION_REQUIRED", service.handle(json.readTree(
         commandWithPermissions("leaderboard", "0", "game", "fermi"))).outcome());
     verify(channels, never()).save(any());
@@ -141,7 +165,7 @@ class DiscordServiceTest {
 
   @Test void freeMemberCanUsePaidOwnersConnectedChannel() throws Exception {
     UUID ownerId = UUID.randomUUID(), memberId = UUID.randomUUID(), boardId = UUID.randomUUID();
-    Leaderboard board = new Leaderboard(ownerId, "Friends", UUID.randomUUID(), BoardCreationBasis.FREE, now);
+    Leaderboard board = new Leaderboard(ownerId, "Friends", null, BoardType.MULTI_GAME, BoardCreationBasis.SUBSCRIPTION, now);
     when(interactions.insertIfAbsent(anyString(), anyString(), eq(2), eq("daily"), eq(now))).thenReturn(1);
     when(links.findById("222222222222222222"))
         .thenReturn(Optional.of(new DiscordAccountLink("222222222222222222", memberId, now)));
@@ -152,14 +176,14 @@ class DiscordServiceTest {
     Game game = new Game(); game.id = UUID.randomUUID(); game.slug = "fermi"; game.name = "Fermi.gg";
     ParsedSubmission parsed = new ParsedSubmission("92", 92, LocalDate.of(2026, 10, 26),
         new BigDecimal("1.31"), Map.of(), 1);
-    when(dailyGames.submitFromDiscord(memberId, boardId, "Fermi #92"))
+    when(dailyGames.submitFromDiscord(memberId, boardId, "fermi", "Fermi #92"))
         .thenReturn(new DailyGamesService.DiscordSubmissionResult(UUID.randomUUID(), game, parsed));
     GameAdapter adapter = mock(GameAdapter.class);
     when(adapter.scoreFormat()).thenReturn(new ApiModels.ScoreFormatView("", "", 2, 2));
     when(adapters.require("fermi")).thenReturn(adapter);
 
     assertEquals("SUCCESS", service.handle(json.readTree(
-        commandWithPermissions("daily", "0", "result", "Fermi #92"))).outcome());
+        command("daily", "222222222222222222", "111111111111111111", "333333333333333333", "game", "fermi", "result", "Fermi #92"))).outcome());
     verify(billing).allGameLimit(ownerId, now);
     verify(billing, never()).allGameLimit(eq(memberId), any());
   }
@@ -171,12 +195,12 @@ class DiscordServiceTest {
     when(links.findById("222222222222222222")).thenReturn(Optional.of(new DiscordAccountLink("222222222222222222", userId, now)));
     when(channels.findById(any())).thenReturn(Optional.of(new DiscordChannelLeaderboard(
         "444444444444444444", "333333333333333333", boardId, userId, "222222222222222222", now)));
-    Leaderboard board = new Leaderboard(userId, "Friends", UUID.randomUUID(), BoardCreationBasis.FREE, now);
+    Leaderboard board = new Leaderboard(userId, "Friends", null, BoardType.MULTI_GAME, BoardCreationBasis.SUBSCRIPTION, now);
     when(boards.findById(boardId)).thenReturn(Optional.of(board));
     when(billing.allGameLimit(userId, now)).thenReturn(1);
     Game game = new Game(); game.id = UUID.randomUUID(); game.slug = "fermi"; game.name = "Fermi.gg";
     ParsedSubmission parsed = new ParsedSubmission("92", 92, LocalDate.of(2026, 10, 26), new BigDecimal("1.31"), Map.of(), 1);
-    when(dailyGames.submitFromDiscord(userId, boardId, "Fermi #92\n1.31× score")).thenReturn(
+    when(dailyGames.submitFromDiscord(userId, boardId, "fermi", "Fermi #92\n1.31× score")).thenReturn(
         new DailyGamesService.DiscordSubmissionResult(UUID.randomUUID(), game, parsed));
     GameAdapter adapter = mock(GameAdapter.class);
     when(adapter.scoreFormat()).thenReturn(new ApiModels.ScoreFormatView("", "×", 2, 2));
@@ -187,7 +211,7 @@ class DiscordServiceTest {
     when(adapters.require("fermi")).thenReturn(adapter);
 
     DiscordInteractionResult result = service.handle(json.readTree(command("daily", "222222222222222222",
-        "111111111111111111", "333333333333333333", "other", "unused", "result", "Fermi #92\n1.31× score")));
+        "111111111111111111", "333333333333333333", "game", "fermi", "result", "Fermi #92\n1.31× score")));
     assertEquals("SUCCESS", result.outcome());
     @SuppressWarnings("unchecked") Map<String, Object> data = (Map<String, Object>) result.body().get("data");
     assertEquals("Saved Fermi.gg #92 at 1.31×.\nQ1 1.20× · Q2 1.40× · Q3 2.10×", data.get("content"));
@@ -203,7 +227,7 @@ class DiscordServiceTest {
         new DiscordAccountLink("222222222222222222", userId, now)));
     when(channels.findById(any())).thenReturn(Optional.of(new DiscordChannelLeaderboard(
         "444444444444444444", "333333333333333333", boardId, userId, "222222222222222222", now)));
-    Leaderboard board = new Leaderboard(userId, "Friends", UUID.randomUUID(), BoardCreationBasis.FREE, now);
+    Leaderboard board = new Leaderboard(userId, "Friends", null, BoardType.MULTI_GAME, BoardCreationBasis.SUBSCRIPTION, now);
     when(boards.findById(boardId)).thenReturn(Optional.of(board));
     when(billing.allGameLimit(userId, now)).thenReturn(1);
     Game game = new Game(); game.id = UUID.randomUUID(); game.slug = "krillion"; game.name = "Krillion";
@@ -359,7 +383,7 @@ class DiscordServiceTest {
     when(interactions.insertIfAbsent(anyString(), anyString(), eq(2), anyString(), eq(now))).thenReturn(1);
     when(links.findById("222222222222222222"))
         .thenReturn(Optional.of(new DiscordAccountLink("222222222222222222", ownerId, now)));
-    Leaderboard board = new Leaderboard(ownerId, "Friends", UUID.randomUUID(), BoardCreationBasis.FREE, now);
+    Leaderboard board = new Leaderboard(ownerId, "Friends", null, BoardType.MULTI_GAME, BoardCreationBasis.SUBSCRIPTION, now);
     when(boards.findById(boardId)).thenReturn(Optional.of(board));
     when(billing.isBoardAccessible(board, now)).thenReturn(true);
     when(groupDms.findForUpdate("333333333333333333")).thenReturn(Optional.empty());
@@ -412,8 +436,8 @@ class DiscordServiceTest {
     when(interactions.insertIfAbsent(anyString(), anyString(), eq(2), anyString(), eq(now))).thenReturn(1);
     when(links.findById("222222222222222222"))
         .thenReturn(Optional.of(new DiscordAccountLink("222222222222222222", otherOwnerId, now)));
-    Leaderboard currentBoard = new Leaderboard(currentOwnerId, "Current", UUID.randomUUID(), BoardCreationBasis.FREE, now);
-    Leaderboard otherBoard = new Leaderboard(otherOwnerId, "Other", UUID.randomUUID(), BoardCreationBasis.FREE, now);
+    Leaderboard currentBoard = new Leaderboard(currentOwnerId, "Current", null, BoardType.MULTI_GAME, BoardCreationBasis.SUBSCRIPTION, now);
+    Leaderboard otherBoard = new Leaderboard(otherOwnerId, "Other", null, BoardType.MULTI_GAME, BoardCreationBasis.SUBSCRIPTION, now);
     when(boards.findById(currentBoardId)).thenReturn(Optional.of(currentBoard));
     when(boards.findById(otherBoardId)).thenReturn(Optional.of(otherBoard));
     when(billing.isBoardAccessible(otherBoard, now)).thenReturn(true);
@@ -438,6 +462,8 @@ class DiscordServiceTest {
     when(interactions.insertIfAbsent(anyString(), anyString(), eq(2), eq("daily"), eq(now))).thenReturn(1);
     when(links.findById("222222222222222222"))
         .thenReturn(Optional.of(new DiscordAccountLink("222222222222222222", userId, now)));
+    when(boards.findById(boardId)).thenReturn(Optional.of(
+        new Leaderboard(userId, "Friends", null, BoardType.MULTI_GAME, BoardCreationBasis.SUBSCRIPTION, now)));
     Game game = new Game(); game.id = UUID.randomUUID(); game.slug = "fermi"; game.name = "Fermi.gg";
     ParsedSubmission parsed = new ParsedSubmission("92", 92, LocalDate.of(2026, 10, 26),
         new BigDecimal("1.31"), Map.of(), 1);
@@ -460,7 +486,7 @@ class DiscordServiceTest {
     }
 
     verify(dailyGames, times(2)).submitFromDiscord(userId, boardId, "fermi", "Fermi #92\n1.31× score");
-    verifyNoInteractions(channels, boards, billing);
+    verifyNoInteractions(channels, billing);
   }
 
   @Test void groupDmViewsItsMappedLeaderboardWithoutRepeatingTheUuid() throws Exception {
@@ -471,6 +497,8 @@ class DiscordServiceTest {
     ApiModels.GameView game = game("fermi", "Fermi.gg");
     when(groupDms.findById("333333333333333333")).thenReturn(Optional.of(
         new DiscordGroupDmLeaderboard("333333333333333333", boardId, userId, "222222222222222222", now)));
+    when(boards.findById(boardId)).thenReturn(Optional.of(
+        new Leaderboard(userId, "Friends", null, BoardType.MULTI_GAME, BoardCreationBasis.SUBSCRIPTION, now)));
     when(dailyGames.board(any(), eq(boardId), eq("7d"), eq("fermi")))
         .thenReturn(board(boardId, "Private Friends", game, "7d", List.of()));
 
@@ -482,7 +510,7 @@ class DiscordServiceTest {
     assertFalse(data.containsKey("flags"));
     assertTrue(((String) data.get("content")).contains("Private Friends"));
     verify(dailyGames).board(argThat(user -> user.id().equals(userId)), eq(boardId), eq("7d"), eq("fermi"));
-    verifyNoInteractions(channels, boards, billing);
+    verifyNoInteractions(channels, billing);
   }
 
   @Test void groupDmAutocompleteUsesExplicitOrMappedLeaderboard() throws Exception {
@@ -523,6 +551,8 @@ class DiscordServiceTest {
     assertPrivateOutcome(service.handle(json.readTree(commandWithPermissions("my-id", "0", null, null))), "SUCCESS");
     when(channels.findById(any())).thenReturn(Optional.of(new DiscordChannelLeaderboard(
         "444444444444444444", "333333333333333333", boardId, userId, "222222222222222222", now)));
+    when(boards.findById(boardId)).thenReturn(Optional.of(
+        new Leaderboard(userId, "Friends", null, BoardType.MULTI_GAME, BoardCreationBasis.SUBSCRIPTION, now)));
     assertPrivateOutcome(service.handle(json.readTree(commandWithPermissions("add-member", "0", "uuid", shareId.toString()))), "SUCCESS");
     verify(dailyGames).addMember(argThat(current -> current.id().equals(userId)), eq(boardId), eq(shareId));
   }
@@ -608,7 +638,7 @@ class DiscordServiceTest {
     assertPrivateOutcome(service.handle(json.readTree(payload)), "CHANNEL_NOT_CONFIGURED");
     when(channels.findById(any())).thenReturn(Optional.of(new DiscordChannelLeaderboard(
         "444444444444444444", "333333333333333333", boardId, userId, "222222222222222222", now)));
-    Leaderboard board = new Leaderboard(userId, "Friends", UUID.randomUUID(), BoardCreationBasis.FREE, now);
+    Leaderboard board = new Leaderboard(userId, "Friends", null, BoardType.MULTI_GAME, BoardCreationBasis.SUBSCRIPTION, now);
     when(boards.findById(boardId)).thenReturn(Optional.of(board));
     when(billing.allGameLimit(userId, now)).thenReturn(1);
     when(dailyGames.board(any(), eq(boardId), eq("today"), eq("fermi")))
@@ -632,7 +662,7 @@ class DiscordServiceTest {
         .thenReturn(Optional.of(new DiscordAccountLink("222222222222222222", userId, now)));
     when(channels.findById(any())).thenReturn(Optional.of(new DiscordChannelLeaderboard(
         "444444444444444444", "333333333333333333", boardId, userId, "222222222222222222", now)));
-    Leaderboard board = new Leaderboard(userId, "Friends", UUID.randomUUID(), BoardCreationBasis.FREE, now);
+    Leaderboard board = new Leaderboard(userId, "Friends", null, BoardType.MULTI_GAME, BoardCreationBasis.SUBSCRIPTION, now);
     when(boards.findById(boardId)).thenReturn(Optional.of(board));
     when(billing.allGameLimit(userId, now)).thenReturn(1);
   }
@@ -644,7 +674,7 @@ class DiscordServiceTest {
 
   private ApiModels.LeaderboardResponse board(UUID id, String name, ApiModels.GameView game, String range,
                                                 List<ApiModels.RankingView> rankings) {
-    return board(id, name, game, range, rankings, BoardType.SINGLE_GAME);
+    return board(id, name, game, range, rankings, BoardType.MULTI_GAME);
   }
 
   private ApiModels.LeaderboardResponse board(UUID id, String name, ApiModels.GameView game, String range,

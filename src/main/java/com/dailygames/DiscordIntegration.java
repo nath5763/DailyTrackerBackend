@@ -193,7 +193,7 @@ class DiscordService {
             option(payload, "leaderboard", 36), now);
         case "unset-leaderboard" -> unsetGroupDmLeaderboard(discordUserId, groupDm, guildId, channelId);
         case "daily" -> daily(discordUserId, groupDm, guildId, channelId,
-            optionalOption(payload, "game", 80), option(payload, "result", 6_000),
+            option(payload, "game", 80), option(payload, "result", 6_000),
             optionalOption(payload, "leaderboard", 36));
         case "leaderboard" -> leaderboard(discordUserId, groupDm, guildId, channelId,
             option(payload, "game", 80), optionalOption(payload, "range", 8),
@@ -212,7 +212,7 @@ class DiscordService {
         + "Run `/signup` to create or connect your account. In a connected server channel, signup can also join that channel's leaderboard.\n"
         + "1. **Link your account:** Sign in at " + publicBaseUrl + "/dashboard, generate a link code in the Discord section, then run `/link` and enter the code. Codes expire after 10 minutes.\n"
         + "2. **Choose a Group DM leaderboard:** Its owner can run `/set-leaderboard` once. In a one-to-one DM or an unconfigured Group DM, enter the leaderboard UUID on each command.\n"
-        + "3. **Submit a game result:** Run `/daily` and paste the complete game share text into `result`. Choose `game` only for an all-games leaderboard.\n"
+        + "3. **Submit a game result:** Run `/daily`, select the required `game`, and paste the complete game share text into `result`. Discord supports multi-game leaderboards only.\n"
         + "4. **See rankings:** Run `/leaderboard`, choose a game, and optionally choose a range (today, 7 days, 30 days, or all time).\n"
         + "Each player links their own account and must belong to the selected leaderboard. Server and configured Group DM channels use their saved leaderboard.",
         "SUCCESS", "help");
@@ -241,6 +241,7 @@ class DiscordService {
                                              String rawLeaderboardId) {
     UUID userId = linkedUser(discordUserId);
     UUID leaderboardId = resolveLeaderboard(groupDm, guildId, channelId, rawLeaderboardId);
+    requireMultiGame(leaderboardId);
     UUID shareId;
     try { shareId = UUID.fromString(rawId); }
     catch (IllegalArgumentException exception) { throw new ApiException(400, "INVALID_PROFILE_ID", "Enter a valid profile UUID."); }
@@ -345,6 +346,7 @@ class DiscordService {
     if (!board.ownerId.equals(userId)) {
       throw new ApiException(403, "NOT_OWNER", "Only the leaderboard owner can connect it to a channel.");
     }
+    requireMultiGame(board);
     if (billing.allGameLimit(board.ownerId, now) == 0) {
       throw new ApiException(402, "OWNER_SUBSCRIPTION_REQUIRED", "The leaderboard owner needs an active paid tier to connect a channel.");
     }
@@ -369,6 +371,7 @@ class DiscordService {
     if (!selected.ownerId.equals(userId)) {
       throw new ApiException(403, "NOT_OWNER", "Only the leaderboard owner can connect it to a Group DM.");
     }
+    requireMultiGame(selected);
     if (!billing.isBoardAccessible(selected, now)) {
       throw new ApiException(402, "OWNER_SUBSCRIPTION_REQUIRED",
           "This leaderboard is locked until its owner restores their subscription.");
@@ -415,9 +418,8 @@ class DiscordService {
     UUID userId = linkedUser(discordUserId);
     UUID leaderboardId = resolveLeaderboard(groupDm, guildId, channelId, rawLeaderboardId);
     if (guildId != null) requirePaidOwner(leaderboardId);
-    DailyGamesService.DiscordSubmissionResult saved = gameSlug == null
-        ? dailyGames.submitFromDiscord(userId, leaderboardId, rawText)
-        : dailyGames.submitFromDiscord(userId, leaderboardId, gameSlug, rawText);
+    requireMultiGame(leaderboardId);
+    DailyGamesService.DiscordSubmissionResult saved = dailyGames.submitFromDiscord(userId, leaderboardId, gameSlug, rawText);
     GameAdapter adapter = adapters.require(saved.game().slug);
     String score = formatScore(saved.submission().primaryScore(), adapter.scoreFormat());
     String details = formatResultDetails(adapter.resultDetails(saved.submission().metrics()));
@@ -432,6 +434,7 @@ class DiscordService {
     UUID userId = linkedUser(discordUserId);
     UUID leaderboardId = resolveLeaderboard(groupDm, guildId, channelId, rawLeaderboardId);
     if (guildId != null) requirePaidOwner(leaderboardId);
+    requireMultiGame(leaderboardId);
     String range = requestedRange == null ? "today" : requestedRange;
     if (!Set.of("today", "7d", "30d", "all").contains(range)) {
       throw new ApiException(400, "INVALID_RANGE", "Range must be today, 7d, 30d, or all.");
@@ -608,6 +611,18 @@ class DiscordService {
     if (billing.allGameLimit(board.ownerId, clock.instant()) == 0) {
       throw new ApiException(402, "OWNER_SUBSCRIPTION_REQUIRED",
           "The leaderboard owner needs an active paid tier for this channel.");
+    }
+  }
+
+  private void requireMultiGame(UUID leaderboardId) {
+    Leaderboard board = boards.findById(leaderboardId)
+        .orElseThrow(() -> new ApiException(404, "LEADERBOARD_NOT_FOUND", "That leaderboard no longer exists."));
+    requireMultiGame(board);
+  }
+
+  private void requireMultiGame(Leaderboard board) {
+    if (board.boardType != BoardType.MULTI_GAME) {
+      throw new ApiException(400, "MULTI_GAME_REQUIRED", "Discord supports multi-game leaderboards only.");
     }
   }
 

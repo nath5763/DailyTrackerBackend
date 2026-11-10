@@ -230,15 +230,13 @@ class DailyGamesService {
     List<UUID> memberIds = memberProfiles.stream().map(profile -> profile.userId).toList();
     LocalDate to = LocalDate.now(ZoneId.of(game.releaseTimezone));
     LocalDate from = to.minusDays(29);
-    List<Submission> history = submissions.findByUserIdInAndGameIdAndPlayedOnBetween(memberIds, game.id,
-        from.minusDays(29), to);
+    List<Submission> history = submissions.findByUserIdInAndGameIdAndPlayedOnBetween(memberIds, game.id, from, to);
+    Map<LocalDate, List<Submission>> scoresByDay = history.stream()
+        .collect(Collectors.groupingBy(score -> score.playedOn));
     Map<UUID, List<RankPoint>> points = new HashMap<>();
     for (Profile profile : memberProfiles) points.put(profile.userId, new ArrayList<>());
     for (LocalDate day = from; !day.isAfter(to); day = day.plusDays(1)) {
-      LocalDate start = day.minusDays(29);
-      LocalDate snapshot = day;
-      List<RankingView> daily = rankScores(memberProfiles, history.stream()
-          .filter(score -> !score.playedOn.isBefore(start) && !score.playedOn.isAfter(snapshot)).toList(), game);
+      List<RankingView> daily = rankScores(memberProfiles, scoresByDay.getOrDefault(day, List.of()), game);
       Map<UUID, Integer> places = daily.stream().collect(Collectors.toMap(RankingView::userId, RankingView::rank));
       for (Profile profile : memberProfiles) points.get(profile.userId).add(new RankPoint(day, places.get(profile.userId)));
     }
@@ -472,6 +470,8 @@ class DailyGamesService {
   List<GameView> searchDiscordGames(UUID boardId, String query, boolean shareTextOnly) {
     Leaderboard board = boards.findById(boardId)
         .orElseThrow(() -> new ApiException(404, "LEADERBOARD_NOT_FOUND", "That leaderboard no longer exists."));
+    if (boardType(board) != BoardType.MULTI_GAME)
+      throw new ApiException(400, "MULTI_GAME_REQUIRED", "Discord supports multi-game leaderboards only.");
     requireUnlocked(board);
     String term = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
     return allowedGames(board).stream()
@@ -536,13 +536,15 @@ class DailyGamesService {
     requireProfile(userId);
     Leaderboard board = boards.findById(leaderboardId)
         .orElseThrow(() -> new ApiException(404, "LEADERBOARD_NOT_FOUND", "That leaderboard no longer exists."));
+    if (boardType(board) != BoardType.MULTI_GAME)
+      throw new ApiException(400, "MULTI_GAME_REQUIRED", "Discord supports multi-game leaderboards only.");
     if (!memberships.existsByIdLeaderboardIdAndIdUserId(board.id, userId)) {
       throw new ApiException(403, "NOT_MEMBER", "Your Daily Tracker account is not a member of this leaderboard.");
     }
     requireUnlocked(board);
-    if ((gameSlug == null || gameSlug.isBlank()) && boardType(board) == BoardType.MULTI_GAME) {
+    if (gameSlug == null || gameSlug.isBlank()) {
       throw new ApiException(400, "GAME_REQUIRED",
-          "Select the game option when submitting to an all-games leaderboard.");
+          "Select the game option when submitting from Discord.");
     }
     List<Game> allowedGames = allowedGames(board);
     Game game = selectGame(board, allowedGames, gameSlug);

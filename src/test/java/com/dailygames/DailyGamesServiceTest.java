@@ -205,8 +205,8 @@ class DailyGamesServiceTest {
     assertEquals(1, rankings.get(2).hints());
   }
   @Test
-  void insightsUseRollingRankingRulesAndOnlyExposeViewerScores() {
-    UUID ownerId = UUID.randomUUID(), friendId = UUID.randomUUID();
+  void insightsRankEachDaySeparatelyAndOnlyExposeViewerScores() {
+    UUID ownerId = UUID.randomUUID(), friendId = UUID.randomUUID(), twinId = UUID.randomUUID();
     LocalDate today = LocalDate.now(ZoneOffset.UTC);
     Game game = new Game(); game.id = UUID.randomUUID(); game.slug = "queens"; game.name = "Queens";
     game.active = true; game.releaseTimezone = "UTC"; game.rankingDirection = "lower";
@@ -228,25 +228,33 @@ class DailyGamesServiceTest {
     when(memberships.existsByIdLeaderboardIdAndIdUserId(board.id, ownerId)).thenReturn(true);
     when(memberships.findByIdLeaderboardId(board.id)).thenReturn(List.of(
         new Membership(board.id, ownerId, ownerId, Instant.now()),
-        new Membership(board.id, friendId, ownerId, Instant.now())));
+        new Membership(board.id, friendId, ownerId, Instant.now()),
+        new Membership(board.id, twinId, ownerId, Instant.now())));
     when(profiles.findById(ownerId)).thenReturn(Optional.of(new Profile(ownerId, "Owner", "#dfff4f", Instant.now())));
     when(profiles.findById(friendId)).thenReturn(Optional.of(new Profile(friendId, "Friend", "#ff8db6", Instant.now())));
+    when(profiles.findById(twinId)).thenReturn(Optional.of(new Profile(twinId, "Twin", "#a8c7ff", Instant.now())));
     Submission ownerOld = new Submission(ownerId, game.id, new ParsedSubmission("old", 1, today.minusDays(29),
         BigDecimal.valueOf(80), Map.of(), 1), "share", Instant.now());
     Submission ownerNew = new Submission(ownerId, game.id, new ParsedSubmission("new", 2, today,
         BigDecimal.valueOf(80), Map.of(), 1), "share", Instant.now());
-    Submission friendAssisted = new Submission(friendId, game.id, new ParsedSubmission("old", 1, today.minusDays(30),
-        BigDecimal.valueOf(20), Map.of("hints", 1), 1), "share", Instant.now());
+    Submission friendYesterday = new Submission(friendId, game.id, new ParsedSubmission("yesterday", 1, today.minusDays(1),
+        BigDecimal.valueOf(1000), Map.of(), 1), "share", Instant.now());
     Submission friendNew = new Submission(friendId, game.id, new ParsedSubmission("new", 2, today,
         BigDecimal.valueOf(10), Map.of(), 1), "share", Instant.now());
+    Submission twinNew = new Submission(twinId, game.id, new ParsedSubmission("new", 2, today,
+        BigDecimal.valueOf(10), Map.of(), 1), "share", Instant.now());
     when(submissions.findByUserIdInAndGameIdAndPlayedOnBetween(any(), eq(game.id), any(), any()))
-        .thenReturn(List.of(ownerOld, ownerNew, friendAssisted, friendNew));
+        .thenReturn(List.of(ownerOld, ownerNew, friendYesterday, friendNew, twinNew));
     DailyGamesService service = service(profiles, games, boards, memberships, submissions, adapters, billing);
     var insights = service.insights(new CurrentUser(ownerId, ""), board.id, "queens");
     assertEquals(30, insights.ranks().getFirst().points().size());
     assertEquals(1, insights.ranks().getFirst().points().getFirst().rank());
-    assertEquals(2, insights.ranks().getFirst().points().getLast().rank());
+    assertNull(insights.ranks().getFirst().points().get(28).rank());
+    assertEquals(3, insights.ranks().getFirst().points().getLast().rank());
+    assertEquals(1, insights.ranks().get(1).points().get(28).rank());
     assertEquals(1, insights.ranks().get(1).points().getLast().rank());
+    assertEquals(1, insights.ranks().get(2).points().getLast().rank());
+    verify(submissions).findByUserIdInAndGameIdAndPlayedOnBetween(any(), eq(game.id), eq(today.minusDays(29)), eq(today));
     assertEquals(2, insights.personalScores().size());
     assertTrue(insights.personalScores().stream().allMatch(score -> score.score().compareTo(BigDecimal.valueOf(80)) == 0));
     when(memberships.existsByIdLeaderboardIdAndIdUserId(board.id, ownerId)).thenReturn(false);
@@ -382,7 +390,7 @@ class DailyGamesServiceTest {
   }
 
   @Test
-  void discordInfersSingleGameButRequiresAnExplicitGameForMultiGame() {
+  void discordRequiresMultiGameBoardAndAnExplicitGame() {
     UUID userId = UUID.randomUUID();
     Profile profile = new Profile(userId, "Player", "#dfff4f", Instant.now());
     Game fermi = new Game();
@@ -418,19 +426,19 @@ class DailyGamesServiceTest {
     when(submissions.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
     DailyGamesService service = service(profiles, games, boards, memberships, submissions, adapters, billing);
 
-    DailyGamesService.DiscordSubmissionResult inferred =
-        service.submitFromDiscord(userId, single.id, "Fermi share");
-    assertEquals("fermi", inferred.game().slug);
+    ApiException singleGame = assertThrows(ApiException.class,
+        () -> service.submitFromDiscord(userId, single.id, "fermi", "Fermi share"));
+    assertEquals("MULTI_GAME_REQUIRED", singleGame.code);
 
     ApiException missing = assertThrows(ApiException.class,
         () -> service.submitFromDiscord(userId, board.id, "Krillion share"));
     assertEquals("GAME_REQUIRED", missing.code);
-    assertEquals("Select the game option when submitting to an all-games leaderboard.", missing.getMessage());
+    assertEquals("Select the game option when submitting from Discord.", missing.getMessage());
 
     DailyGamesService.DiscordSubmissionResult saved =
         service.submitFromDiscord(userId, board.id, "krillion", "Krillion share");
     assertEquals("krillion", saved.game().slug);
-    verify(adapters).parseResult("fermi", "Fermi share");
+    verify(adapters, never()).parseResult("fermi", "Fermi share");
     verify(adapters).parseResult("krillion", "Krillion share");
   }
 

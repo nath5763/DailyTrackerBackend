@@ -72,7 +72,7 @@ class DiscordCommandRegistrarTest {
     assertEquals("result", bodies.get(7).path("options").get(0).path("name").asText());
     assertTrue(bodies.get(7).path("options").get(0).path("required").asBoolean());
     assertEquals("game", bodies.get(7).path("options").get(1).path("name").asText());
-    assertFalse(bodies.get(7).path("options").get(1).path("required").asBoolean());
+    assertTrue(bodies.get(7).path("options").get(1).path("required").asBoolean());
     assertEquals("leaderboard", bodies.get(7).path("options").get(2).path("name").asText());
     assertFalse(bodies.get(7).path("options").get(2).path("required").asBoolean());
     assertTrue(bodies.get(7).path("options").get(1).path("autocomplete").asBoolean());

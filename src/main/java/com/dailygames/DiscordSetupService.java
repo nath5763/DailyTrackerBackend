@@ -188,6 +188,8 @@ class DiscordSetupService {
     Leaderboard board = boards.findById(boardId)
         .orElseThrow(() -> new ApiException(404, "LEADERBOARD_NOT_FOUND", "Leaderboard not found."));
     if (!board.ownerId.equals(userId)) throw new ApiException(403, "NOT_OWNER", "Only the owner can connect this leaderboard.");
+    if (board.boardType != BoardType.MULTI_GAME)
+      throw new ApiException(400, "MULTI_GAME_REQUIRED", "Discord supports multi-game leaderboards only.");
     if (billing.allGameLimit(userId, clock.instant()) == 0 || !billing.isBoardAccessible(board, clock.instant()))
       throw new ApiException(402, "OWNER_SUBSCRIPTION_REQUIRED", "A paid plan is required to connect this leaderboard.");
     return board;

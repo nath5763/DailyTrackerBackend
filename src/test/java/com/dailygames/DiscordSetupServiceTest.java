@@ -21,7 +21,7 @@ class DiscordSetupServiceTest {
   private final Instant now = Instant.parse("2026-11-04T12:00:00Z");
   private final UUID ownerId = UUID.randomUUID();
   private final UUID otherId = UUID.randomUUID();
-  private final Leaderboard board = new Leaderboard(ownerId, "Club", UUID.randomUUID(), BoardCreationBasis.FREE, now);
+  private final Leaderboard board = new Leaderboard(ownerId, "Club", null, BoardType.MULTI_GAME, BoardCreationBasis.SUBSCRIPTION, now);
   private final ObjectMapper json = new ObjectMapper();
   private DiscordSetupRepository setups;
   private LeaderboardRepository boards;
@@ -72,6 +72,13 @@ class DiscordSetupServiceTest {
     when(billing.isBoardAccessible(board, now)).thenReturn(false);
     assertEquals("OWNER_SUBSCRIPTION_REQUIRED", assertThrows(ApiException.class,
         () -> service.start(ownerId, board.id)).code);
+  }
+
+  @Test void singleGameLeaderboardCannotStartWebsiteSetup() {
+    board.boardType = BoardType.SINGLE_GAME;
+    assertEquals("MULTI_GAME_REQUIRED", assertThrows(ApiException.class,
+        () -> service.start(ownerId, board.id)).code);
+    verify(setups, never()).save(any());
   }
 
   @Test void callbackLinksOwnerAndOffersOnlyVisibleTextChannels() {
