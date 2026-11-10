@@ -11,8 +11,8 @@ import static com.dailygames.ApiModels.*;
 
 @Component
 class QuordleParser implements GameAdapter {
-  private static final Pattern DAILY = Pattern.compile("^(?:🙂)?Daily Quordle ([1-9][0-9]*)$");
-  private static final Pattern SEQUENCE = Pattern.compile("^Daily Sequence Quordle ([1-9][0-9]*)$");
+  private static final Pattern DAILY = Pattern.compile("^(?:🙂\\s*)?Daily\\s+Quordle\\s+([1-9][0-9]*)$");
+  private static final Pattern SEQUENCE = Pattern.compile("^Daily\\s+Sequence\\s+Quordle\\s+([1-9][0-9]*)$");
   private static final String RESULT_TOKEN = "(?:[1-9](?:\\u20E3)?|🟥|⬛|❌|X)";
   private static final Pattern TOKEN = Pattern.compile(RESULT_TOKEN);
   private static final Pattern SCORE_LINE = Pattern.compile(RESULT_TOKEN + "(?:\\s*" + RESULT_TOKEN + ")?");
@@ -28,10 +28,10 @@ class QuordleParser implements GameAdapter {
   }
   @Override public ParsedSubmission parse(String rawText) {
     if (rawText != null && rawText.length() > 10_000) throw invalid();
-    // Clipboard shares can carry invisible format characters around keycap emoji or the URL.
+    // Clipboard shares can carry invisible format marks and Unicode spaces, including in the header.
     String cleaned = rawText == null ? null : rawText
-        .replaceAll("[\\u200B\\u200C\\u200D\\u2060\\uFEFF]", "")
-        .replace('\u00A0', ' ');
+        .replaceAll("\\p{Cf}", "")
+        .replaceAll("\\p{Zs}", " ");
     String[] lines = ShareText.lines(cleaned);
     if (lines.length != 4)
       throw ShareTextParserSupport.invalid("Quordle needs a header, two score rows, and the Merriam-Webster link.");

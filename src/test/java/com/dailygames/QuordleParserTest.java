@@ -27,6 +27,14 @@ class QuordleParserTest {
     assertEquals("WIN", result.metrics().get("completionStatus"));
   }
 
+  @Test void ignoresInvisibleDirectionMarksAndUnicodeSpacesInTheHeader() {
+    ParsedSubmission result = parser.parse("\u200EDaily\u200F\u202FQuordle\u2066  1751\u2069\n"
+        + "3\u200E 4\n9 6\n\u200Fm-w.com/games/quordle/\u2060");
+    assertEquals("1751", result.puzzleKey());
+    assertEquals(new BigDecimal("22"), result.primaryScore());
+    assertEquals(List.of(3, 4, 9, 6), result.metrics().get("guesses"));
+  }
+
   @Test void acceptsTheDigitOnlyGridShownInTheRequestPayload() {
     ParsedSubmission result = parser.parse("  Daily Quordle 1751\n3 4  \n9 6  \nm-w.com/games/quordle/\n");
     assertEquals(new BigDecimal("22"), result.primaryScore());
