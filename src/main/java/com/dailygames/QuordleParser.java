@@ -26,7 +26,12 @@ class QuordleParser implements GameAdapter {
         BigDecimal.ONE, Set.of());
   }
   @Override public ParsedSubmission parse(String rawText) {
-    String[] lines = ShareText.lines(rawText);
+    if (rawText != null && rawText.length() > 10_000) throw invalid();
+    // Clipboard shares can carry invisible format characters around keycap emoji or the URL.
+    String cleaned = rawText == null ? null : rawText
+        .replaceAll("[\\u200B\\u200C\\u200D\\u2060\\uFEFF]", "")
+        .replace('\u00A0', ' ');
+    String[] lines = ShareText.lines(cleaned);
     if (lines.length != 4) throw invalid();
     Matcher daily = DAILY.matcher(lines[0]), sequence = SEQUENCE.matcher(lines[0]);
     boolean dailyMatch = daily.matches(), sequenceMatch = sequence.matches();
@@ -44,7 +49,8 @@ class QuordleParser implements GameAdapter {
     int solved = 4 - failed;
     int penalized = guesses.stream().mapToInt(value -> value == null ? 10 : value).sum();
     LocalDate date = ANCHOR_DATE.plusDays(puzzle - ANCHOR_PUZZLE);
-    if (date.isAfter(LocalDate.now().plusDays(1))) throw invalid();
+    if (date.isAfter(LocalDate.now().plusDays(1)))
+      throw ShareTextParserSupport.invalid("Quordle puzzle " + puzzle + " appears to be dated in the future.");
     Map<String, Object> metrics = new LinkedHashMap<>();
     metrics.put("completionStatus", failed == 0 ? "WIN" : "LOSS");
     metrics.put("guesses", Collections.unmodifiableList(guesses));

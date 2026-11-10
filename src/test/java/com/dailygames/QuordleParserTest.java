@@ -11,6 +11,22 @@ import static org.junit.jupiter.api.Assertions.*;
 class QuordleParserTest {
   private final QuordleParser parser = new QuordleParser();
 
+  @Test void acceptsPuzzle1751FourSolvedBoards() {
+    ParsedSubmission result = parser.parse("Daily Quordle 1751\n3️⃣4️⃣\n9️⃣6️⃣\nm-w.com/games/quordle/");
+    assertEquals("1751", result.puzzleKey());
+    assertEquals(LocalDate.of(2026, 11, 10), result.playedOn());
+    assertEquals(new BigDecimal("22"), result.primaryScore());
+    assertEquals("WIN", result.metrics().get("completionStatus"));
+    assertEquals(List.of(3, 4, 9, 6), result.metrics().get("guesses"));
+  }
+
+  @Test void ignoresInvisibleClipboardCharactersInPuzzle1751Share() {
+    ParsedSubmission result = parser.parse("\uFEFFDaily Quordle 1751\u200B\n"
+        + "3️⃣\u200B4️⃣\n9️⃣6️⃣\n\u00A0m-w.com/games/quordle/\u2060");
+    assertEquals(new BigDecimal("22"), result.primaryScore());
+    assertEquals("WIN", result.metrics().get("completionStatus"));
+  }
+
   @Test void parsesTheConfirmedLossFixtureAndQuantizesBothRankingValues() {
     ParsedSubmission result = parser.parse("Daily Quordle 1746\r\n5️⃣9️⃣\r\n8️⃣\r\nm-w.com/games/quordle/");
     assertEquals("1746", result.puzzleKey());
