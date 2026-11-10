@@ -44,7 +44,16 @@ class DailyGamesService {
 
   MeResponse me(CurrentUser current) {
     UserAccount user = users.findById(current.id()).orElseThrow(this::unauthorized);
-    return new MeResponse(new UserView(user.id, user.normalizedEmail), profiles.findById(user.id).map(this::profileView).orElse(null));
+    Profile profile = profiles.findById(user.id).orElse(null);
+    return new MeResponse(new UserView(user.id, user.normalizedEmail), profile == null ? null : profileView(profile), profile != null && profile.darkMode);
+  }
+
+  @Transactional
+  ThemeResponse updateTheme(CurrentUser current, ThemeRequest request) {
+    Profile profile = requireProfile(current.id());
+    profile.darkMode = request.darkMode();
+    profile.updatedAt = Instant.now();
+    return new ThemeResponse(profile.darkMode);
   }
 
   @Transactional

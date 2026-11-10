@@ -139,6 +139,8 @@ import java.util.*;
   Optional<DiscordSignupIntent> findByTokenHash(String tokenHash);
   @Lock(LockModeType.PESSIMISTIC_WRITE)
   Optional<DiscordSignupIntent> findByOauthStateHash(String oauthStateHash);
+  @Modifying @Query("delete from DiscordSignupIntent i where i.leaderboardId = :leaderboardId")
+  int deleteByLeaderboardId(@Param("leaderboardId") UUID leaderboardId);
   void deleteByExpiresAtBefore(Instant before);
 }
 

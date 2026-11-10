@@ -33,6 +33,7 @@ class Profile {
   @Column(name = "share_id", nullable = false, unique = true) UUID shareId;
   @Column(name = "display_name", nullable = false) String displayName;
   @Column(name = "avatar_color", nullable = false) String avatarColor;
+  @Column(name = "dark_mode", nullable = false) boolean darkMode;
   @Column(name = "created_at", nullable = false) Instant createdAt;
   @Column(name = "updated_at", nullable = false) Instant updatedAt;
   @Column(name = "free_leaderboard_claimed_at") Instant freeLeaderboardClaimedAt;

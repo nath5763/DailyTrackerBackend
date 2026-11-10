@@ -36,14 +36,71 @@ class DailyGamesIntegrationTest {
   }
 
   @Autowired DailyGamesService service;
+  @Autowired LeaderboardDeletionService deletions;
   @Autowired UserRepository users;
   @Autowired BillingAccountRepository billingAccounts;
   @Autowired LeaderboardRepository boards;
+  @Autowired GameRepository games;
+  @Autowired SubmissionRepository submissions;
   @Autowired DiscordService discord;
   @Autowired DiscordChannelLeaderboardRepository channels;
+  @Autowired DiscordGroupDmLeaderboardRepository groupDms;
+  @Autowired DiscordSetupRepository setups;
+  @Autowired DiscordSignupIntentRepository signupIntents;
   @Autowired DiscordCommandRegistrationStore registrations;
   @Autowired LeaderboardInviteService invites;
   @Autowired JdbcTemplate jdbc;
+
+  @Test void themePreferenceDefaultsToLightAndBelongsToItsProfile() {
+    UserAccount first = users.save(new UserAccount("theme-first@example.com", Instant.now()));
+    UserAccount second = users.save(new UserAccount("theme-second@example.com", Instant.now()));
+    CurrentUser firstUser = new CurrentUser(first.id, first.normalizedEmail);
+    CurrentUser secondUser = new CurrentUser(second.id, second.normalizedEmail);
+    service.onboard(firstUser, new OnboardingRequest("First Player", "#dfff4f"));
+    service.onboard(secondUser, new OnboardingRequest("Second Player", "#ff8db6"));
+
+    assertFalse(service.me(firstUser).darkMode());
+    assertTrue(service.updateTheme(firstUser, new ThemeRequest(true)).darkMode());
+    assertTrue(service.me(firstUser).darkMode());
+    assertFalse(service.me(secondUser).darkMode());
+    assertTrue(jdbc.queryForObject("select dark_mode from profiles where user_id = ?", Boolean.class, first.id));
+  }
+
+  @Test void deletingLeaderboardCascadesConfigurationButPreservesScores() {
+    UserAccount owner = users.save(new UserAccount("delete-owner@example.com", Instant.now()));
+    CurrentUser current = new CurrentUser(owner.id, owner.normalizedEmail);
+    service.onboard(current, new OnboardingRequest("Delete Owner", "#dfff4f"));
+    UUID boardId = service.createBoard(current, new CreateLeaderboardRequest("Delete Board", "fermi"));
+    String inviteUrl = invites.create(boardId, owner.id).url();
+    assertNotNull(inviteUrl);
+
+    Game game = games.findBySlugAndActiveTrue("fermi").orElseThrow();
+    submissions.save(new Submission(owner.id, game.id,
+        new ParsedSubmission("delete-test", 1, java.time.LocalDate.now(), BigDecimal.ONE, java.util.Map.of(), 1),
+        "delete test score", Instant.now()));
+    String guildId = "333333333333333334";
+    String channelId = "444444444444444445";
+    channels.save(new DiscordChannelLeaderboard(guildId, channelId, boardId, owner.id,
+        "111111111111111112", Instant.now()));
+    groupDms.save(new DiscordGroupDmLeaderboard("555555555555555556", boardId, owner.id,
+        "111111111111111112", Instant.now()));
+    setups.save(new DiscordSetup(owner.id, boardId, "a".repeat(64), Instant.now().plusSeconds(600)));
+    signupIntents.save(new DiscordSignupIntent("b".repeat(64), "111111111111111112", guildId, channelId,
+        boardId, Instant.now().plusSeconds(600)));
+    registrations.markCurrent("123456789012345679", guildId, "help", "hash");
+
+    deletions.delete(boardId, owner.id);
+
+    assertFalse(boards.existsById(boardId));
+    assertEquals(0L, jdbc.queryForObject("select count(*) from leaderboard_members where leaderboard_id = ?", Long.class, boardId));
+    assertEquals(0L, jdbc.queryForObject("select count(*) from leaderboard_invites where leaderboard_id = ?", Long.class, boardId));
+    assertEquals(0L, jdbc.queryForObject("select count(*) from discord_setups where leaderboard_id = ?", Long.class, boardId));
+    assertEquals(0L, jdbc.queryForObject("select count(*) from discord_channel_leaderboards where leaderboard_id = ?", Long.class, boardId));
+    assertEquals(0L, jdbc.queryForObject("select count(*) from discord_group_dm_leaderboards where leaderboard_id = ?", Long.class, boardId));
+    assertEquals(0L, jdbc.queryForObject("select count(*) from discord_signup_intents where leaderboard_id = ?", Long.class, boardId));
+    assertEquals(1, submissions.findByUserIdOrderByPlayedOnDescCreatedAtDesc(owner.id).size());
+    assertFalse(registrations.isCurrent("123456789012345679", guildId, "help", "hash"));
+  }
 
   @Test void unlinkingOwnersPrunesOnlyTheirChannelsAndLastGuildRegistration() {
     UserAccount first = users.save(new UserAccount("discord-owner-one@example.com", Instant.now()));

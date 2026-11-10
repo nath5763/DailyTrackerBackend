@@ -116,10 +116,14 @@ class AuthController {
 class DailyGamesController {
   private final DailyGamesService service;
   private final LeaderboardInviteService invites;
-  DailyGamesController(DailyGamesService service, LeaderboardInviteService invites) { this.service = service; this.invites = invites; }
+  private final LeaderboardDeletionService deletions;
+  DailyGamesController(DailyGamesService service, LeaderboardInviteService invites, LeaderboardDeletionService deletions) {
+    this.service = service; this.invites = invites; this.deletions = deletions;
+  }
 
   @GetMapping("/me") MeResponse me(Authentication authentication) { return service.me(current(authentication)); }
   @PutMapping("/me/profile") ProfileView onboard(Authentication authentication, @Valid @RequestBody OnboardingRequest request) { return service.onboard(current(authentication), request); }
+  @PatchMapping("/me/theme") ThemeResponse updateTheme(Authentication authentication, @Valid @RequestBody ThemeRequest request) { return service.updateTheme(current(authentication), request); }
   @GetMapping("/dashboard") DashboardResponse dashboard(Authentication authentication) { return service.dashboard(current(authentication)); }
   @GetMapping("/profiles/{shareId}") ProfileResponse profile(Authentication authentication, @PathVariable UUID shareId) { return service.profile(current(authentication), shareId); }
   @GetMapping("/games") List<GameView> games(Authentication authentication) { current(authentication); return service.listGames(); }
@@ -150,6 +154,10 @@ class DailyGamesController {
   @PostMapping("/leaderboards/{id}/convert-to-multi-game") ResponseEntity<Void> convertBoard(
       Authentication authentication, @PathVariable UUID id) {
     service.convertToMultiGame(current(authentication), id);
+    return ResponseEntity.noContent().build();
+  }
+  @DeleteMapping("/leaderboards/{id}") ResponseEntity<Void> deleteBoard(Authentication authentication, @PathVariable UUID id) {
+    deletions.delete(id, current(authentication).id());
     return ResponseEntity.noContent().build();
   }
   @GetMapping("/leaderboards/{id}") LeaderboardResponse board(Authentication authentication, @PathVariable UUID id,

@@ -18,6 +18,8 @@ final class ApiModels {
   record AuthSessionResponse(boolean onboarded) {}
   record MessageResponse(String message) {}
   record OnboardingRequest(@NotBlank @Size(min = 2, max = 32) String displayName, @NotBlank String avatarColor) {}
+  record ThemeRequest(@NotNull Boolean darkMode) {}
+  record ThemeResponse(boolean darkMode) {}
   record CreateLeaderboardRequest(@NotBlank @Size(min = 2, max = 48) String name,
                                   @Size(max = 80) String gameSlug, BoardType boardType) {
     CreateLeaderboardRequest(String name, String gameSlug) { this(name, gameSlug, null); }
@@ -42,7 +44,7 @@ final class ApiModels {
 
   record UserView(UUID id, String email) {}
   record ProfileView(UUID userId, UUID shareId, String displayName, String avatarColor, Instant createdAt) {}
-  record MeResponse(UserView user, ProfileView profile) {}
+  record MeResponse(UserView user, ProfileView profile, boolean darkMode) {}
   record ScoreFormatView(String prefix, String suffix, int minimumDecimalPlaces, int maximumDecimalPlaces, String kind) {
     ScoreFormatView(String prefix, String suffix, int minimumDecimalPlaces, int maximumDecimalPlaces) {
       this(prefix, suffix, minimumDecimalPlaces, maximumDecimalPlaces, "number");
