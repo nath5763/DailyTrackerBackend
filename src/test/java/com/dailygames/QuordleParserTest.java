@@ -27,6 +27,14 @@ class QuordleParserTest {
     assertEquals("WIN", result.metrics().get("completionStatus"));
   }
 
+  @Test void acceptsTheDigitOnlyGridShownInTheRequestPayload() {
+    ParsedSubmission result = parser.parse("  Daily Quordle 1751\n3 4  \n9 6  \nm-w.com/games/quordle/\n");
+    assertEquals(new BigDecimal("22"), result.primaryScore());
+    assertEquals(List.of(3, 4, 9, 6), result.metrics().get("guesses"));
+    assertEquals("WIN", result.metrics().get("completionStatus"));
+    assertEquals(new BigDecimal("22"), parser.parse("Daily Quordle 1751\n34\n96\nm-w.com/games/quordle/").primaryScore());
+  }
+
   @Test void parsesTheConfirmedLossFixtureAndQuantizesBothRankingValues() {
     ParsedSubmission result = parser.parse("Daily Quordle 1746\r\n5️⃣9️⃣\r\n8️⃣\r\nm-w.com/games/quordle/");
     assertEquals("1746", result.puzzleKey());
@@ -63,5 +71,6 @@ class QuordleParserTest {
     assertThrows(ApiException.class, () -> parser.parse("Daily Quordle 1746\n5️⃣\n8️⃣\nm-w.com/games/quordle/"));
     assertThrows(ApiException.class, () -> parser.parse("Daily Quordle 1746\n5️⃣9️⃣\n8️⃣\nexample.com"));
     assertThrows(ApiException.class, () -> parser.parse("5️⃣9️⃣\n8️⃣"));
+    assertThrows(ApiException.class, () -> parser.parse("Daily Quordle 1751\n3 4 5\n9 6\nm-w.com/games/quordle/"));
   }
 }
