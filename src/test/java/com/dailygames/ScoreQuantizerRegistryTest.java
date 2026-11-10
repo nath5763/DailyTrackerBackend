@@ -13,8 +13,13 @@ class ScoreQuantizerRegistryTest {
   private final ScoreQuantizerRegistry registry = new ScoreQuantizerRegistry();
 
   @Test void definesASeparateStrategyForEveryRequestedGame() {
-    assertEquals(67, registry.strategies().size());
-    assertEquals(67, registry.strategies().stream().map(ScoreStrategySpec::gameId).distinct().count());
+    assertEquals(72, registry.strategies().size());
+    assertEquals(72, registry.strategies().stream().map(ScoreStrategySpec::gameId).distinct().count());
+    for (String mode : LoldleParser.MODES) {
+      var strategy = registry.strategy("loldle-" + mode).orElseThrow();
+      assertEquals("attemptsUsed", strategy.primaryMetric());
+      assertEquals(MetricDirection.ASCENDING, strategy.primaryDirection());
+    }
   }
 
   @Test void comparesQuordleByFailuresBeforePenalizedTotalAndProducesTies() {

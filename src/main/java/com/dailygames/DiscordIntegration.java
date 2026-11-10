@@ -1,5 +1,7 @@
 package com.dailygames;
 
+import com.dailygames.ApiModels.LoldleScoreView;
+
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -195,6 +197,9 @@ class DiscordService {
         case "daily" -> daily(discordUserId, groupDm, guildId, channelId,
             option(payload, "game", 80), option(payload, "result", 6_000),
             optionalOption(payload, "leaderboard", 36));
+        case "loldle" -> loldle(discordUserId, groupDm, guildId, channelId,
+            option(payload, "result", 6_000), option(payload, "date", 10),
+            optionalOption(payload, "leaderboard", 36));
         case "leaderboard" -> leaderboard(discordUserId, groupDm, guildId, channelId,
             option(payload, "game", 80), optionalOption(payload, "range", 8),
             optionalOption(payload, "leaderboard", 36));
@@ -213,6 +218,7 @@ class DiscordService {
         + "1. **Link your account:** Sign in at " + publicBaseUrl + "/dashboard, generate a link code in the Discord section, then run `/link` and enter the code. Codes expire after 10 minutes.\n"
         + "2. **Choose a Group DM leaderboard:** Its owner can run `/set-leaderboard` once. In a one-to-one DM or an unconfigured Group DM, enter the leaderboard UUID on each command.\n"
         + "3. **Submit a game result:** Run `/daily`, select the required `game`, and paste the complete game share text into `result`. Discord supports multi-game leaderboards only.\n"
+        + "For LoLdle, run `/loldle` with its complete five-mode share and the puzzle date (`YYYY-MM-DD`) to save Classic, Quote, Ability, Emoji, and Splash together.\n"
         + "4. **See rankings:** Run `/leaderboard`, choose a game, and optionally choose a range (today, 7 days, 30 days, or all time).\n"
         + "Each player links their own account and must belong to the selected leaderboard. Server and configured Group DM channels use their saved leaderboard.",
         "SUCCESS", "help");
@@ -427,6 +433,27 @@ class DiscordService {
         + (details.isEmpty() ? "" : "\n" + details);
     return publicReply(content,
         "SUCCESS", "daily");
+  }
+
+  private DiscordInteractionResult loldle(String discordUserId, boolean groupDm, String guildId, String channelId,
+                                           String rawText, String rawDate, String rawLeaderboardId) {
+    UUID userId = linkedUser(discordUserId);
+    UUID leaderboardId = resolveLeaderboard(groupDm, guildId, channelId, rawLeaderboardId);
+    if (guildId != null) requirePaidOwner(leaderboardId);
+    requireMultiGame(leaderboardId);
+    LocalDate puzzleDate;
+    try {
+      if (!rawDate.matches("[0-9]{4}-[0-9]{2}-[0-9]{2}")) throw new IllegalArgumentException();
+      puzzleDate = LocalDate.parse(rawDate);
+    } catch (RuntimeException exception) {
+      throw new ApiException(422, "INVALID_LOLDLE_DATE", "Enter the LoLdle puzzle date as YYYY-MM-DD.");
+    }
+    List<LoldleScoreView> saved = dailyGames.submitLoldleFromDiscord(userId, leaderboardId, rawText, puzzleDate);
+    String scores = saved.stream().map(item -> item.game().substring("loldle-".length()).toUpperCase(Locale.ROOT)
+        + " " + item.submission().primaryScore().toPlainString()
+        + (Boolean.TRUE.equals(item.submission().metrics().get("clueUsed")) ? " ✓" : ""))
+        .collect(java.util.stream.Collectors.joining(" · "));
+    return publicReply("Saved LoLdle for " + puzzleDate + ": " + scores + ".", "SUCCESS", "loldle");
   }
 
   private DiscordInteractionResult leaderboard(String discordUserId, boolean groupDm, String guildId, String channelId,

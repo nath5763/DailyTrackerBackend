@@ -63,11 +63,11 @@ class DiscordCommandRegistrarTest {
   @Test void registersGlobalAndExistingGuildCommandsWithoutReplacingOtherCommands() {
     when(mappings.findDistinctGuildIds()).thenReturn(List.of(GUILD_ID));
     registrar.reconcile();
-    assertEquals(20, paths.size());
-    assertEquals(11, paths.stream().filter(path -> path.endsWith("/applications/123456789012345678/commands")).count());
-    assertEquals(9, paths.stream().filter(path -> path.endsWith("/guilds/" + GUILD_ID + "/commands")).count());
-    assertEquals(List.of("help", "signup", "my-id", "add-member", "link", "unlink", "setup", "daily", "leaderboard"),
-        bodies.subList(0, 9).stream().map(body -> body.path("name").asText()).toList());
+    assertEquals(22, paths.size());
+    assertEquals(12, paths.stream().filter(path -> path.endsWith("/applications/123456789012345678/commands")).count());
+    assertEquals(10, paths.stream().filter(path -> path.endsWith("/guilds/" + GUILD_ID + "/commands")).count());
+    assertEquals(List.of("help", "signup", "my-id", "add-member", "link", "unlink", "setup", "daily", "loldle", "leaderboard"),
+        bodies.subList(0, 10).stream().map(body -> body.path("name").asText()).toList());
     assertEquals("32", bodies.get(6).path("default_member_permissions").asText());
     assertEquals("result", bodies.get(7).path("options").get(0).path("name").asText());
     assertTrue(bodies.get(7).path("options").get(0).path("required").asBoolean());
@@ -78,26 +78,29 @@ class DiscordCommandRegistrarTest {
     assertTrue(bodies.get(7).path("options").get(1).path("autocomplete").asBoolean());
     assertEquals("[0,1,2]", bodies.get(7).path("contexts").toString());
     assertEquals("[0,1]", bodies.get(7).path("integration_types").toString());
-    assertTrue(bodies.subList(0, 9).stream().allMatch(body ->
+    assertEquals("result", bodies.get(8).path("options").get(0).path("name").asText());
+    assertEquals("date", bodies.get(8).path("options").get(1).path("name").asText());
+    assertTrue(bodies.get(8).path("options").get(1).path("required").asBoolean());
+    assertTrue(bodies.subList(0, 10).stream().allMatch(body ->
         "[0,1,2]".equals(body.path("contexts").toString())
             && "[0,1]".equals(body.path("integration_types").toString())));
-    assertTrue(bodies.subList(0, 9).stream().noneMatch(body -> body.has("dm_permission")));
-    assertEquals("set-leaderboard", bodies.get(9).path("name").asText());
-    assertEquals("[2]", bodies.get(9).path("contexts").toString());
-    assertEquals("[1]", bodies.get(9).path("integration_types").toString());
-    assertEquals("unset-leaderboard", bodies.get(10).path("name").asText());
+    assertTrue(bodies.subList(0, 10).stream().noneMatch(body -> body.has("dm_permission")));
+    assertEquals("set-leaderboard", bodies.get(10).path("name").asText());
     assertEquals("[2]", bodies.get(10).path("contexts").toString());
     assertEquals("[1]", bodies.get(10).path("integration_types").toString());
-    assertTrue(bodies.get(18).path("contexts").isMissingNode());
-    assertTrue(bodies.get(18).path("integration_types").isMissingNode());
+    assertEquals("unset-leaderboard", bodies.get(11).path("name").asText());
+    assertEquals("[2]", bodies.get(11).path("contexts").toString());
+    assertEquals("[1]", bodies.get(11).path("integration_types").toString());
+    assertTrue(bodies.get(20).path("contexts").isMissingNode());
+    assertTrue(bodies.get(20).path("integration_types").isMissingNode());
     registrar.reconcile();
     registrar.registerGuild(GUILD_ID);
-    assertEquals(20, paths.size());
+    assertEquals(22, paths.size());
     DiscordCommandRegistrar restarted = new DiscordCommandRegistrar(HttpClient.newHttpClient(), json, mappings,
         registrations, URI.create("http://127.0.0.1:" + server.getAddress().getPort() + "/api/v10"),
         "123456789012345678", "bot-token");
     restarted.reconcile();
-    assertEquals(20, paths.size(), "A restart must not call Discord for unchanged commands");
+    assertEquals(22, paths.size(), "A restart must not call Discord for unchanged commands");
   }
 
   @Test void failedRegistrationIsRetried() {
@@ -106,27 +109,27 @@ class DiscordCommandRegistrarTest {
         () -> registrar.registerGuild(GUILD_ID)).code);
     status = 201;
     registrar.registerGuild(GUILD_ID);
-    assertEquals(10, paths.size());
+    assertEquals(11, paths.size());
   }
 
   @Test void onlyAChangedCommandIsRegisteredAgain() {
     registrar.registerGuild(GUILD_ID);
-    assertEquals(9, paths.size());
+    assertEquals(10, paths.size());
     persisted.remove("123456789012345678:" + GUILD_ID + ":help");
     registrar.registerGuild(GUILD_ID);
-    assertEquals(10, paths.size());
+    assertEquals(11, paths.size());
     assertEquals("help", bodies.getLast().path("name").asText());
   }
 
   @Test void removedGuildIsNotRetriedAndReconnectionRegistersAgain() {
     when(mappings.findDistinctGuildIds()).thenReturn(List.of(GUILD_ID), List.of(), List.of(GUILD_ID));
     registrar.reconcile();
-    assertEquals(20, paths.size());
+    assertEquals(22, paths.size());
     registrar.reconcile();
-    assertEquals(20, paths.size());
+    assertEquals(22, paths.size());
     persisted.keySet().removeIf(key -> key.contains(":" + GUILD_ID + ":"));
     registrar.reconcile();
-    assertEquals(29, paths.size());
+    assertEquals(32, paths.size());
   }
 
   @Test void diagnosticTextRedactsSecretsNormalizesLinesAndTruncates() {

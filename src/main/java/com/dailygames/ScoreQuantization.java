@@ -68,6 +68,9 @@ class ScoreQuantizerRegistry {
 
   private static List<ScoreStrategySpec> fandomSpecs() {
     List<ScoreStrategySpec> values = new ArrayList<>(CORE_SPECS);
+    for (String mode : LoldleParser.MODES)
+      values.add(spec("loldle-" + mode, "fewest guesses, with unassisted results first",
+          "attemptsUsed", ASC, null, null, List.of(), false));
     for (FandomGameDefinition game : FandomGames.ALL) {
       List<String> compatibility = game.hasModes() ? List.of("gameMode") : List.of();
       values.add(switch (game.scoreKind()) {

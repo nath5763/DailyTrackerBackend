@@ -199,6 +199,9 @@ class DiscordCommandRegistrar {
     game.put("autocomplete", true);
     commands.add(command("daily", "Submit a daily-game share result to a leaderboard",
         List.of(stringOption("result", "Complete game share text", true, 1, 6000), game, leaderboardOption())));
+    commands.add(command("loldle", "Save all five LoLdle scores from one complete share",
+        List.of(stringOption("result", "Complete five-mode LoLdle share text", true, 1, 6000),
+            stringOption("date", "Puzzle date in YYYY-MM-DD format", true, 10, 10), leaderboardOption())));
     Map<String, Object> leaderboardGame = stringOption("game", "Game to rank", true, 1, 80);
     leaderboardGame.put("autocomplete", true);
     Map<String, Object> range = choiceOption("range", "Period to rank (defaults to today)", false,

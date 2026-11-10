@@ -246,6 +246,35 @@ class DiscordServiceTest {
     verify(dailyGames).submitFromDiscord(userId, boardId, "krillion", "Krillion share");
   }
 
+  @Test void loldleSavesFiveScoresInServerChannelsAndDirectMessages() throws Exception {
+    UUID userId = UUID.randomUUID(), boardId = UUID.randomUUID();
+    String share = LoldleParser.example();
+    LocalDate puzzleDate = LocalDate.of(2026, 6, 1);
+    when(interactions.insertIfAbsent(anyString(), anyString(), eq(2), eq("loldle"), eq(now))).thenReturn(1);
+    when(links.findById("222222222222222222"))
+        .thenReturn(Optional.of(new DiscordAccountLink("222222222222222222", userId, now)));
+    when(channels.findById(any())).thenReturn(Optional.of(new DiscordChannelLeaderboard(
+        "444444444444444444", "333333333333333333", boardId, userId, "222222222222222222", now)));
+    when(boards.findById(boardId)).thenReturn(Optional.of(
+        new Leaderboard(userId, "Friends", null, BoardType.MULTI_GAME, BoardCreationBasis.SUBSCRIPTION, now)));
+    when(billing.allGameLimit(userId, now)).thenReturn(1);
+    List<ApiModels.LoldleScoreView> scores = LoldleParser.parse(share, puzzleDate).entrySet().stream()
+        .map(entry -> new ApiModels.LoldleScoreView(entry.getKey(), entry.getValue())).toList();
+    when(dailyGames.submitLoldleFromDiscord(userId, boardId, share, puzzleDate)).thenReturn(scores);
+
+    DiscordInteractionResult server = service.handle(json.readTree(command("loldle", "222222222222222222",
+        "111111111111111111", "333333333333333333", "result", share, "date", puzzleDate.toString())));
+    assertPublicOutcome(server, "SUCCESS");
+    @SuppressWarnings("unchecked") Map<String, Object> data = (Map<String, Object>) server.body().get("data");
+    assertTrue(((String) data.get("content")).contains("ABILITY 1 ✓"));
+
+    DiscordInteractionResult dm = service.handle(json.readTree(privateChatCommand(1, "loldle",
+        "result", share, "date", puzzleDate.toString(), "leaderboard", boardId.toString())));
+    assertPublicOutcome(dm, "SUCCESS");
+    verify(dailyGames, times(2)).submitLoldleFromDiscord(userId, boardId, share, puzzleDate);
+    verify(billing, times(1)).allGameLimit(userId, now);
+  }
+
   @Test void duplicateInteractionDoesNotRepeatMutation() throws Exception {
     when(interactions.insertIfAbsent(anyString(), anyString(), eq(2), eq("unlink"), eq(now))).thenReturn(0);
     DiscordInteractionResult result = service.handle(json.readTree(commandWithPermissions("unlink", "0", null, null)));

@@ -79,6 +79,13 @@ class GameAdapterRegistry {
     return decorate(adapter, validateParsed(adapter.parse(text)));
   }
 
+  Map<String, ParsedSubmission> parseLoldle(String text, LocalDate puzzleDate) {
+    Map<String, ParsedSubmission> parsed = LoldleParser.parse(text, puzzleDate);
+    Map<String, ParsedSubmission> decorated = new LinkedHashMap<>();
+    parsed.forEach((slug, value) -> decorated.put(slug, decorate(require(slug), validateParsed(value))));
+    return Collections.unmodifiableMap(decorated);
+  }
+
   ParsedSubmission validateResult(String gameId, ConfirmedSubmission result, String text) {
     GameAdapter adapter = require(gameId);
     ParsedSubmission nativePreview = validateParsed(adapter.parse(text));

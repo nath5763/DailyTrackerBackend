@@ -302,7 +302,7 @@ class DailyGamesService {
     if (contests.size() > 1) return rankByPlacementPoints(profileById, scores, normalized);
 
     List<Submission> ordered = scores.stream().sorted((left, right) -> {
-      int compared = adapters.compareScores(normalized.get(left), normalized.get(right));
+      int compared = compareContestScores(left, right, normalized.get(left), normalized.get(right));
       if (compared != 0) return compared;
       return profileById.get(left.userId).displayName.compareToIgnoreCase(profileById.get(right.userId).displayName);
     }).toList();
@@ -312,7 +312,7 @@ class DailyGamesService {
     for (int index = 0; index < ordered.size(); index++) {
       Submission value = ordered.get(index);
       NormalizedScore score = normalized.get(value);
-      if (previous == null || !adapters.sameRank(score, normalized.get(previous))) rank = index + 1;
+      if (previous == null || !sameContestRank(value, previous, score, normalized.get(previous))) rank = index + 1;
       Profile profile = profileById.get(value.userId);
       results.add(new RankingView(rank, profile.userId, profile.shareId, profile.displayName,
           score.rankingPrimary() == null ? value.primaryScore : score.rankingPrimary(), 1,
@@ -332,16 +332,18 @@ class DailyGamesService {
     Map<UUID, List<Submission>> valuesByUser = scores.stream().collect(Collectors.groupingBy(score -> score.userId));
     for (List<Submission> contest : contests.values()) {
       List<Submission> ordered = contest.stream().sorted((left, right) ->
-          adapters.compareScores(normalized.get(left), normalized.get(right))).toList();
+          compareContestScores(left, right, normalized.get(left), normalized.get(right))).toList();
       List<Submission> valid = ordered.stream().filter(value -> validPerformance(normalized.get(value))).toList();
       for (Submission value : ordered) {
         NormalizedScore score = normalized.get(value);
         BigDecimal points = BigDecimal.ZERO;
         if (validPerformance(score)) {
           int validRank = valid.indexOf(value) + 1;
-          if (validRank > 1 && adapters.sameRank(score, normalized.get(valid.get(validRank - 2)))) {
+          if (validRank > 1 && sameContestRank(value, valid.get(validRank - 2), score,
+              normalized.get(valid.get(validRank - 2)))) {
             int cursor = validRank - 1;
-            while (cursor > 0 && adapters.sameRank(score, normalized.get(valid.get(cursor - 1)))) cursor--;
+            while (cursor > 0 && sameContestRank(value, valid.get(cursor - 1), score,
+                normalized.get(valid.get(cursor - 1)))) cursor--;
             validRank = cursor + 1;
           }
           points = BigDecimal.valueOf(placementPoints(validRank));
@@ -428,6 +430,20 @@ class DailyGamesService {
         "WIN".equals(score.completionStatus()) || "UNKNOWN".equals(score.completionStatus()));
   }
 
+  int compareContestScores(Submission left, Submission right, NormalizedScore leftScore, NormalizedScore rightScore) {
+    if (leftScore.gameId().startsWith("loldle-") && rightScore.gameId().equals(leftScore.gameId())) {
+      int assistance = Integer.compare(assistanceTier(List.of(left)), assistanceTier(List.of(right)));
+      if (assistance != 0) return assistance;
+    }
+    return adapters.compareScores(leftScore, rightScore);
+  }
+
+  boolean sameContestRank(Submission left, Submission right, NormalizedScore leftScore, NormalizedScore rightScore) {
+    return (!leftScore.gameId().startsWith("loldle-")
+        || assistanceTier(List.of(left)) == assistanceTier(List.of(right)))
+        && adapters.sameRank(leftScore, rightScore);
+  }
+
   private boolean assisted(Submission value) {
     return "assisted".equals(value.metrics.get("assistanceStatus")) || metricCount(value, "hints") > 0 ||
         metricCount(value, "mistakes") > 0 || metricCount(value, "beginnerAssists") > 0;
@@ -499,6 +515,68 @@ class DailyGamesService {
     requireProfile(current.id());
     requireGame(request.game());
     return adapters.parseResult(request.game(), request.rawText());
+  }
+
+  List<LoldleScoreView> previewLoldle(CurrentUser current, LoldleSubmissionRequest request) {
+    requireProfile(current.id());
+    return adapters.parseLoldle(request.rawText(), request.puzzleDate()).entrySet().stream()
+        .map(entry -> new LoldleScoreView(entry.getKey(), entry.getValue())).toList();
+  }
+
+  @Transactional
+  List<UUID> submitLoldle(CurrentUser current, LoldleSubmissionRequest request) {
+    requireProfile(current.id());
+    return saveLoldle(current.id(), request.rawText(), request.puzzleDate());
+  }
+
+  @Transactional
+  List<LoldleScoreView> submitLoldleFromDiscord(UUID userId, UUID boardId, String rawText, LocalDate puzzleDate) {
+    requireProfile(userId);
+    Leaderboard board = boards.findById(boardId)
+        .orElseThrow(() -> new ApiException(404, "LEADERBOARD_NOT_FOUND", "That leaderboard no longer exists."));
+    if (boardType(board) != BoardType.MULTI_GAME)
+      throw new ApiException(400, "MULTI_GAME_REQUIRED", "Discord supports multi-game leaderboards only.");
+    requireMembership(boardId, userId);
+    requireUnlocked(board);
+    List<String> allowed = allowedGames(board).stream().map(game -> game.slug).toList();
+    if (!allowed.containsAll(LoldleParser.MODES.stream().map(mode -> "loldle-" + mode).toList()))
+      throw new ApiException(400, "GAME_NOT_ON_LEADERBOARD", "This leaderboard does not include all five LoLdle modes.");
+    Map<String, ParsedSubmission> parsed = adapters.parseLoldle(rawText, puzzleDate);
+    saveLoldle(userId, rawText, puzzleDate, parsed);
+    return parsed.entrySet().stream().map(entry -> new LoldleScoreView(entry.getKey(), entry.getValue())).toList();
+  }
+
+  private List<UUID> saveLoldle(UUID userId, String rawText, LocalDate puzzleDate) {
+    return saveLoldle(userId, rawText, puzzleDate, adapters.parseLoldle(rawText, puzzleDate));
+  }
+
+  private List<UUID> saveLoldle(UUID userId, String rawText, LocalDate puzzleDate,
+                                Map<String, ParsedSubmission> parsed) {
+    profiles.findByIdForUpdate(userId)
+        .orElseThrow(() -> new ApiException(409, "PROFILE_REQUIRED", "Finish setting up your profile."));
+    Map<String, Game> batchGames = new LinkedHashMap<>();
+    Map<String, Submission> existing = new LinkedHashMap<>();
+    for (var entry : parsed.entrySet()) {
+      Game game = requireGame(entry.getKey());
+      batchGames.put(entry.getKey(), game);
+      ParsedSubmission score = entry.getValue();
+      Optional<Submission> found = submissions.findByUserIdAndGameIdAndPuzzleKey(userId, game.id, score.puzzleKey());
+      if (found.isEmpty()) found = submissions.findByUserIdAndGameIdAndPlayedOn(userId, game.id, score.playedOn());
+      if (found.isPresent()) {
+        Submission previous = found.get();
+        if (previous.submissionMethod != SubmissionMethod.SHARE_TEXT || !previous.rawText.equals(rawText)
+            || !previous.playedOn.equals(puzzleDate) || previous.primaryScore.compareTo(score.primaryScore()) != 0)
+          throw duplicate(game);
+        existing.put(entry.getKey(), previous);
+      }
+    }
+    List<UUID> ids = new ArrayList<>();
+    for (var entry : parsed.entrySet()) {
+      Submission previous = existing.get(entry.getKey());
+      ids.add(previous == null ? persistSubmission(userId, batchGames.get(entry.getKey()), entry.getValue(), rawText,
+          SubmissionMethod.SHARE_TEXT) : previous.id);
+    }
+    return List.copyOf(ids);
   }
 
   @Transactional

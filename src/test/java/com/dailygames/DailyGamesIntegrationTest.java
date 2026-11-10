@@ -13,6 +13,8 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
 
@@ -50,6 +52,32 @@ class DailyGamesIntegrationTest {
   @Autowired DiscordCommandRegistrationStore registrations;
   @Autowired LeaderboardInviteService invites;
   @Autowired JdbcTemplate jdbc;
+
+  @Test void loldleBatchIsIdempotentAndRejectsConflictsWithoutPartialWrites() {
+    LocalDate date = LocalDate.now(ZoneOffset.UTC);
+    String share = LoldleParser.example();
+    UserAccount first = users.save(new UserAccount("loldle-first@example.com", Instant.now()));
+    CurrentUser firstUser = new CurrentUser(first.id, first.normalizedEmail);
+    service.onboard(firstUser, new OnboardingRequest("LoLdle First", "#dfff4f"));
+    var request = new LoldleSubmissionRequest(share, date);
+    List<UUID> firstIds = service.submitLoldle(firstUser, request);
+    assertEquals(5, firstIds.size());
+    assertEquals(firstIds, service.submitLoldle(firstUser, request));
+
+    UserAccount second = users.save(new UserAccount("loldle-second@example.com", Instant.now()));
+    CurrentUser secondUser = new CurrentUser(second.id, second.normalizedEmail);
+    service.onboard(secondUser, new OnboardingRequest("LoLdle Second", "#ff8db6"));
+    Game quote = games.findBySlugAndActiveTrue("loldle-quote").orElseThrow();
+    ParsedSubmission old = LoldleParser.parse(share.replace("💬 Quote: 1", "💬 Quote: 2"), date).get("loldle-quote");
+    submissions.saveAndFlush(new Submission(second.id, quote.id, old, "older share", Instant.now()));
+    assertEquals("DUPLICATE_SUBMISSION", assertThrows(ApiException.class,
+        () -> service.submitLoldle(secondUser, request)).code);
+    for (String mode : LoldleParser.MODES) {
+      Game game = games.findBySlugAndActiveTrue("loldle-" + mode).orElseThrow();
+      assertEquals(mode.equals("quote"), submissions.findByUserIdAndGameIdAndPuzzleKey(second.id, game.id,
+          date.toString()).isPresent(), mode);
+    }
+  }
 
   @Test void themePreferenceDefaultsToLightAndBelongsToItsProfile() {
     UserAccount first = users.save(new UserAccount("theme-first@example.com", Instant.now()));

@@ -21,6 +21,7 @@ final class GameParserCapabilities {
   static {
     java.util.ArrayList<String> games = new java.util.ArrayList<>(CORE_GAME_IDS);
     games.addAll(FandomGames.slugs());
+    LoldleParser.MODES.forEach(mode -> games.add("loldle-" + mode));
     REQUESTED_GAME_IDS = List.copyOf(games);
   }
 }

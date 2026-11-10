@@ -28,6 +28,10 @@ final class ApiModels {
                                 @NotBlank @Size(max = 80) String gameSlug) {}
   record AddMemberRequest(@NotNull UUID shareId) {}
   record PreviewSubmissionRequest(@NotBlank String game, @NotBlank @Size(max = 10_000) String rawText) {}
+  record LoldleSubmissionRequest(@NotBlank @Size(max = 10_000) String rawText, @NotNull LocalDate puzzleDate) {}
+  record LoldleScoreView(String game, ParsedSubmission submission) {}
+  record LoldlePreviewResponse(List<LoldleScoreView> submissions) {}
+  record LoldleSaveResponse(List<UUID> ids) {}
   record ConfirmedSubmission(String puzzleKey, Integer puzzleNumber, LocalDate playedOn, BigDecimal primaryScore,
                              Map<String, Object> metrics, Integer parserVersion) {}
   record CreateSubmissionRequest(@NotBlank String game, @NotBlank @Size(max = 10_000) String rawText,

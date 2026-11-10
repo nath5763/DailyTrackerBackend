@@ -187,6 +187,14 @@ class DailyGamesController {
   @PostMapping("/submissions/preview") PreviewResponse preview(Authentication authentication, @Valid @RequestBody PreviewSubmissionRequest request) {
     return new PreviewResponse(service.preview(current(authentication), request));
   }
+  @PostMapping("/submissions/loldle/preview") LoldlePreviewResponse previewLoldle(Authentication authentication,
+      @Valid @RequestBody LoldleSubmissionRequest request) {
+    return new LoldlePreviewResponse(service.previewLoldle(current(authentication), request));
+  }
+  @PostMapping("/submissions/loldle") ResponseEntity<LoldleSaveResponse> submitLoldle(Authentication authentication,
+      @Valid @RequestBody LoldleSubmissionRequest request) {
+    return ResponseEntity.status(HttpStatus.CREATED).body(new LoldleSaveResponse(service.submitLoldle(current(authentication), request)));
+  }
   @PostMapping("/submissions") ResponseEntity<IdResponse> submit(Authentication authentication, @Valid @RequestBody CreateSubmissionRequest request) {
     return ResponseEntity.status(HttpStatus.CREATED).body(new IdResponse(service.submit(current(authentication), request)));
   }

@@ -16,11 +16,13 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class GameAdapterRegistryTest {
   private static final Set<String> PARTIAL = Set.of("strands", "nyt-mini-crossword", "semantle", "contexto",
-      "redactle", "nerdle", "worldle", "globle", "murdle", "quordle", "timeguessr");
+      "redactle", "nerdle", "worldle", "globle", "murdle", "quordle", "timeguessr",
+      "loldle-classic", "loldle-quote", "loldle-ability", "loldle-emoji", "loldle-splash");
   private final GameAdapterRegistry registry = new GameAdapterRegistry(List.of(new ConnectionsParser(), new WordleParser(),
       new StrandsParser(), new NytMiniParser(), new SemantleParser(), new ContextoParser(), new RedactleParser(),
       new NerdleParser(), new WorldleParser(), new GlobleParser(), new MurdleParser(), new QuordleParser(),
-      new TimeGuessrParser()));
+      new TimeGuessrParser(), new LoldleClassicAdapter(), new LoldleQuoteAdapter(),
+      new LoldleAbilityAdapter(), new LoldleEmojiAdapter(), new LoldleSplashAdapter()));
 
   @Test void detectsOnlyNamedGames() {
     assertEquals("connections", registry.detectGame("Connections\nPuzzle #1240\n🟩🟩🟩🟩").orElseThrow());
@@ -32,8 +34,8 @@ class GameAdapterRegistryTest {
 
   @Test void reportsEveryRequestedGameWithoutPretendingUnsupportedFormatsWork() {
     var all = registry.capabilities();
-    assertEquals(76, all.size());
-    assertEquals(76, all.stream().map(ApiModels.ParserCapabilityView::gameId).distinct().count());
+    assertEquals(81, all.size());
+    assertEquals(81, all.stream().map(ApiModels.ParserCapabilityView::gameId).distinct().count());
     assertEquals("PARTIAL", all.stream().filter(value -> value.gameId().equals("worldle"))
         .findFirst().orElseThrow().status());
     var unsupported = all.stream().filter(value -> value.gameId().equals("waffle")).findFirst().orElseThrow();
@@ -44,6 +46,7 @@ class GameAdapterRegistryTest {
     assertEquals(Set.of("share-text"), formats.get("worldle"));
     assertEquals(Set.of(), formats.get("waffle"));
     assertEquals(Set.of("share-text"), formats.get("connections"));
+    assertEquals(Set.of("batch-share-text"), formats.get("loldle-classic"));
     var fandom = all.stream().filter(value -> value.gameId().equals("squirdle")).findFirst().orElseThrow();
     assertEquals("MANUAL_ONLY", fandom.status());
     assertEquals(Set.of(), fandom.supportedFormats());
@@ -56,7 +59,8 @@ class GameAdapterRegistryTest {
     var capability = registry.capabilities().stream().filter(value -> value.gameId().equals(gameId))
         .findFirst().orElseThrow();
     assertEquals(status, capability.status());
-    assertEquals(status.equals("PARTIAL") ? Set.of("share-text") : Set.of(), capability.supportedFormats());
+    assertEquals(gameId.startsWith("loldle-") ? Set.of("batch-share-text")
+        : status.equals("PARTIAL") ? Set.of("share-text") : Set.of(), capability.supportedFormats());
   }
 
   static Stream<Arguments> requestedGames() {
