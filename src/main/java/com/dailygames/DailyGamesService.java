@@ -176,12 +176,18 @@ class DailyGamesService {
     Leaderboard board = boards.findById(boardId).orElseThrow(this::notFound);
     requireUnlocked(board);
     List<Game> allowedGames = allowedGames(board);
-    List<Profile> memberProfiles = memberships.findByIdLeaderboardId(boardId).stream()
-        .map(member -> profiles.findById(member.id.userId).orElseThrow(this::notFound)).toList();
+    List<Profile> memberProfiles = memberProfiles(boardId);
     List<UUID> memberIds = memberProfiles.stream().map(profile -> profile.userId).toList();
     Game game = selectLeaderboardGame(board, allowedGames, gameSlug, memberIds);
     List<Submission> scores = periodScores(memberIds, game, range);
     return new LeaderboardData(board, allowedGames, memberProfiles, memberIds, game, scores);
+  }
+
+  private List<Profile> memberProfiles(UUID boardId) {
+    List<UUID> ids = memberships.findByIdLeaderboardId(boardId).stream().map(member -> member.id.userId).toList();
+    Map<UUID, Profile> byId = profiles.findAllById(ids).stream()
+        .collect(Collectors.toMap(profile -> profile.userId, profile -> profile));
+    return ids.stream().map(id -> Optional.ofNullable(byId.get(id)).orElseThrow(this::notFound)).toList();
   }
 
   private List<Submission> periodScores(List<UUID> memberIds, Game game, String range) {
@@ -225,8 +231,7 @@ class DailyGamesService {
     Leaderboard board = boards.findById(boardId).orElseThrow(this::notFound);
     requireUnlocked(board);
     Game game = selectGame(board, allowedGames(board), gameSlug);
-    List<Profile> memberProfiles = memberships.findByIdLeaderboardId(boardId).stream()
-        .map(member -> profiles.findById(member.id.userId).orElseThrow(this::notFound)).toList();
+    List<Profile> memberProfiles = memberProfiles(boardId);
     List<UUID> memberIds = memberProfiles.stream().map(profile -> profile.userId).toList();
     LocalDate to = LocalDate.now(ZoneId.of(game.releaseTimezone));
     LocalDate from = to.minusDays(29);

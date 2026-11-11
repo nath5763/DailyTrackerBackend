@@ -875,6 +875,12 @@ class DailyGamesServiceTest {
   private DailyGamesService service(ProfileRepository profiles, GameRepository games, LeaderboardRepository boards,
                                     MembershipRepository memberships, SubmissionRepository submissions,
                                     GameAdapterRegistry adapters, BillingService billing) {
+    when(profiles.findAllById(any())).thenAnswer(invocation -> {
+      Iterable<UUID> ids = invocation.getArgument(0);
+      List<Profile> found = new ArrayList<>();
+      ids.forEach(id -> profiles.findById(id).ifPresent(found::add));
+      return found;
+    });
     return new DailyGamesService(mock(UserRepository.class), profiles, games, boards, memberships,
         submissions, adapters, billing);
   }
