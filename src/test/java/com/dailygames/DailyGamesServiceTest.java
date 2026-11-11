@@ -203,6 +203,7 @@ class DailyGamesServiceTest {
     assertEquals(1, rankings.get(0).manualResults());
     assertEquals(1, rankings.get(2).assistedResults());
     assertEquals(1, rankings.get(2).hints());
+    verify(profiles).findAllById(any());
   }
   @Test
   void insightsRankEachDaySeparatelyAndOnlyExposeViewerScores() {
@@ -247,6 +248,7 @@ class DailyGamesServiceTest {
         .thenReturn(List.of(ownerOld, ownerNew, friendYesterday, friendNew, twinNew));
     DailyGamesService service = service(profiles, games, boards, memberships, submissions, adapters, billing);
     var insights = service.insights(new CurrentUser(ownerId, ""), board.id, "queens");
+    verify(profiles).findAllById(any());
     assertEquals(30, insights.ranks().getFirst().points().size());
     assertEquals(1, insights.ranks().getFirst().points().getFirst().rank());
     assertNull(insights.ranks().getFirst().points().get(28).rank());
@@ -875,6 +877,12 @@ class DailyGamesServiceTest {
   private DailyGamesService service(ProfileRepository profiles, GameRepository games, LeaderboardRepository boards,
                                     MembershipRepository memberships, SubmissionRepository submissions,
                                     GameAdapterRegistry adapters, BillingService billing) {
+    when(profiles.findAllById(any())).thenAnswer(invocation -> {
+      Iterable<UUID> ids = invocation.getArgument(0);
+      List<Profile> found = new ArrayList<>();
+      ids.forEach(id -> profiles.findById(id).ifPresent(found::add));
+      return found;
+    });
     return new DailyGamesService(mock(UserRepository.class), profiles, games, boards, memberships,
         submissions, adapters, billing);
   }
