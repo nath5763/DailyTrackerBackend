@@ -22,7 +22,7 @@ class AuthService {
   private final AuthActionTokenRepository tokens;
   private final AuthLoginAttemptRepository loginAttempts;
   private final AuthSessionRepository sessions;
-  private final BrevoEmailClient emailClient;
+  private final EmailSender emailClient;
   private final PasswordEncoder passwordEncoder;
   private final SecureRandom random = new SecureRandom();
   private final String publicBaseUrl;
@@ -30,20 +30,24 @@ class AuthService {
   private final int verificationHours;
   private final int resetMinutes;
   private final int sessionDays;
+  private final int tokenRequestsPerIpPerHour;
   private final String dummyPasswordHash;
 
   AuthService(UserRepository users, ProfileRepository profiles, AuthActionTokenRepository tokens,
               AuthLoginAttemptRepository loginAttempts, AuthSessionRepository sessions,
-              BrevoEmailClient emailClient, PasswordEncoder passwordEncoder,
+              EmailSender emailClient, PasswordEncoder passwordEncoder,
               @Value("${app.public-base-url}") String publicBaseUrl,
               @Value("${app.token-pepper}") String pepper,
               @Value("${app.verification-hours}") int verificationHours,
               @Value("${app.password-reset-minutes}") int resetMinutes,
-              @Value("${app.session-days}") int sessionDays) {
+              @Value("${app.session-days}") int sessionDays,
+              @Value("${app.token-requests-per-ip-per-hour}") int tokenRequestsPerIpPerHour) {
     this.users = users; this.profiles = profiles; this.tokens = tokens; this.loginAttempts = loginAttempts;
     this.sessions = sessions; this.emailClient = emailClient; this.passwordEncoder = passwordEncoder;
     this.publicBaseUrl = publicBaseUrl.replaceAll("/$", ""); this.pepper = pepper;
     this.verificationHours = verificationHours; this.resetMinutes = resetMinutes; this.sessionDays = sessionDays;
+    if (tokenRequestsPerIpPerHour < 1) throw new IllegalArgumentException("Token request limit must be positive.");
+    this.tokenRequestsPerIpPerHour = tokenRequestsPerIpPerHour;
     this.dummyPasswordHash = passwordEncoder.encode(randomToken());
   }
 
@@ -194,7 +198,7 @@ class AuthService {
                           Consumer<String> sender) {
     Instant now = Instant.now();
     String ipHash = identifierHash("ip", Objects.toString(remoteIp, "unknown"));
-    if (tokens.countByRequestIpHashAndCreatedAtAfter(ipHash, now.minus(Duration.ofHours(1))) >= 20) rateLimited();
+    if (tokens.countByRequestIpHashAndCreatedAtAfter(ipHash, now.minus(Duration.ofHours(1))) >= tokenRequestsPerIpPerHour) rateLimited();
     if (tokens.countByUserIdAndPurposeAndCreatedAtAfter(user.id, purpose, now.minus(Duration.ofMinutes(1))) >= 1 ||
         tokens.countByUserIdAndPurposeAndCreatedAtAfter(user.id, purpose, now.minus(Duration.ofHours(1))) >= 5) return;
     tokens.consumeOutstanding(user.id, purpose, now);

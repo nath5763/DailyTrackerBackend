@@ -26,6 +26,13 @@ management:
       show-details: never
 app:
   public-base-url: ${APP_BASE_URL:http://localhost:3000}
+  email-provider: ${EMAIL_PROVIDER:brevo}
+  token-requests-per-ip-per-hour: ${AUTH_TOKEN_REQUESTS_PER_IP_PER_HOUR:20}
+  mailpit:
+    api-url: ${MAILPIT_API_URL:http://localhost:8025}
+    send-auth: ${MAILPIT_SEND_AUTH:}
+    sender-email: ${MAILPIT_SENDER_EMAIL:load-test@dailytracker.invalid}
+    sender-name: ${MAILPIT_SENDER_NAME:Daily Tracker Load Test}
   brevo:
     api-url: ${BREVO_API_URL:https://api.brevo.com}
     api-key: ${BREVO_API_KEY:}

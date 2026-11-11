@@ -19,14 +19,14 @@ class AuthServiceTest {
   private final AuthActionTokenRepository tokens = mock(AuthActionTokenRepository.class);
   private final AuthLoginAttemptRepository loginAttempts = mock(AuthLoginAttemptRepository.class);
   private final AuthSessionRepository sessions = mock(AuthSessionRepository.class);
-  private final BrevoEmailClient email = mock(BrevoEmailClient.class);
+  private final EmailSender email = mock(EmailSender.class);
   private final PasswordEncoder encoder = PasswordEncoderFactories.createDelegatingPasswordEncoder();
   private AuthService auth;
 
   @BeforeEach
   void setUp() {
     auth = new AuthService(users, profiles, tokens, loginAttempts, sessions, email, encoder,
-        "https://example.com", "test-pepper", 24, 30, 30);
+        "https://example.com", "test-pepper", 24, 30, 30, 20);
   }
 
   @Test
@@ -136,6 +136,22 @@ class AuthServiceTest {
     ApiException exception = assertThrows(ApiException.class,
         () -> auth.register("friend@example.com", "too short", "127.0.0.1"));
     assertEquals("INVALID_PASSWORD", exception.code);
+  }
+
+  @Test
+  void tokenLimitDefaultsToTwentyAndCanBeRaisedForStaging() {
+    when(users.findByNormalizedEmail("friend@example.com")).thenReturn(Optional.empty());
+    when(users.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+    when(tokens.countByRequestIpHashAndCreatedAtAfter(anyString(), any(Instant.class))).thenReturn(20L);
+
+    ApiException limit = assertThrows(ApiException.class,
+        () -> auth.register("friend@example.com", "a sufficiently long password", "127.0.0.1"));
+    assertEquals(429, limit.status);
+
+    AuthService staging = new AuthService(users, profiles, tokens, loginAttempts, sessions, email, encoder,
+        "https://staging.example", "test-pepper", 24, 30, 30, 100);
+    staging.register("friend@example.com", "a sufficiently long password", "127.0.0.1");
+    verify(email).sendVerification(eq("friend@example.com"), contains("https://staging.example/"), eq(24));
   }
 
   @Test

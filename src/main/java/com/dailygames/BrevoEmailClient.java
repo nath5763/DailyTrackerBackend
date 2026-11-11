@@ -3,6 +3,7 @@ package com.dailygames;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
@@ -15,7 +16,8 @@ import java.time.Duration;
 import java.util.List;
 
 @Service
-class BrevoEmailClient {
+@ConditionalOnProperty(name = "app.email-provider", havingValue = "brevo", matchIfMissing = true)
+class BrevoEmailClient implements EmailSender {
   private static final Logger LOGGER = LoggerFactory.getLogger(BrevoEmailClient.class);
   private static final String SEND_EMAIL_PATH = "/v3/smtp/email";
 
@@ -44,14 +46,14 @@ class BrevoEmailClient {
     this.senderName = senderName;
   }
 
-  void sendVerification(String recipientEmail, String verificationLink, int linkHours) {
+  public void sendVerification(String recipientEmail, String verificationLink, int linkHours) {
     send(recipientEmail, "Verify your Daily Club email",
         "<p>Verify your email to finish creating your Daily Club account:</p><p><a href=\"" + verificationLink
             + "\">Verify email address</a></p><p>This link expires in " + linkHours
             + " hours and can be used once.</p>", "email-verification");
   }
 
-  void sendPasswordReset(String recipientEmail, String resetLink, int linkMinutes) {
+  public void sendPasswordReset(String recipientEmail, String resetLink, int linkMinutes) {
     send(recipientEmail, "Reset your Daily Club password",
         "<p>Use this link to set a new Daily Club password:</p><p><a href=\"" + resetLink
             + "\">Reset password</a></p><p>This link expires in " + linkMinutes
