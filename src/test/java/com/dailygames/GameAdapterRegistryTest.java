@@ -27,6 +27,7 @@ class GameAdapterRegistryTest {
   @Test void detectsOnlyNamedGames() {
     assertEquals("connections", registry.detectGame("Connections\nPuzzle #1240\n🟩🟩🟩🟩").orElseThrow());
     assertEquals("worldle", registry.detectGame("#Worldle #1103 (28.01.2025) 1/6 (100%)").orElseThrow());
+    assertEquals("quordle", registry.detectGame("Daily Quordle 1746\n5️⃣9️⃣").orElseThrow());
     assertTrue(registry.detectGame("🟩🟩🟩🟩🟩").isEmpty());
     assertTrue(registry.detectGame("Wordle 1961 4/6\n#Worldle #1103 (28.01.2025) 1/6 (100%)").isEmpty());
     assertTrue(registry.detectGame("Squirdle #100 3/8").isEmpty());

@@ -182,7 +182,8 @@ class TelegramService {
     if (command.equals("help")) {
       bot.send(chatId, "Daily Tracker: /signup, /link, /unlink, /my_id, /daily, /loldle, /leaderboard. " +
           "Owners: /add_member, /setup, /set_leaderboard, /unset_leaderboard. " +
-          "Use the bot's private chat for account codes and share text. Groups use one connected multi-game leaderboard.");
+          "Send /daily followed by a complete Share result in one group message, or use /daily alone for the private flow. " +
+          "Account codes stay in the bot's private chat. Groups use one connected multi-game leaderboard.");
       return;
     }
     if (command.equals("signup")) {
@@ -242,7 +243,14 @@ class TelegramService {
       return;
     }
     if (!Set.of("daily", "loldle", "leaderboard", "add_member").contains(command)) return;
-    linkedUser(userId);
+    UUID linked = linkedUser(userId);
+    if (command.equals("daily") && !privateChat && !argument.isBlank()) {
+      UUID boardId = mapped(chatId);
+      String gameSlug = adapters.detectGame(argument).orElseThrow(() -> new ApiException(422, "GAME_UNDETECTED",
+          "Could not identify one supported game in that share. Use /daily alone to choose a game in private chat."));
+      submitDaily(linked, boardId, gameSlug, argument, chatId);
+      return;
+    }
     if (!privateChat && !command.equals("leaderboard")) { mapped(chatId); beginPrivate(userId, chatId, command); return; }
     UUID boardId = privateChat ? null : mapped(chatId);
     Flow flow = new Flow(userId, privateChat ? null : chatId, command, boardId == null ? "board" : nextStep(command),
@@ -286,7 +294,8 @@ class TelegramService {
         randomShort(), clock.instant().plus(FLOW_LIFETIME));
     saveFlow(flow);
     bot.send(groupId, "Continue /" + command.replace('_', '-') + " in a private chat with the bot." +
-        (command.equals("daily") ? " Paste the complete Share result there; the score confirmation will appear here." : ""),
+        (command.equals("daily") ? " Paste the complete Share result there; the score confirmation will appear here. " +
+            "You can also send /daily followed by the Share result in one group message." : ""),
         linkButton("Open private chat", bot.deepLink("flow_" + flow.token)));
   }
 
@@ -398,16 +407,8 @@ class TelegramService {
     }
     if (flow.step.equals("result")) {
       if (flow.name.equals("daily")) {
-        DailyGamesService.DiscordSubmissionResult saved = games.submitFromDiscord(
-            linkedUser(flow.userId), currentBoard(flow), flow.gameSlug, text);
-        GameAdapter adapter = adapters.require(saved.game().slug);
-        String score = formatScore(saved.submission().primaryScore(), adapter.scoreFormat());
-        String details = adapter.resultDetails(saved.submission().metrics()).stream().limit(7)
-            .map(detail -> clean(detail.label(), 12) + " " + clean(detail.value(), 24))
-            .reduce((a, b) -> a + " · " + b).orElse("");
-        bot.send(flow.originChatId == null ? flow.userId : flow.originChatId,
-            "Saved " + saved.game().name + " #" + saved.submission().puzzleKey() + " at " + score + "." +
-                (details.isEmpty() ? "" : "\n" + details));
+        submitDaily(linkedUser(flow.userId), currentBoard(flow), flow.gameSlug, text,
+            flow.originChatId == null ? flow.userId : flow.originChatId);
         clearFlow(flow.userId);
       } else {
         saveFlow(flow.withText(text).withStep("date"));
@@ -427,6 +428,18 @@ class TelegramService {
       bot.send(flow.originChatId == null ? flow.userId : flow.originChatId, "Saved LoLdle for " + date + ": " + joined + ".");
       clearFlow(flow.userId);
     }
+  }
+
+  private void submitDaily(UUID userId, UUID boardId, String gameSlug, String text, long replyChatId) {
+    DailyGamesService.DiscordSubmissionResult saved = games.submitFromDiscord(userId, boardId, gameSlug, text);
+    GameAdapter adapter = adapters.require(saved.game().slug);
+    String score = formatScore(saved.submission().primaryScore(), adapter.scoreFormat());
+    String details = adapter.resultDetails(saved.submission().metrics()).stream().limit(7)
+        .map(detail -> clean(detail.label(), 12) + " " + clean(detail.value(), 24))
+        .reduce((a, b) -> a + " · " + b).orElse("");
+    bot.send(replyChatId,
+        "Saved " + saved.game().name + " #" + saved.submission().puzzleKey() + " at " + score + "." +
+            (details.isEmpty() ? "" : "\n" + details));
   }
 
   private void postRankings(Flow flow) {

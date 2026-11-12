@@ -22,9 +22,8 @@ interface GameAdapter {
   ParsedSubmission parse(String rawText);
   ParsedSubmission validateConfirmed(ConfirmedSubmission confirmed, String rawText);
   default boolean matches(String rawText) {
-    String[] lines = ShareText.lines(rawText);
-    Pattern signature = Pattern.compile("(?i)^#?" + Pattern.quote(slug()) + "(?:\\b|[ ·#])");
-    return Arrays.stream(lines).anyMatch(line -> signature.matcher(line).find());
+    Pattern signature = Pattern.compile("(?i)\\b" + Pattern.quote(slug()) + "\\b");
+    return signature.matcher(rawText == null ? "" : rawText).find();
   }
   default BigDecimal rankingMetric(BigDecimal primaryScore, Map<String, Object> metrics) { return primaryScore; }
   default List<ResultDetailView> resultDetails(Map<String, Object> metrics) {
