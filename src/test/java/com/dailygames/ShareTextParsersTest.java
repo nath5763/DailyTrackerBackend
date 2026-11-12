@@ -70,6 +70,20 @@ class ShareTextParsersTest {
     assertEquals(BigDecimal.valueOf(98), new CrossclimbParser().parse(CROSSCLIMB.replace("\n", " ")).primaryScore());
     assertEquals(BigDecimal.valueOf(98), new CrossclimbParser().parse(CROSSCLIMB.replace("lnkd.in/crossclimb", "https://www.linkedin.com/games/crossclimb/")).primaryScore());
   }
+  @Test void acceptsTelegramVariationSelectorsInWordleGrid() {
+    String telegram = ("Wordle 1,972 6/6\n\n"
+        + "🟨⬛⬛⬛⬛\n"
+        + "⬛⬛🟨🟨⬛\n"
+        + "⬛🟩🟩⬛⬛\n"
+        + "⬛🟩🟩🟨⬛\n"
+        + "⬛🟨🟨⬛🟩\n"
+        + "🟩🟩🟩🟩🟩").replace("⬛", "⬛\uFE0F");
+    ParsedSubmission parsed = new WordleParser().parse(telegram);
+    assertEquals(BigDecimal.valueOf(6), parsed.primaryScore());
+    assertEquals("6/6", parsed.metrics().get("displayScore"));
+    assertEquals("🟨⬛⬛⬛⬛", ((List<?>) parsed.metrics().get("rows")).get(0));
+  }
+
   @Test void rejectsMalformedAndAmbiguousResults() {
     assertThrows(ApiException.class, () -> new WordleParser().parse("Wordle 1961 2/6\n⬛⬛⬛⬛⬛"));
     assertThrows(ApiException.class, () -> new WordleParser().parse(WORDLE.replace("4/6", "X/6")));

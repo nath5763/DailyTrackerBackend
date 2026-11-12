@@ -21,7 +21,7 @@ class WordleParser implements GameAdapter {
         "Puzzle number", "Guesses", BigDecimal.ONE, BigDecimal.valueOf(7), BigDecimal.ONE, Set.of());
   }
   @Override public ParsedSubmission parse(String rawText) {
-    String[] lines = ShareTextParserSupport.lines(rawText);
+    String[] lines = ShareText.lines(rawText);
     if (lines.length > 1 && lines[lines.length - 1].matches("https://www\\.nytimes\\.com/games/wordle(?:/index\\.html)?/?"))
       lines = Arrays.copyOf(lines, lines.length - 1);
     if (lines.length < 2) throw ShareTextParserSupport.invalid("Paste a complete Wordle result.");

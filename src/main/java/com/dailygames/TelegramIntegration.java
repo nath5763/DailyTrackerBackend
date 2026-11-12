@@ -285,7 +285,8 @@ class TelegramService {
     Flow flow = new Flow(userId, groupId, command, "private", boardId, null, null, null,
         randomShort(), clock.instant().plus(FLOW_LIFETIME));
     saveFlow(flow);
-    bot.send(groupId, "Continue /" + command.replace('_', '-') + " in a private chat with the bot.",
+    bot.send(groupId, "Continue /" + command.replace('_', '-') + " in a private chat with the bot." +
+        (command.equals("daily") ? " Paste the complete Share result there; the score confirmation will appear here." : ""),
         linkButton("Open private chat", bot.deepLink("flow_" + flow.token)));
   }
 
