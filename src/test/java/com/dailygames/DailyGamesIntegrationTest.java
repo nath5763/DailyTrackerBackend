@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -20,6 +21,9 @@ import java.util.UUID;
 
 import static com.dailygames.ApiModels.*;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+import org.mockito.ArgumentCaptor;
 
 @SpringBootTest
 @Testcontainers(disabledWithoutDocker = true)
@@ -52,6 +56,204 @@ class DailyGamesIntegrationTest {
   @Autowired DiscordCommandRegistrationStore registrations;
   @Autowired LeaderboardInviteService invites;
   @Autowired JdbcTemplate jdbc;
+  @Autowired LetterBagService letterBag;
+  @Autowired TelegramService telegram;
+  @MockitoBean TelegramGateway telegramBot;
+
+  @Test void telegramGroupSetupRejectsAnotherOwnerAndSurvivesSupergroupMigration() throws Exception {
+    UserAccount first = users.save(new UserAccount("telegram-group-owner-1@example.com", Instant.now()));
+    UserAccount second = users.save(new UserAccount("telegram-group-owner-2@example.com", Instant.now()));
+    CurrentUser firstUser = new CurrentUser(first.id, first.normalizedEmail);
+    CurrentUser secondUser = new CurrentUser(second.id, second.normalizedEmail);
+    service.onboard(firstUser, new OnboardingRequest("Telegram Owner One", "#dfff4f"));
+    service.onboard(secondUser, new OnboardingRequest("Telegram Owner Two", "#ff8db6"));
+    for (UserAccount owner : List.of(first, second)) {
+      BillingAccount account = new BillingAccount(owner.id, Instant.now());
+      account.subscriptionStatus = "active";
+      account.currentPeriodEnd = Instant.now().plusSeconds(86_400);
+      billingAccounts.save(account);
+    }
+    UUID firstBoard = service.createBoard(firstUser, new CreateLeaderboardRequest("Telegram One", null, BoardType.MULTI_GAME));
+    UUID secondBoard = service.createBoard(secondUser, new CreateLeaderboardRequest("Telegram Two", null, BoardType.MULTI_GAME));
+    jdbc.update("insert into telegram_account_links(telegram_user_id,user_id,linked_at) values (?,?,now())", 441L, first.id);
+    jdbc.update("insert into telegram_account_links(telegram_user_id,user_id,linked_at) values (?,?,now())", 442L, second.id);
+    var json = new tools.jackson.databind.ObjectMapper();
+    when(telegramBot.call(eq("getChatAdministrators"), anyMap())).thenReturn(json.readTree(
+        "[{\"status\":\"administrator\",\"user\":{\"id\":441}},{\"status\":\"administrator\",\"user\":{\"id\":442}}]"));
+    when(telegramBot.call(eq("getChat"), anyMap())).thenReturn(json.readTree("{\"title\":\"Friends\"}"));
+
+    telegram.handle(json.readTree("{\"update_id\":90001,\"message\":{\"chat\":{\"id\":-20001,\"type\":\"group\"},\"from\":{\"id\":441},\"text\":\"/setup " + firstBoard + "\"}}"));
+    assertEquals(firstBoard, jdbc.queryForObject("select leaderboard_id from telegram_group_leaderboards where chat_id=-20001", UUID.class));
+
+    telegram.handle(json.readTree("{\"update_id\":90002,\"message\":{\"chat\":{\"id\":-20001,\"type\":\"group\"},\"from\":{\"id\":442},\"text\":\"/setup " + secondBoard + "\"}}"));
+    assertEquals(firstBoard, jdbc.queryForObject("select leaderboard_id from telegram_group_leaderboards where chat_id=-20001", UUID.class));
+
+    telegram.handle(json.readTree("{\"update_id\":90003,\"message\":{\"chat\":{\"id\":-20001,\"type\":\"group\"},\"migrate_to_chat_id\":-10020001}}"));
+    assertEquals(firstBoard, jdbc.queryForObject("select leaderboard_id from telegram_group_leaderboards where chat_id=-10020001", UUID.class));
+    assertEquals(0, jdbc.queryForObject("select count(*) from telegram_group_leaderboards where chat_id=-20001", Integer.class));
+
+    BillingAccount expired = billingAccounts.findById(first.id).orElseThrow();
+    expired.subscriptionStatus = "canceled";
+    expired.currentPeriodEnd = Instant.now().minusSeconds(60);
+    billingAccounts.save(expired);
+    telegram.handle(json.readTree("{\"update_id\":90004,\"message\":{\"chat\":{\"id\":-10020001,\"type\":\"supergroup\"},\"from\":{\"id\":441},\"text\":\"/leaderboard\"}}"));
+    verify(telegramBot).send(eq(-10020001L), contains("active paid plan"));
+  }
+
+  @Test void telegramSignupRequiresPrivateConfirmationFromOriginalIdentityAndIsSingleUse() throws Exception {
+    UserAccount player = users.save(new UserAccount("telegram-signup@example.com", Instant.now()));
+    CurrentUser current = new CurrentUser(player.id, player.normalizedEmail);
+    service.onboard(current, new OnboardingRequest("Telegram Signup", "#a8c7ff"));
+    var json = new tools.jackson.databind.ObjectMapper();
+    telegram.handle(json.readTree("{\"update_id\":90011,\"message\":{\"chat\":{\"id\":551,\"type\":\"private\"},\"from\":{\"id\":551},\"text\":\"/signup\"}}"));
+    ArgumentCaptor<String> sent = ArgumentCaptor.forClass(String.class);
+    verify(telegramBot).send(eq(551L), sent.capture());
+    String token = sent.getValue().split("intent=")[1].split("\\n")[0];
+    assertTrue(telegram.validSignup(token));
+    telegram.requestSignupConfirmation(player.id, token);
+
+    telegram.handle(json.readTree("{\"update_id\":90012,\"callback_query\":{\"id\":\"wrong\",\"from\":{\"id\":552},\"data\":\"s:" + token + "\",\"message\":{\"chat\":{\"id\":552}}}}"));
+    assertNull(jdbc.queryForObject("select confirmed_at from telegram_signup_intents where telegram_user_id=551",
+        java.time.OffsetDateTime.class));
+    telegram.handle(json.readTree("{\"update_id\":90013,\"callback_query\":{\"id\":\"right\",\"from\":{\"id\":551},\"data\":\"s:" + token + "\",\"message\":{\"chat\":{\"id\":551}}}}"));
+    assertEquals("linked", telegram.completeSignup(player.id, token));
+    assertFalse(telegram.validSignup(token));
+    assertEquals("SIGNUP_EXPIRED", assertThrows(ApiException.class,
+        () -> telegram.completeSignup(player.id, token)).code);
+
+    jdbc.update("insert into telegram_pending_flows(telegram_user_id,flow,step,callback_token,expires_at) " +
+        "values (777,'daily','private','expired',now()-interval '1 minute')");
+    telegram.handle(json.readTree("{\"update_id\":90014,\"message\":{\"chat\":{\"id\":777,\"type\":\"private\"},\"from\":{\"id\":777},\"text\":\"/start flow_expired\"}}"));
+    verify(telegramBot).send(eq(777L), contains("expired"));
+  }
+
+  @Test void telegramFreeMemberUsesGuidedGroupRankingsAndPrivateScoreSubmission() throws Exception {
+    UserAccount owner = users.save(new UserAccount("telegram-guided-owner@example.com", Instant.now()));
+    UserAccount member = users.save(new UserAccount("telegram-guided-member@example.com", Instant.now()));
+    CurrentUser ownerUser = new CurrentUser(owner.id, owner.normalizedEmail);
+    CurrentUser memberUser = new CurrentUser(member.id, member.normalizedEmail);
+    service.onboard(ownerUser, new OnboardingRequest("Telegram Guided Owner", "#dfff4f"));
+    var memberProfile = service.onboard(memberUser, new OnboardingRequest("Telegram Guided Member", "#ff8db6"));
+    BillingAccount account = new BillingAccount(owner.id, Instant.now());
+    account.subscriptionStatus = "active";
+    account.currentPeriodEnd = Instant.now().plusSeconds(86_400);
+    billingAccounts.save(account);
+    UUID boardId = service.createBoard(ownerUser, new CreateLeaderboardRequest("Guided Telegram", null, BoardType.MULTI_GAME));
+    service.addMember(ownerUser, boardId, memberProfile.shareId());
+    jdbc.update("insert into telegram_account_links(telegram_user_id,user_id,linked_at) values (?,?,now())", 661L, member.id);
+    jdbc.update("insert into telegram_group_leaderboards(chat_id,leaderboard_id,title,configured_by_user_id,configured_at) values (?,?,?,?,now())",
+        -20061L, boardId, "Guided Group", owner.id);
+    when(telegramBot.deepLink(anyString())).thenAnswer(call -> "https://t.me/DailyTrackerBot?start=" + call.getArgument(0));
+    var json = new tools.jackson.databind.ObjectMapper();
+
+    telegram.handle(json.readTree("{\"update_id\":90021,\"message\":{\"chat\":{\"id\":-20061,\"type\":\"group\"},\"from\":{\"id\":661},\"text\":\"/leaderboard\"}}"));
+    ArgumentCaptor<List> gamesButtons = ArgumentCaptor.forClass(List.class);
+    verify(telegramBot).send(eq(-20061L), eq("Choose a game:"), gamesButtons.capture());
+    @SuppressWarnings("unchecked") String gameChoice = ((java.util.Map<String, String>) ((List<?>) gamesButtons.getValue().getFirst()).getFirst()).get("callback_data");
+    telegram.handle(json.readTree("{\"update_id\":90022,\"callback_query\":{\"id\":\"game\",\"from\":{\"id\":661},\"data\":\"" + gameChoice + "\",\"message\":{\"chat\":{\"id\":-20061}}}}"));
+    ArgumentCaptor<List> rangeButtons = ArgumentCaptor.forClass(List.class);
+    verify(telegramBot).send(eq(-20061L), eq("Choose a date range:"), rangeButtons.capture());
+    @SuppressWarnings("unchecked") String rangeChoice = ((java.util.Map<String, String>) ((List<?>) rangeButtons.getValue().getFirst()).getFirst()).get("callback_data");
+    telegram.handle(json.readTree("{\"update_id\":90023,\"callback_query\":{\"id\":\"range\",\"from\":{\"id\":661},\"data\":\"" + rangeChoice + "\",\"message\":{\"chat\":{\"id\":-20061}}}}"));
+    verify(telegramBot).send(eq(-20061L), contains("Nobody has posted a score"));
+
+    telegram.handle(json.readTree("{\"update_id\":90024,\"message\":{\"chat\":{\"id\":-20061,\"type\":\"group\"},\"from\":{\"id\":661},\"text\":\"/daily\"}}"));
+    ArgumentCaptor<List> privateButtons = ArgumentCaptor.forClass(List.class);
+    verify(telegramBot).send(eq(-20061L), contains("Continue /daily"), privateButtons.capture());
+    @SuppressWarnings("unchecked") String privateUrl = ((java.util.Map<String, String>) ((List<?>) privateButtons.getValue().getFirst()).getFirst()).get("url");
+    String start = privateUrl.substring(privateUrl.indexOf("start=") + 6);
+    telegram.handle(json.readTree("{\"update_id\":90025,\"message\":{\"chat\":{\"id\":661,\"type\":\"private\"},\"from\":{\"id\":661},\"text\":\"/start " + start + "\"}}"));
+    ArgumentCaptor<List> submitButtons = ArgumentCaptor.forClass(List.class);
+    verify(telegramBot).send(eq(661L), eq("Choose a game:"), submitButtons.capture());
+    @SuppressWarnings("unchecked") String searchChoice = ((java.util.Map<String, String>)
+        ((List<?>) submitButtons.getValue().getLast()).getFirst()).get("callback_data");
+    telegram.handle(json.readTree("{\"update_id\":90026,\"callback_query\":{\"id\":\"search\",\"from\":{\"id\":661},\"data\":\"" + searchChoice + "\",\"message\":{\"chat\":{\"id\":661}}}}"));
+    telegram.handle(json.readTree("{\"update_id\":90027,\"message\":{\"chat\":{\"id\":661,\"type\":\"private\"},\"from\":{\"id\":661},\"text\":\"Fermi\"}}"));
+    verify(telegramBot, times(2)).send(eq(661L), eq("Choose a game:"), submitButtons.capture());
+    String fermiChoice = null;
+    for (Object row : submitButtons.getValue()) {
+      @SuppressWarnings("unchecked") var button = (java.util.Map<String, String>) ((List<?>) row).getFirst();
+      if (button.get("text").startsWith("Fermi")) fermiChoice = button.get("callback_data");
+    }
+    assertNotNull(fermiChoice, submitButtons.getValue().toString());
+    telegram.handle(json.readTree("{\"update_id\":90028,\"callback_query\":{\"id\":\"fermi\",\"from\":{\"id\":661},\"data\":\"" + fermiChoice + "\",\"message\":{\"chat\":{\"id\":661}}}}"));
+    telegram.handle(json.readTree("{\"update_id\":90029,\"message\":{\"chat\":{\"id\":661,\"type\":\"private\"},\"from\":{\"id\":661},\"text\":\"Fermi #92\\n1.31× score\"}}"));
+    verify(telegramBot).send(eq(-20061L), contains("Saved Fermi.gg #92"));
+
+    telegram.handle(json.readTree("{\"update_id\":90030,\"message\":{\"chat\":{\"id\":-20061,\"type\":\"group\"},\"from\":{\"id\":661},\"text\":\"/loldle\"}}"));
+    ArgumentCaptor<List> loldleButtons = ArgumentCaptor.forClass(List.class);
+    verify(telegramBot).send(eq(-20061L), contains("Continue /loldle"), loldleButtons.capture());
+    @SuppressWarnings("unchecked") String loldleUrl = ((java.util.Map<String, String>) ((List<?>) loldleButtons.getValue().getFirst()).getFirst()).get("url");
+    String loldleStart = loldleUrl.substring(loldleUrl.indexOf("start=") + 6);
+    telegram.handle(json.readTree("{\"update_id\":90031,\"message\":{\"chat\":{\"id\":661,\"type\":\"private\"},\"from\":{\"id\":661},\"text\":\"/start " + loldleStart + "\"}}"));
+    telegram.handle(json.readTree("{\"update_id\":90032,\"message\":{\"chat\":{\"id\":661,\"type\":\"private\"},\"from\":{\"id\":661},\"text\":" + json.writeValueAsString(LoldleParser.example()) + "}}"));
+    verify(telegramBot).send(eq(661L), eq("Enter the LoLdle puzzle date as YYYY-MM-DD."));
+    telegram.handle(json.readTree("{\"update_id\":90033,\"message\":{\"chat\":{\"id\":661,\"type\":\"private\"},\"from\":{\"id\":661},\"text\":\"2026-06-01\"}}"));
+    verify(telegramBot).send(eq(-20061L), contains("Saved LoLdle for 2026-06-01"));
+  }
+
+  @Test void letterBagRoundRecordsOnlyServerScoredResult() {
+    UserAccount player = users.save(new UserAccount("letter-bag-player@example.com", Instant.now()));
+    CurrentUser current = new CurrentUser(player.id, player.normalizedEmail);
+    service.onboard(current, new OnboardingRequest("Bag Player", "#dfff4f"));
+    var hidden = letterBag.state(player.id);
+    assertNull(hidden.startedAt());
+    assertTrue(hidden.rack().stream().allMatch(tile -> tile.letter().equals("?")));
+    var started = letterBag.start(player.id);
+    assertEquals(started.startedAt(), letterBag.start(player.id).startedAt());
+    assertEquals(15, started.rack().size());
+    assertEquals(5, started.preview().size());
+    var invalid = assertThrows(ApiException.class, () -> letterBag.word(player.id, List.of(0, 0, 1)));
+    assertEquals("INVALID_TILES", invalid.code);
+    assertEquals(0, letterBag.state(player.id).score());
+    var ended = letterBag.finish(player.id);
+    assertNotNull(ended.endedAt());
+    assertEquals(ended.endedAt(), letterBag.finish(player.id).endedAt());
+    Game game = games.findBySlugAndActiveTrue("letter-bag").orElseThrow();
+    var submission = submissions.findByUserIdAndGameIdAndPuzzleKey(player.id, game.id, ended.date().toString()).orElseThrow();
+    assertEquals(0, BigDecimal.ZERO.compareTo(submission.primaryScore));
+    assertEquals(SubmissionMethod.IN_APP, submission.submissionMethod);
+    assertEquals(1, jdbc.queryForObject("select count(*) from submissions where user_id = ? and game_id = ?", Integer.class, player.id, game.id));
+    assertEquals("ROUND_ENDED", assertThrows(ApiException.class, () -> letterBag.word(player.id, List.of(0, 1, 2))).code);
+
+    UserAccount scorer = users.save(new UserAccount("letter-bag-scorer@example.com", Instant.now()));
+    CurrentUser scorerUser = new CurrentUser(scorer.id, scorer.normalizedEmail);
+    service.onboard(scorerUser, new OnboardingRequest("Bag Scorer", "#ff8db6"));
+    var second = letterBag.start(scorer.id);
+    List<Integer> selected = null;
+    for (String candidate : List.of("CAT", "DOG", "SUN", "EAR", "NOTE", "STAR", "RAIN", "FIRE", "GAME", "LAMP")) {
+      var available = new java.util.ArrayList<>(second.rack());
+      var ids = new java.util.ArrayList<Integer>();
+      for (char letter : candidate.toCharArray()) {
+        var tile = available.stream().filter(value -> value.letter().equals(String.valueOf(letter))).findFirst().orElse(null);
+        if (tile == null) break;
+        ids.add(tile.id()); available.remove(tile);
+      }
+      if (ids.size() == candidate.length()) { selected = ids; break; }
+    }
+    assertNotNull(selected);
+    List<Integer> selectedWord = List.copyOf(selected);
+    var played = letterBag.word(scorer.id, selectedWord);
+    assertEquals(1 + selectedWord.size() * (selectedWord.size() + 1) / 2, played.score());
+    assertEquals(1, played.words().size());
+    assertEquals("INVALID_TILES", assertThrows(ApiException.class, () -> letterBag.word(scorer.id, selectedWord)).code);
+    assertEquals(played.score(), letterBag.state(scorer.id).score());
+    letterBag.finish(scorer.id);
+    var scored = submissions.findByUserIdAndGameIdAndPuzzleKey(scorer.id, game.id, played.date().toString()).orElseThrow();
+    assertEquals(0, BigDecimal.valueOf(played.score()).compareTo(scored.primaryScore));
+    assertTrue(service.dashboard(scorerUser).recentScores().stream().anyMatch(value -> value.gameSlug().equals("letter-bag")));
+
+    UserAccount timed = users.save(new UserAccount("letter-bag-timed@example.com", Instant.now()));
+    service.onboard(new CurrentUser(timed.id, timed.normalizedEmail), new OnboardingRequest("Timed Player", "#a8c7ff"));
+    letterBag.start(timed.id);
+    jdbc.update("""
+        update letter_bag_attempts set started_at = now() - interval '91 seconds',
+          state = jsonb_set(state, '{startedAt}', to_jsonb(?::bigint)) where user_id = ?
+        """, System.currentTimeMillis() - 91000, timed.id);
+    letterBag.closeExpiredRounds();
+    assertNotNull(letterBag.state(timed.id).endedAt());
+    assertTrue(submissions.findByUserIdAndGameIdAndPuzzleKey(timed.id, game.id, played.date().toString()).isPresent());
+  }
 
   @Test void loldleBatchIsIdempotentAndRejectsConflictsWithoutPartialWrites() {
     LocalDate date = LocalDate.now(ZoneOffset.UTC);

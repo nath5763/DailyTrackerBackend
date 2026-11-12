@@ -45,8 +45,10 @@ class SecurityConfig {
                 "/api/v1/auth/password/reset", "/api/v1/auth/logout").permitAll()
             .requestMatchers(HttpMethod.POST, "/api/v1/billing/stripe/webhook").permitAll()
             .requestMatchers(HttpMethod.POST, "/api/v1/discord/interactions").permitAll()
+            .requestMatchers(HttpMethod.POST, "/api/v1/telegram/webhook").permitAll()
             .requestMatchers(HttpMethod.GET, "/api/v1/discord/oauth/callback").permitAll()
             .requestMatchers(HttpMethod.GET, "/api/v1/discord/signup-intents/*").permitAll()
+            .requestMatchers(HttpMethod.GET, "/api/v1/telegram/signup-intents/*").permitAll()
             .requestMatchers(HttpMethod.GET, "/api/v1/invites/*").permitAll()
             .requestMatchers(HttpMethod.GET, "/api/v1/auth/verification/consume", "/api/v1/catalog/games",
                 "/api/v1/catalog/games/parser-capabilities", "/api/v1/catalog/games/score-strategies").permitAll()

@@ -181,7 +181,7 @@ class Submission {
   }
 }
 
-enum SubmissionMethod { SHARE_TEXT, MANUAL }
+enum SubmissionMethod { SHARE_TEXT, MANUAL, IN_APP }
 
 enum AuthTokenPurpose { EMAIL_VERIFICATION, PASSWORD_RESET }
 

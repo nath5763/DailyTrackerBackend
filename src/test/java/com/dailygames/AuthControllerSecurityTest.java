@@ -20,6 +20,7 @@ class AuthControllerSecurityTest {
   @Autowired MockMvc mvc;
   @MockitoBean AuthService auth;
   @MockitoBean DiscordSignupService signup;
+  @MockitoBean TelegramService telegram;
   @MockitoBean LeaderboardInviteService invites;
 
   @Test

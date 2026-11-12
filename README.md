@@ -19,6 +19,14 @@ Stripe requests default to a 5-second connection timeout and a 20-second respons
 
 Environment overrides are documented in `.env.example`.
 
+## Telegram integration
+
+Create a bot with BotFather, keep **Group Privacy** enabled, and set `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME`, `TELEGRAM_WEBHOOK_URL` (the public HTTPS URL ending in `/api/v1/telegram/webhook`), and a random `TELEGRAM_WEBHOOK_SECRET` of at least 16 letters, digits, underscores, or hyphens. The backend registers commands and the webhook on startup and retries registration every six hours. Telegram command menus use underscores; typed hyphen aliases also work. Flyway V33 adds Telegram account links, group mappings, one-time signup and link intents, pending private flows, and update receipts.
+
+Deploy the backend and migration before the frontend. The website Profile issues one-time codes for `/link`. An owner with a paid tier and Telegram group administrator permission can run `/setup` in a group to choose one of their multi-game leaderboards, or copy `/setup <UUID>` from the leaderboard page. Only the current mapped board's owner can replace or remove a mapping. Linked members can use the group regardless of their own tier. The bot offers game and range buttons; share text and LoLdle dates are collected in a private bot chat. A one-to-one chat asks the player to choose an accessible leaderboard.
+
+In a connected group, `/signup` offers a private bot continuation. Its website link expires in 24 hours and can be used once. The website asks the original Telegram identity to confirm in its private bot chat before linking the account. Joining succeeds only while the group still maps to the original accessible leaderboard. After deployment, test linking, signup with a new and existing account, group setup and replacement, score submission, rankings, unlinking, and revoked owner access with real Telegram accounts.
+
 ## Discord integration
 
 Discord uses the existing HTTPS service; no Gateway connection or separate runtime is needed. Configure `DISCORD_APPLICATION_ID`, `DISCORD_PUBLIC_KEY`, `DISCORD_CLIENT_SECRET`, and `DISCORD_BOT_TOKEN` as backend secrets. Set `DISCORD_CALLBACK_URL` to `https://<website-host>/api/v1/discord/oauth/callback` and register that exact redirect URI in the Discord application. The frontend's `/api` rewrite must forward this callback to the backend so the signed-in website session cookie is available. The signed interaction endpoint remains `https://<api-host>/api/v1/discord/interactions`. Keep `AUTH_TOKEN_PEPPER` secret and stable; it also encrypts short-lived OAuth user tokens until channel selection. A bot token is required on the backend only for REST verification and channel listing; no Gateway connection is made.

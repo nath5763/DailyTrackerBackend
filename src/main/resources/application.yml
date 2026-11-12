@@ -46,6 +46,11 @@ app:
     client-secret: ${DISCORD_CLIENT_SECRET:}
     bot-token: ${DISCORD_BOT_TOKEN:}
     callback-url: ${DISCORD_CALLBACK_URL:http://localhost:3000/api/v1/discord/oauth/callback}
+  telegram:
+    bot-token: ${TELEGRAM_BOT_TOKEN:}
+    bot-username: ${TELEGRAM_BOT_USERNAME:}
+    webhook-url: ${TELEGRAM_WEBHOOK_URL:}
+    webhook-secret: ${TELEGRAM_WEBHOOK_SECRET:}
   token-pepper: ${AUTH_TOKEN_PEPPER:local-development-only-change-me}
   secure-cookie: ${SECURE_COOKIE:false}
   verification-hours: 24

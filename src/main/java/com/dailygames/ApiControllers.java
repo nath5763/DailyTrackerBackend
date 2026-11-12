@@ -23,19 +23,21 @@ import static com.dailygames.ApiModels.*;
 class AuthController {
   private final AuthService auth;
   private final DiscordSignupService signup;
+  private final TelegramService telegram;
   private final LeaderboardInviteService invites;
   private final String baseUrl;
   private final boolean secureCookie;
-  AuthController(AuthService auth, DiscordSignupService signup, LeaderboardInviteService invites, @Value("${app.public-base-url}") String baseUrl,
+  AuthController(AuthService auth, DiscordSignupService signup, TelegramService telegram, LeaderboardInviteService invites, @Value("${app.public-base-url}") String baseUrl,
                  @Value("${app.secure-cookie}") boolean secureCookie) {
-    this.auth = auth; this.signup = signup; this.invites = invites; this.baseUrl = baseUrl.replaceAll("/$", ""); this.secureCookie = secureCookie;
+    this.auth = auth; this.signup = signup; this.telegram = telegram; this.invites = invites; this.baseUrl = baseUrl.replaceAll("/$", ""); this.secureCookie = secureCookie;
   }
 
   @PostMapping("/register")
   ResponseEntity<MessageResponse> register(@Valid @RequestBody CredentialsRequest request,
       @RequestParam(required = false) String signupIntent, @RequestParam(required = false) String joinInvite,
       HttpServletRequest servletRequest) {
-    if (signupIntent != null && !signup.valid(signupIntent)) throw new ApiException(410, "SIGNUP_EXPIRED", "This Discord signup link has expired.");
+    if (signupIntent != null && !signup.valid(signupIntent) && !telegram.validSignup(signupIntent))
+      throw new ApiException(410, "SIGNUP_EXPIRED", "This signup link has expired.");
     if (joinInvite != null) invites.preview(joinInvite);
     auth.register(request.email(), request.password(), clientIp(servletRequest), signupIntent, joinInvite);
     return ResponseEntity.accepted().body(new MessageResponse("Check your inbox for an email to verify or recover your account."));
@@ -50,7 +52,8 @@ class AuthController {
   ResponseEntity<MessageResponse> resend(@Valid @RequestBody EmailRequest request,
       @RequestParam(required = false) String signupIntent, @RequestParam(required = false) String joinInvite,
       HttpServletRequest servletRequest) {
-    if (signupIntent != null && !signup.valid(signupIntent)) throw new ApiException(410, "SIGNUP_EXPIRED", "This Discord signup link has expired.");
+    if (signupIntent != null && !signup.valid(signupIntent) && !telegram.validSignup(signupIntent))
+      throw new ApiException(410, "SIGNUP_EXPIRED", "This signup link has expired.");
     if (joinInvite != null) invites.preview(joinInvite);
     auth.resendVerification(request.email(), clientIp(servletRequest), signupIntent, joinInvite);
     return ResponseEntity.accepted().body(new MessageResponse("If the account is awaiting verification, a new email is on its way."));
@@ -63,7 +66,8 @@ class AuthController {
       AuthService.LoginResult login = auth.verifyEmail(token);
       String next = joinInvite != null && joinInvite.matches("[0-9a-fA-F-]{36}\\.[A-Za-z0-9_-]{43}")
           ? "/join?invite=" + joinInvite
-          : signupIntent != null && signup.valid(signupIntent) ? "/discord/signup?intent=" + signupIntent : "/dashboard";
+          : signupIntent != null && signup.valid(signupIntent) ? "/discord/signup?intent=" + signupIntent
+          : signupIntent != null && telegram.validSignup(signupIntent) ? "/telegram/signup?intent=" + signupIntent : "/dashboard";
       String destination = login.onboarded() ? next : "/onboarding?next=" + java.net.URLEncoder.encode(next, java.nio.charset.StandardCharsets.UTF_8);
       return ResponseEntity.status(HttpStatus.FOUND).location(URI.create(baseUrl + destination))
           .header(HttpHeaders.SET_COOKIE, sessionCookie(login.sessionToken()).toString()).build();
