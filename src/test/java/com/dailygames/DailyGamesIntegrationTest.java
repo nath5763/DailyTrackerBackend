@@ -57,8 +57,43 @@ class DailyGamesIntegrationTest {
   @Autowired LeaderboardInviteService invites;
   @Autowired JdbcTemplate jdbc;
   @Autowired LetterBagService letterBag;
+  @Autowired SlipOutService slipOut;
   @Autowired TelegramService telegram;
   @MockitoBean TelegramGateway telegramBot;
+
+  @Test void slipOutRetriesKeepOnlyTheVerifiedBestCompletion() {
+    UserAccount player = users.save(new UserAccount("slipout-player@example.com", Instant.now()));
+    service.onboard(new CurrentUser(player.id, player.normalizedEmail),
+        new OnboardingRequest("SlipOut Player", "#dfff4f"));
+    var puzzle = slipOut.today(player.id).puzzle();
+    var game = games.findBySlugAndActiveTrue("slipout").orElseThrow();
+    assertNull(slipOut.today(player.id).best());
+
+    var failedStart = slipOut.start(player.id);
+    assertEquals("INVALID_MOVE", assertThrows(ApiException.class, () -> slipOut.finish(player.id,
+        failedStart.attemptId(), List.of(new SlipOutPuzzle.Move("X", 6)))).code);
+    var failed = slipOut.finish(player.id, failedStart.attemptId(), List.of());
+    assertFalse(failed.result().completed());
+    assertNull(failed.best());
+
+    var solution = SlipOutPuzzleTest.solutionForDate(puzzle.date());
+    var firstStart = slipOut.start(player.id);
+    jdbc.update("update slipout_attempts set started_at = now() - interval '10 seconds' where id = ?", firstStart.attemptId());
+    var first = slipOut.finish(player.id, firstStart.attemptId(), solution);
+    assertTrue(first.result().completed());
+    assertEquals(puzzle.optimalMoves(), first.result().moves());
+    assertNotNull(first.best());
+
+    var secondStart = slipOut.start(player.id);
+    jdbc.update("update slipout_attempts set started_at = now() - interval '5 seconds' where id = ?", secondStart.attemptId());
+    var second = slipOut.finish(player.id, secondStart.attemptId(), solution);
+    assertTrue(second.result().completed());
+    assertTrue(second.best().completionTimeMs() < first.best().completionTimeMs());
+    assertEquals(second.result(), slipOut.finish(player.id, secondStart.attemptId(), solution).result());
+    assertEquals(1, jdbc.queryForObject("select count(*) from submissions where user_id = ? and game_id = ?",
+        Integer.class, player.id, game.id));
+    assertEquals(3, jdbc.queryForObject("select count(*) from slipout_attempts where user_id = ?", Integer.class, player.id));
+  }
 
   @Test void telegramGroupSetupRejectsAnotherOwnerAndSurvivesSupergroupMigration() throws Exception {
     UserAccount first = users.save(new UserAccount("telegram-group-owner-1@example.com", Instant.now()));

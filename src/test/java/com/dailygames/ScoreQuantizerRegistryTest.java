@@ -119,6 +119,20 @@ class ScoreQuantizerRegistryTest {
     assertEquals(CompletionPolicy.COMPLETION_FIRST, strategy.completionPolicy());
   }
 
+  @Test void slipOutRanksMovesBeforeMillisecondsAndWinsBeforeFailures() {
+    NormalizedScore elevenSlow = score("slipout", 11, Map.of("completionStatus", "WIN",
+        "rankingPrimary", 11, "rankingSecondary", 80_000, "rankingSecondaryDirection", "ASCENDING"));
+    NormalizedScore twelveFast = score("slipout", 12, Map.of("completionStatus", "WIN",
+        "rankingPrimary", 12, "rankingSecondary", 35_000, "rankingSecondaryDirection", "ASCENDING"));
+    NormalizedScore twelveSlow = score("slipout", 12, Map.of("completionStatus", "WIN",
+        "rankingPrimary", 12, "rankingSecondary", 42_000, "rankingSecondaryDirection", "ASCENDING"));
+    NormalizedScore failed = score("slipout", 1, Map.of("completionStatus", "LOSS",
+        "rankingPrimary", 1, "rankingSecondary", 1, "rankingSecondaryDirection", "ASCENDING"));
+    assertTrue(registry.compare(elevenSlow, twelveFast) < 0);
+    assertTrue(registry.compare(twelveFast, twelveSlow) < 0);
+    assertTrue(registry.compare(twelveSlow, failed) < 0);
+  }
+
   private NormalizedScore score(String gameId, int primary, Map<String, Object> metrics) {
     return registry.quantize(gameId, new ParsedSubmission("1", 1, LocalDate.of(2026, 1, 1),
         BigDecimal.valueOf(primary), metrics, 1), "lower");

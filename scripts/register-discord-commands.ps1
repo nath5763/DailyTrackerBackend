@@ -66,13 +66,13 @@ $commands = @(
   },
   @{
     name = "leaderboard"
-    description = "Show leaderboard rankings"
+    description = "Show today's card or a game's rankings"
     options = @(
       @{
         type = 3
         name = "game"
         description = "Game to rank"
-        required = $true
+        required = $false
         min_length = 1
         max_length = 80
         autocomplete = $true

@@ -205,7 +205,7 @@ class DiscordCommandRegistrar {
     Map<String, Object> range = choiceOption("range", "Period to rank (defaults to today)", false,
         List.of(Map.of("name", "Today", "value", "today"), Map.of("name", "Last 7 days", "value", "7d"),
             Map.of("name", "Last 30 days", "value", "30d"), Map.of("name", "All time", "value", "all")));
-    commands.add(command("leaderboard", "Show leaderboard rankings",
+    commands.add(command("leaderboard", "Show today's card or a game's rankings",
         List.of(leaderboardGame, range, leaderboardOption())));
     if (global) {
       commands.forEach(command -> {
