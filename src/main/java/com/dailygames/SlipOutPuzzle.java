@@ -13,7 +13,6 @@ final class SlipOutPuzzle {
   record Puzzle(String id, LocalDate date, long number, List<Block> blocks, int optimalMoves) {}
   record Replay(List<Block> blocks, boolean completed, int moves) {}
 
-  static final int LIMIT_MS = 90_000;
   static final String VERSION = "v1";
   private static final LocalDate FIRST_DAY = LocalDate.of(2026, 11, 13);
   private static final String[] TEMPLATES = {

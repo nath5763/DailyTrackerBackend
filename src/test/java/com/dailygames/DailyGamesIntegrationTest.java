@@ -5,6 +5,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.init.ScriptUtils;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -61,7 +63,7 @@ class DailyGamesIntegrationTest {
   @Autowired TelegramService telegram;
   @MockitoBean TelegramGateway telegramBot;
 
-  @Test void slipOutRetriesKeepOnlyTheVerifiedBestCompletion() {
+  @Test void slipOutRetriesKeepOnlyTheVerifiedBestCompletion() throws Exception {
     UserAccount player = users.save(new UserAccount("slipout-player@example.com", Instant.now()));
     service.onboard(new CurrentUser(player.id, player.normalizedEmail),
         new OnboardingRequest("SlipOut Player", "#dfff4f"));
@@ -78,17 +80,31 @@ class DailyGamesIntegrationTest {
 
     var solution = SlipOutPuzzleTest.solutionForDate(puzzle.date());
     var firstStart = slipOut.start(player.id);
-    jdbc.update("update slipout_attempts set started_at = now() - interval '10 seconds' where id = ?", firstStart.attemptId());
+    jdbc.update("update slipout_attempts set started_at = now() - interval '95 seconds' where id = ?", firstStart.attemptId());
     var first = slipOut.finish(player.id, firstStart.attemptId(), solution);
     assertTrue(first.result().completed());
     assertEquals(puzzle.optimalMoves(), first.result().moves());
     assertNotNull(first.best());
 
+    jdbc.update("""
+        update submissions set metrics = metrics ||
+          '{"rankingSecondary":10000,"rankingSecondaryDirection":"ASCENDING","completionTimeMs":10000,"remainingTimeMs":80000,"displayScore":"10 moves · 10000 ms"}'::jsonb
+        where user_id = ? and game_id = ?
+        """, player.id, game.id);
+    try (var connection = jdbc.getDataSource().getConnection()) {
+      ScriptUtils.executeSqlScript(connection, new ClassPathResource("db/migration/V38__slipout_untimed_moves_only.sql"));
+    }
+    String migrated = jdbc.queryForObject("select metrics::text from submissions where user_id = ? and game_id = ?",
+        String.class, player.id, game.id);
+    assertFalse(migrated.contains("completionTimeMs"));
+    assertFalse(migrated.contains("rankingSecondary"));
+    assertFalse(migrated.contains(" ms"));
+
     var secondStart = slipOut.start(player.id);
     jdbc.update("update slipout_attempts set started_at = now() - interval '5 seconds' where id = ?", secondStart.attemptId());
     var second = slipOut.finish(player.id, secondStart.attemptId(), solution);
     assertTrue(second.result().completed());
-    assertTrue(second.best().completionTimeMs() < first.best().completionTimeMs());
+    assertEquals(first.best(), second.best());
     assertEquals(second.result(), slipOut.finish(player.id, secondStart.attemptId(), solution).result());
     assertEquals(1, jdbc.queryForObject("select count(*) from submissions where user_id = ? and game_id = ?",
         Integer.class, player.id, game.id));

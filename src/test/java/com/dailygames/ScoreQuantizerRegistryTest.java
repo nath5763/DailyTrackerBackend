@@ -119,18 +119,19 @@ class ScoreQuantizerRegistryTest {
     assertEquals(CompletionPolicy.COMPLETION_FIRST, strategy.completionPolicy());
   }
 
-  @Test void slipOutRanksMovesBeforeMillisecondsAndWinsBeforeFailures() {
-    NormalizedScore elevenSlow = score("slipout", 11, Map.of("completionStatus", "WIN",
-        "rankingPrimary", 11, "rankingSecondary", 80_000, "rankingSecondaryDirection", "ASCENDING"));
-    NormalizedScore twelveFast = score("slipout", 12, Map.of("completionStatus", "WIN",
-        "rankingPrimary", 12, "rankingSecondary", 35_000, "rankingSecondaryDirection", "ASCENDING"));
-    NormalizedScore twelveSlow = score("slipout", 12, Map.of("completionStatus", "WIN",
-        "rankingPrimary", 12, "rankingSecondary", 42_000, "rankingSecondaryDirection", "ASCENDING"));
+  @Test void slipOutRanksMovesOnlyAndWinsBeforeFailures() {
+    NormalizedScore elevenMoves = score("slipout", 11, Map.of("completionStatus", "WIN",
+        "rankingPrimary", 11));
+    NormalizedScore twelveMoves = score("slipout", 12, Map.of("completionStatus", "WIN",
+        "rankingPrimary", 12));
+    NormalizedScore twelveMovesTied = score("slipout", 12, Map.of("completionStatus", "WIN",
+        "rankingPrimary", 12));
     NormalizedScore failed = score("slipout", 1, Map.of("completionStatus", "LOSS",
-        "rankingPrimary", 1, "rankingSecondary", 1, "rankingSecondaryDirection", "ASCENDING"));
-    assertTrue(registry.compare(elevenSlow, twelveFast) < 0);
-    assertTrue(registry.compare(twelveFast, twelveSlow) < 0);
-    assertTrue(registry.compare(twelveSlow, failed) < 0);
+        "rankingPrimary", 1));
+    assertTrue(registry.compare(elevenMoves, twelveMoves) < 0);
+    assertEquals(0, registry.compare(twelveMoves, twelveMovesTied));
+    assertTrue(registry.sameRank(twelveMoves, twelveMovesTied));
+    assertTrue(registry.compare(twelveMovesTied, failed) < 0);
   }
 
   private NormalizedScore score(String gameId, int primary, Map<String, Object> metrics) {
