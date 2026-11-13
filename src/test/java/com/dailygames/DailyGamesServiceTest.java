@@ -206,6 +206,51 @@ class DailyGamesServiceTest {
     verify(profiles).findAllById(any());
   }
   @Test
+  void letterBagRanksHigherPointsFirstAndSharesExactScoreTies() {
+    UUID ownerId = UUID.randomUUID(), twinId = UUID.randomUUID(), lowerId = UUID.randomUUID();
+    Profile owner = new Profile(ownerId, "Owner", "#dfff4f", Instant.now());
+    Profile twin = new Profile(twinId, "Twin", "#a8c7ff", Instant.now());
+    Profile lower = new Profile(lowerId, "Lower", "#ff8db6", Instant.now());
+    Game game = new Game(); game.id = UUID.randomUUID(); game.slug = "letter-bag"; game.name = "Letter Bag";
+    game.active = true; game.releaseTimezone = "UTC"; game.rankingDirection = "higher";
+    Leaderboard board = new Leaderboard(ownerId, "Letter Bag club", game.id, BoardCreationBasis.FREE, Instant.now());
+    ProfileRepository profiles = mock(ProfileRepository.class);
+    GameRepository games = mock(GameRepository.class);
+    LeaderboardRepository boards = mock(LeaderboardRepository.class);
+    MembershipRepository memberships = mock(MembershipRepository.class);
+    SubmissionRepository submissions = mock(SubmissionRepository.class);
+    GameAdapterRegistry adapters = mock(GameAdapterRegistry.class);
+    BillingService billing = mock(BillingService.class);
+    GameAdapter adapter = mock(GameAdapter.class);
+    when(adapter.scoreFormat()).thenReturn(new ApiModels.ScoreFormatView("", "", 0, 0, "points"));
+    when(adapter.rankingMetric(any(), anyMap())).thenAnswer(invocation -> invocation.getArgument(0));
+    when(adapters.require("letter-bag")).thenReturn(adapter);
+    when(boards.findById(board.id)).thenReturn(Optional.of(board));
+    when(games.findById(game.id)).thenReturn(Optional.of(game));
+    when(memberships.existsByIdLeaderboardIdAndIdUserId(board.id, ownerId)).thenReturn(true);
+    when(memberships.findByIdLeaderboardId(board.id)).thenReturn(List.of(
+        new Membership(board.id, ownerId, ownerId, Instant.now()),
+        new Membership(board.id, twinId, ownerId, Instant.now()),
+        new Membership(board.id, lowerId, ownerId, Instant.now())));
+    when(profiles.findById(ownerId)).thenReturn(Optional.of(owner));
+    when(profiles.findById(twinId)).thenReturn(Optional.of(twin));
+    when(profiles.findById(lowerId)).thenReturn(Optional.of(lower));
+    when(billing.isBoardAccessible(eq(board), any())).thenReturn(true);
+    LocalDate today = LocalDate.now(ZoneOffset.UTC);
+    Submission first = new Submission(ownerId, game.id, new ParsedSubmission(today.toString(), null, today,
+        BigDecimal.valueOf(16), Map.of("wordCount", 3), 1), "Letter Bag", Instant.now());
+    Submission tie = new Submission(twinId, game.id, new ParsedSubmission(today.toString(), null, today,
+        BigDecimal.valueOf(16), Map.of("wordCount", 4), 1), "Letter Bag", Instant.now());
+    Submission lowerScore = new Submission(lowerId, game.id, new ParsedSubmission(today.toString(), null, today,
+        BigDecimal.valueOf(9), Map.of("wordCount", 2), 1), "Letter Bag", Instant.now());
+    when(submissions.findByUserIdInAndGameId(any(), eq(game.id))).thenReturn(List.of(first, tie, lowerScore));
+    DailyGamesService service = service(profiles, games, boards, memberships, submissions, adapters, billing);
+    var rankings = service.board(new CurrentUser(ownerId, ""), board.id, "all").rankings();
+    assertEquals(List.of(1, 1, 3), rankings.stream().map(ApiModels.RankingView::rank).toList());
+    assertEquals(List.of(BigDecimal.valueOf(16).setScale(4), BigDecimal.valueOf(16).setScale(4),
+        BigDecimal.valueOf(9).setScale(4)), rankings.stream().map(ApiModels.RankingView::average).toList());
+  }
+  @Test
   void insightsRankEachDaySeparatelyAndOnlyExposeViewerScores() {
     UUID ownerId = UUID.randomUUID(), friendId = UUID.randomUUID(), twinId = UUID.randomUUID();
     LocalDate today = LocalDate.now(ZoneOffset.UTC);

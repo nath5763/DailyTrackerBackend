@@ -251,6 +251,8 @@ class DailyGamesIntegrationTest {
     assertEquals("Letter Bag", jdbc.queryForObject("select name from game_catalog where slug='letter-bag'", String.class));
     var submission = submissions.findByUserIdAndGameIdAndPuzzleKey(player.id, game.id, ended.date().toString()).orElseThrow();
     assertEquals(0, BigDecimal.ZERO.compareTo(submission.primaryScore));
+    assertFalse(submission.metrics.containsKey("completionTime"));
+    assertFalse(submission.metrics.containsKey("remainingTime"));
     assertEquals(SubmissionMethod.IN_APP, submission.submissionMethod);
     assertEquals(1, jdbc.queryForObject("select count(*) from submissions where user_id = ? and game_id = ?", Integer.class, player.id, game.id));
     assertEquals("ROUND_ENDED", assertThrows(ApiException.class, () -> letterBag.word(player.id, List.of(0, 1, 2))).code);
@@ -273,7 +275,7 @@ class DailyGamesIntegrationTest {
     assertNotNull(selected);
     List<Integer> selectedWord = List.copyOf(selected);
     var played = letterBag.word(scorer.id, selectedWord);
-    assertEquals(1 + selectedWord.size() * (selectedWord.size() + 1) / 2, played.score());
+    assertEquals(LetterBagScoring.score(played.words().getFirst().word()).total(), played.score());
     assertEquals(1, played.words().size());
     assertEquals("INVALID_TILES", assertThrows(ApiException.class, () -> letterBag.word(scorer.id, selectedWord)).code);
     assertEquals(played.score(), letterBag.state(scorer.id).score());
@@ -282,16 +284,17 @@ class DailyGamesIntegrationTest {
     assertEquals(0, BigDecimal.valueOf(played.score()).compareTo(scored.primaryScore));
     assertTrue(service.dashboard(scorerUser).recentScores().stream().anyMatch(value -> value.gameSlug().equals("letter-bag")));
 
-    UserAccount timed = users.save(new UserAccount("letter-bag-timed@example.com", Instant.now()));
-    service.onboard(new CurrentUser(timed.id, timed.normalizedEmail), new OnboardingRequest("Timed Player", "#a8c7ff"));
-    letterBag.start(timed.id);
+    UserAccount untimed = users.save(new UserAccount("letter-bag-untimed@example.com", Instant.now()));
+    service.onboard(new CurrentUser(untimed.id, untimed.normalizedEmail), new OnboardingRequest("Untimed Player", "#a8c7ff"));
+    letterBag.start(untimed.id);
     jdbc.update("""
         update letter_bag_attempts set started_at = now() - interval '91 seconds',
           state = jsonb_set(state, '{startedAt}', to_jsonb(?::bigint)) where user_id = ?
-        """, System.currentTimeMillis() - 91000, timed.id);
-    letterBag.closeExpiredRounds();
-    assertNotNull(letterBag.state(timed.id).endedAt());
-    assertTrue(submissions.findByUserIdAndGameIdAndPuzzleKey(timed.id, game.id, played.date().toString()).isPresent());
+        """, System.currentTimeMillis() - 91000, untimed.id);
+    assertNull(letterBag.state(untimed.id).endedAt());
+    assertTrue(submissions.findByUserIdAndGameIdAndPuzzleKey(untimed.id, game.id, played.date().toString()).isEmpty());
+    letterBag.finish(untimed.id);
+    assertTrue(submissions.findByUserIdAndGameIdAndPuzzleKey(untimed.id, game.id, played.date().toString()).isPresent());
   }
 
   @Test void loldleBatchIsIdempotentAndRejectsConflictsWithoutPartialWrites() {

@@ -3,7 +3,6 @@ package com.dailygames;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.scheduling.annotation.Scheduled;
 import tools.jackson.databind.ObjectMapper;
 
 import java.math.BigDecimal;
@@ -19,7 +18,7 @@ class LetterBagService {
   record Round(LocalDate date, List<Tile> rack, List<Tile> bag, List<Word> words, int score,
                Long startedAt, Long endedAt) {}
   record View(LocalDate date, String gameNumber, List<Tile> rack, List<Tile> preview, int bagRemaining,
-              List<Word> words, int score, Long startedAt, Long endedAt, int remaining, long serverNow) {}
+              List<Word> words, int score, Long startedAt, Long endedAt) {}
 
   private static final String LETTERS = "AAAAAAAABCDEEEEEEEEEEEFGHIIIIIIJKLMNNOOOOOOOPQRRRRSSSSTTTTTTUUUVWYZ";
   private static final List<String> ANCHORS = List.of("CAT", "DOG", "SUN", "EAR", "NOTE", "STAR", "RAIN", "FIRE", "GAME", "LAMP");
@@ -77,19 +76,16 @@ class LetterBagService {
   }
   private static long now() { return System.currentTimeMillis(); }
   private static LocalDate today() { return LocalDate.now(ZoneOffset.UTC); }
-  private static int remaining(Round round, long now) {
-    return round.startedAt() == null ? 90 : (int) Math.max(0, Math.ceil((round.startedAt() + 90000 - now) / 1000.0));
-  }
   private static Round finish(Round round, long now) {
     return round.endedAt() != null ? round : new Round(round.date(), round.rack(), round.bag(), round.words(),
-        round.score(), round.startedAt(), Math.min(now, round.startedAt() + 90000));
+        round.score(), round.startedAt(), now);
   }
-  private static View view(Round round, long now) {
+  private static View view(Round round) {
     boolean hidden = round.startedAt() == null;
     var rack = hidden ? round.rack().stream().map(t -> new Tile(t.id(), "?")).toList() : round.rack();
     var preview = round.bag().stream().limit(5).map(t -> hidden ? new Tile(t.id(), "?") : t).toList();
     return new View(round.date(), round.date().toString().replace("-", ""), rack, preview, round.bag().size(),
-        round.words(), round.score(), round.startedAt(), round.endedAt(), remaining(round, now), now);
+        round.words(), round.score(), round.startedAt(), round.endedAt());
   }
   private static String json(Round round) { return JSON.writeValueAsString(round); }
   private Round load(UUID user, LocalDate date, boolean lock) {
@@ -113,41 +109,18 @@ class LetterBagService {
             "longestWord", round.words().stream().mapToInt(w -> w.word().length()).max().orElse(0))),
         "Letter Bag in-app result " + round.date());
   }
-  private Round expire(UUID user, Round round, long now) {
-    if (round.startedAt() != null && round.endedAt() == null && remaining(round, now) == 0) {
-      round = finish(round, now); save(user, round); record(user, round);
-    }
-    return round;
-  }
-
-  @Scheduled(fixedDelay = 15000)
-  @Transactional
-  public void closeExpiredRounds() {
-    long now = now();
-    var rows = db.queryForList("""
-        select user_id, state::text as state from letter_bag_attempts
-        where ended_at is null and started_at <= now() - interval '90 seconds'
-        for update skip locked
-        """);
-    for (var row : rows) {
-      UUID user = (UUID) row.get("user_id");
-      Round round = JSON.readValue((String) row.get("state"), Round.class);
-      expire(user, round, now);
-    }
-  }
-
   @Transactional
   View state(UUID user) {
-    long now = now(); LocalDate date = today();
+    LocalDate date = today();
     Round round = load(user, date, true);
-    return view(round == null ? fresh(date, null) : expire(user, round, now), now);
+    return view(round == null ? fresh(date, null) : round);
   }
   @Transactional
   Round replay(UUID user) {
     LocalDate date = today();
     Round scored = load(user, date, true);
     if (scored == null) throw new ApiException(409, "ROUND_NOT_FINISHED", "Finish today's scored round before replaying.");
-    if (expire(user, scored, now()).endedAt() == null)
+    if (scored.endedAt() == null)
       throw new ApiException(409, "ROUND_NOT_FINISHED", "Finish today's scored round before replaying.");
     return fresh(date, null);
   }
@@ -158,13 +131,12 @@ class LetterBagService {
     Round initial = fresh(date, now);
     db.update("insert into letter_bag_attempts (user_id, puzzle_date, started_at, state) values (?, ?, ?, ?::jsonb) on conflict do nothing",
         user, date, Timestamp.from(Instant.ofEpochMilli(now)), json(initial));
-    return view(expire(user, load(user, date, true), now), now);
+    return view(load(user, date, true));
   }
   @Transactional
   View word(UUID user, List<Integer> ids) {
     long now = now(); LocalDate date = today(); Round round = load(user, date, true);
     if (round == null) throw new ApiException(400, "NOT_STARTED", "Start the round first.");
-    round = expire(user, round, now);
     if (round.endedAt() != null) throw new ApiException(400, "ROUND_ENDED", "Round has ended.");
     if (ids == null || ids.size() < 3 || new HashSet<>(ids).size() != ids.size())
       throw new ApiException(400, "INVALID_TILES", "Select at least three different tiles.");
@@ -177,19 +149,19 @@ class LetterBagService {
     String word = String.join("", chosen.stream().map(Tile::letter).toList()).toLowerCase(Locale.ROOT);
     if (round.words().stream().anyMatch(w -> w.word().equals(word))) throw new ApiException(400, "REPEATED_WORD", "Already played.");
     if (!WORDS.contains(word)) throw new ApiException(400, "INVALID_WORD", "Not in the word list.");
-    int points = 1 + ids.size() * (ids.size() + 1) / 2;
+    int points = LetterBagScoring.score(word).total();
     var rack = new ArrayList<>(round.rack().stream().filter(t -> !ids.contains(t.id())).toList());
     int drawn = Math.min(ids.size(), round.bag().size()); rack.addAll(round.bag().subList(0, drawn));
     rack.sort(Comparator.comparingInt(Tile::id));
     var words = new ArrayList<>(round.words()); words.add(new Word(word, points));
     round = new Round(date, List.copyOf(rack), List.copyOf(round.bag().subList(drawn, round.bag().size())),
         List.copyOf(words), round.score() + points, round.startedAt(), rack.size() < 3 ? now : null);
-    save(user, round); record(user, round); return view(round, now);
+    save(user, round); record(user, round); return view(round);
   }
   @Transactional
   View finish(UUID user) {
     long now = now(); LocalDate date = today(); Round round = load(user, date, true);
     if (round == null) throw new ApiException(400, "NOT_STARTED", "Start the round first.");
-    round = finish(round, now); save(user, round); record(user, round); return view(round, now);
+    round = finish(round, now); save(user, round); record(user, round); return view(round);
   }
 }
