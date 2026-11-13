@@ -60,6 +60,7 @@ class DailyGamesIntegrationTest {
   @Autowired JdbcTemplate jdbc;
   @Autowired LetterBagService letterBag;
   @Autowired SlipOutService slipOut;
+  @Autowired SlipOutLevelService slipOutLevels;
   @Autowired TelegramService telegram;
   @MockitoBean TelegramGateway telegramBot;
 
@@ -109,6 +110,24 @@ class DailyGamesIntegrationTest {
     assertEquals(1, jdbc.queryForObject("select count(*) from submissions where user_id = ? and game_id = ?",
         Integer.class, player.id, game.id));
     assertEquals(3, jdbc.queryForObject("select count(*) from slipout_attempts where user_id = ?", Integer.class, player.id));
+  }
+
+  @Test void slipOutLevelImportVerifiesMovesAndUnlocksSequentially() {
+    UserAccount player = users.save(new UserAccount("slipout-level-player@example.com", Instant.now()));
+    service.onboard(new CurrentUser(player.id, player.normalizedEmail),
+        new OnboardingRequest("Level Player", "#dfff4f"));
+    assertEquals("LEVEL_LOCKED", assertThrows(ApiException.class, () -> slipOutLevels.start(player.id, 2)).code);
+    assertThrows(ApiException.class, () -> slipOutLevels.importGuest(player.id,
+        List.of(new SlipOutLevelService.ImportResult(1, List.of()))));
+    assertTrue(slipOutLevels.progress(player.id).isEmpty());
+    var merged = slipOutLevels.importGuest(player.id,
+        List.of(new SlipOutLevelService.ImportResult(1, SlipOutLevelsTest.firstSolution())));
+    assertEquals(7, merged.getFirst().bestMoves());
+    assertNotNull(slipOutLevels.start(player.id, 2).attemptId());
+    var retry = slipOutLevels.start(player.id, 1);
+    var finished = slipOutLevels.finish(player.id, retry.attemptId(), SlipOutLevelsTest.firstSolution());
+    assertTrue(finished.completed());
+    assertEquals(7, finished.progress().getFirst().bestMoves());
   }
 
   @Test void telegramGroupSetupRejectsAnotherOwnerAndSurvivesSupergroupMigration() throws Exception {
