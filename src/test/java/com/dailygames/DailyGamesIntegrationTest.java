@@ -122,12 +122,12 @@ class DailyGamesIntegrationTest {
     assertTrue(slipOutLevels.progress(player.id).isEmpty());
     var merged = slipOutLevels.importGuest(player.id,
         List.of(new SlipOutLevelService.ImportResult(1, SlipOutLevelsTest.firstSolution())));
-    assertEquals(7, merged.getFirst().bestMoves());
+    assertEquals(SlipOutLevels.level(1).optimalMoves(), merged.getFirst().bestMoves());
     assertNotNull(slipOutLevels.start(player.id, 2).attemptId());
     var retry = slipOutLevels.start(player.id, 1);
     var finished = slipOutLevels.finish(player.id, retry.attemptId(), SlipOutLevelsTest.firstSolution());
     assertTrue(finished.completed());
-    assertEquals(7, finished.progress().getFirst().bestMoves());
+    assertEquals(SlipOutLevels.level(1).optimalMoves(), finished.progress().getFirst().bestMoves());
   }
 
   @Test void telegramGroupSetupRejectsAnotherOwnerAndSurvivesSupergroupMigration() throws Exception {
