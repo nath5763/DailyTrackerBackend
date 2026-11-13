@@ -270,6 +270,9 @@ class BillingController {
   @PostMapping("/portal-session") UrlResponse portal(Authentication authentication) {
     return billing.createPortal(current(authentication).id());
   }
+  @PostMapping("/plan-change-session") UrlResponse planChange(Authentication authentication) {
+    return billing.createPlanChangePortal(current(authentication).id());
+  }
 
   private CurrentUser current(Authentication authentication) {
     if (authentication == null || !(authentication.getPrincipal() instanceof CurrentUser current)) {

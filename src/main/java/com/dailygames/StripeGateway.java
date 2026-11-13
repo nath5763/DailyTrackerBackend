@@ -22,6 +22,8 @@ interface StripeGateway {
   StripeCheckoutSession createCheckout(String customerId, UUID userId, String priceId, String successUrl,
                                        String cancelUrl, Instant expiresAt, String idempotencyKey) throws StripeException;
   StripePortalSession createPortal(String customerId, String configurationId, String returnUrl) throws StripeException;
+  StripePortalSession createSubscriptionUpdatePortal(String customerId, String configurationId,
+                                                     String subscriptionId, String returnUrl) throws StripeException;
   StripeSubscription retrieveSubscription(String subscriptionId) throws StripeException;
 
   record StripeCustomer(String id) {}
@@ -90,6 +92,31 @@ class StripeSdkGateway implements StripeGateway {
             .build();
     com.stripe.model.billingportal.Session session = stripe.v1().billingPortal().sessions().create(params);
     return new StripePortalSession(session.getUrl());
+  }
+
+  @Override
+  public StripePortalSession createSubscriptionUpdatePortal(String customerId, String configurationId,
+      String subscriptionId, String returnUrl) throws StripeException {
+    var session = stripe.v1().billingPortal().sessions().create(
+        subscriptionUpdateParams(customerId, configurationId, subscriptionId, returnUrl));
+    return new StripePortalSession(session.getUrl());
+  }
+
+  static com.stripe.param.billingportal.SessionCreateParams subscriptionUpdateParams(
+      String customerId, String configurationId, String subscriptionId, String returnUrl) {
+    var redirect = com.stripe.param.billingportal.SessionCreateParams.FlowData.AfterCompletion.Redirect.builder()
+        .setReturnUrl(returnUrl).build();
+    var completion = com.stripe.param.billingportal.SessionCreateParams.FlowData.AfterCompletion.builder()
+        .setType(com.stripe.param.billingportal.SessionCreateParams.FlowData.AfterCompletion.Type.REDIRECT)
+        .setRedirect(redirect).build();
+    var flow = com.stripe.param.billingportal.SessionCreateParams.FlowData.builder()
+        .setType(com.stripe.param.billingportal.SessionCreateParams.FlowData.Type.SUBSCRIPTION_UPDATE)
+        .setSubscriptionUpdate(com.stripe.param.billingportal.SessionCreateParams.FlowData.SubscriptionUpdate.builder()
+            .setSubscription(subscriptionId).build())
+        .setAfterCompletion(completion).build();
+    return com.stripe.param.billingportal.SessionCreateParams.builder()
+        .setCustomer(customerId).setConfiguration(configurationId)
+        .setReturnUrl(returnUrl).setFlowData(flow).build();
   }
 
   @Override

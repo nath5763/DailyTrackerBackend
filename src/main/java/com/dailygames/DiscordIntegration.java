@@ -166,11 +166,11 @@ class DiscordService {
   DiscordInteractionResult handle(JsonNode payload) {
     int type = requiredInt(payload, "type");
     if (type == 4) return autocomplete(payload);
-    if (type != 2) return ephemeral("This interaction type is not supported.", "UNSUPPORTED_INTERACTION", null);
+    if (type != 2 && type != 3) return ephemeral("This interaction type is not supported.", "UNSUPPORTED_INTERACTION", null);
     String interactionId = snowflake(payload, "id");
     JsonNode member = payload.path("member");
     String discordUserId = interactionUserId(payload);
-    String command = requiredText(payload.path("data"), "name", 32).toLowerCase(Locale.ROOT);
+    String command = type == 3 ? "leaderboard" : requiredText(payload.path("data"), "name", 32).toLowerCase(Locale.ROOT);
     Instant now = clock.instant();
     if (interactions.insertIfAbsent(interactionId, discordUserId, type, command, now) == 0) {
       return ephemeral("This interaction was already handled.", "DUPLICATE_INTERACTION", command);
@@ -181,7 +181,8 @@ class DiscordService {
       String guildId = optionalSnowflake(payload, "guild_id");
       String channelId = optionalSnowflake(payload, "channel_id");
       boolean groupDm = isGroupDm(payload);
-      result = switch (command) {
+      result = type == 3 ? expandLeaderboard(discordUserId, groupDm, guildId, channelId,
+          requiredText(payload.path("data"), "custom_id", 100)) : switch (command) {
         case "help" -> help();
         case "signup" -> signup(discordUserId, guildId, channelId);
         case "my-id" -> myId(discordUserId);
@@ -195,13 +196,13 @@ class DiscordService {
             option(payload, "leaderboard", 36), now);
         case "unset-leaderboard" -> unsetGroupDmLeaderboard(discordUserId, groupDm, guildId, channelId);
         case "daily" -> daily(discordUserId, groupDm, guildId, channelId,
-            option(payload, "game", 80), option(payload, "result", 6_000),
+            option(payload, "result", 6_000),
             optionalOption(payload, "leaderboard", 36));
         case "loldle" -> loldle(discordUserId, groupDm, guildId, channelId,
             option(payload, "result", 6_000), option(payload, "date", 10),
             optionalOption(payload, "leaderboard", 36));
         case "leaderboard" -> leaderboard(discordUserId, groupDm, guildId, channelId,
-            option(payload, "game", 80), optionalOption(payload, "range", 8),
+            optionalOption(payload, "game", 80), optionalOption(payload, "range", 8),
             optionalOption(payload, "leaderboard", 36));
         default -> throw new ApiException(400, "UNKNOWN_COMMAND", "That command is not supported.");
       };
@@ -217,9 +218,9 @@ class DiscordService {
         + "Run `/signup` to create or connect your account. In a connected server channel, signup can also join that channel's leaderboard.\n"
         + "1. **Link your account:** Sign in at " + publicBaseUrl + "/dashboard, generate a link code in the Discord section, then run `/link` and enter the code. Codes expire after 10 minutes.\n"
         + "2. **Choose a Group DM leaderboard:** Its owner can run `/set-leaderboard` once. In a one-to-one DM or an unconfigured Group DM, enter the leaderboard UUID on each command.\n"
-        + "3. **Submit a game result:** Run `/daily`, select the required `game`, and paste the complete game share text into `result`. Discord supports multi-game leaderboards only.\n"
+        + "3. **Submit a game result:** Run `/daily` and paste the complete game share text into `result`. The bot identifies the game. Discord supports multi-game leaderboards only.\n"
         + "For LoLdle, run `/loldle` with its complete five-mode share and the puzzle date (`YYYY-MM-DD`) to save Classic, Quote, Ability, Emoji, and Splash together.\n"
-        + "4. **See rankings:** Run `/leaderboard`, choose a game, and optionally choose a range (today, 7 days, 30 days, or all time).\n"
+        + "4. **See rankings:** Run `/leaderboard` for today's card, or choose a game and optional range for detailed rankings.\n"
         + "Each player links their own account and must belong to the selected leaderboard. Server and configured Group DM channels use their saved leaderboard.",
         "SUCCESS", "help");
   }
@@ -258,7 +259,7 @@ class DiscordService {
 
   private DiscordInteractionResult autocomplete(JsonNode payload) {
     String command = requiredText(payload.path("data"), "name", 32);
-    if (!Set.of("daily", "leaderboard").contains(command)) return emptyChoices(command);
+    if (!"leaderboard".equals(command)) return emptyChoices(command);
     JsonNode options = payload.path("data").path("options");
     if (!options.isArray()) return emptyChoices(command);
     String query = null;
@@ -277,14 +278,14 @@ class DiscordService {
         UUID userId = linkedUser(interactionUserId(payload));
         games = dailyGames.searchDiscordGames(userId,
             resolveLeaderboard(groupDm, null, channelId, rawLeaderboardId), query,
-            "daily".equals(command));
+            false);
       } else {
         String channelId = optionalSnowflake(payload, "channel_id");
         if (channelId == null) return emptyChoices(command);
         DiscordChannelLeaderboard mapping = channels.findById(
             new DiscordChannelLeaderboardId(guildId, channelId)).orElse(null);
         if (mapping == null) return emptyChoices(command);
-        games = dailyGames.searchDiscordGames(mapping.leaderboardId, query, "daily".equals(command));
+        games = dailyGames.searchDiscordGames(mapping.leaderboardId, query, false);
       }
       List<Map<String, String>> choices = games.stream()
           .map(game -> Map.of("name", game.name(), "value", game.slug())).toList();
@@ -420,12 +421,12 @@ class DiscordService {
   }
 
   private DiscordInteractionResult daily(String discordUserId, boolean groupDm, String guildId, String channelId,
-                                          String gameSlug, String rawText, String rawLeaderboardId) {
+                                          String rawText, String rawLeaderboardId) {
     UUID userId = linkedUser(discordUserId);
     UUID leaderboardId = resolveLeaderboard(groupDm, guildId, channelId, rawLeaderboardId);
     if (guildId != null) requirePaidOwner(leaderboardId);
     requireMultiGame(leaderboardId);
-    DailyGamesService.DiscordSubmissionResult saved = dailyGames.submitFromDiscord(userId, leaderboardId, gameSlug, rawText);
+    DailyGamesService.DiscordSubmissionResult saved = dailyGames.submitFromDiscord(userId, leaderboardId, rawText);
     GameAdapter adapter = adapters.require(saved.game().slug);
     String score = formatScore(saved.submission().primaryScore(), adapter.scoreFormat());
     String details = formatResultDetails(adapter.resultDetails(saved.submission().metrics()));
@@ -462,6 +463,7 @@ class DiscordService {
     UUID leaderboardId = resolveLeaderboard(groupDm, guildId, channelId, rawLeaderboardId);
     if (guildId != null) requirePaidOwner(leaderboardId);
     requireMultiGame(leaderboardId);
+    if (gameSlug == null) return todayCard(userId, leaderboardId);
     String range = requestedRange == null ? "today" : requestedRange;
     if (!Set.of("today", "7d", "30d", "all").contains(range)) {
       throw new ApiException(400, "INVALID_RANGE", "Range must be today, 7d, 30d, or all.");
@@ -504,6 +506,64 @@ class DiscordService {
     content.append(footer);
     Map<String, Object> data = new LinkedHashMap<>();
     data.put("content", content.toString());
+    data.put("allowed_mentions", Map.of("parse", List.of()));
+    return new DiscordInteractionResult(Map.of("type", 4, "data", data), "leaderboard", "SUCCESS");
+  }
+
+  private DiscordInteractionResult todayCard(UUID userId, UUID boardId) {
+    DailyGamesService.TodaySummary summary = dailyGames.todaySummary(new CurrentUser(userId, ""), boardId);
+    String leader = summary.leaders().isEmpty() ? "Nobody has posted a score today."
+        : "First place: " + summary.leaders().stream().map(row -> discordText(row.displayName(), 60))
+            .collect(java.util.stream.Collectors.joining(", "));
+    Map<String, Object> embed = Map.of("title", discordText(summary.boardName(), 100) + " · Today",
+        "description", leader + "\n" + summary.games().size() + " games with results today");
+    Map<String, Object> data = new LinkedHashMap<>();
+    data.put("embeds", List.of(embed));
+    data.put("components", List.of(Map.of("type", 1, "components", List.of(
+        Map.of("type", 2, "style", 1, "label", "Expand", "custom_id", "lb:" + boardId + ":0"),
+        Map.of("type", 2, "style", 5, "label", "Open full leaderboard",
+            "url", publicBaseUrl + "/leaderboards/" + boardId)))));
+    data.put("allowed_mentions", Map.of("parse", List.of()));
+    return new DiscordInteractionResult(Map.of("type", 4, "data", data), "leaderboard", "SUCCESS");
+  }
+
+  private DiscordInteractionResult expandLeaderboard(String discordUserId, boolean groupDm, String guildId,
+      String channelId, String customId) {
+    String[] parts = customId.split(":", 3);
+    if (parts.length != 3 || !parts[0].equals("lb") || !parts[2].matches("[0-9]{1,3}"))
+      throw new ApiException(400, "INVALID_CHOICE", "This leaderboard button is invalid.");
+    UUID boardId = parseLeaderboardId(parts[1]);
+    int page = Integer.parseInt(parts[2]);
+    UUID current = resolveLeaderboard(groupDm, guildId, channelId, guildId == null ? parts[1] : null);
+    if (!current.equals(boardId)) throw new ApiException(409, "MAPPING_CHANGED", "The connected leaderboard changed.");
+    if (guildId != null) requirePaidOwner(boardId);
+    requireMultiGame(boardId);
+    DailyGamesService.TodaySummary summary = dailyGames.todaySummary(new CurrentUser(linkedUser(discordUserId), ""), boardId);
+    int pages = Math.max(1, (summary.games().size() + 9) / 10);
+    if (page >= pages) throw new ApiException(400, "INVALID_CHOICE", "That page is unavailable.");
+    List<Map<String, Object>> fields = new ArrayList<>();
+    for (var game : summary.games().subList(page * 10, Math.min((page + 1) * 10, summary.games().size()))) {
+      String leaders = game.leaders().stream().map(row -> discordText(row.displayName(), 60) + " — " +
+          discordText(row.displayScore() == null ? formatScore(row.average(), game.game().scoreFormat())
+              : row.displayScore(), 60)).collect(java.util.stream.Collectors.joining("\n"));
+      fields.add(Map.of("name", discordText(game.game().name(), 100), "value", leaders.isBlank() ? "No results" : leaders));
+    }
+    Map<String, Object> embed = new LinkedHashMap<>();
+    embed.put("title", discordText(summary.boardName(), 100) + " · Today");
+    embed.put("description", summary.games().isEmpty() ? "Nobody has posted a score today."
+        : "Game leaders · page " + (page + 1) + " of " + pages);
+    if (!fields.isEmpty()) embed.put("fields", fields);
+    List<Map<String, Object>> buttons = new ArrayList<>();
+    if (page > 0) buttons.add(Map.of("type", 2, "style", 1, "label", "Previous",
+        "custom_id", "lb:" + boardId + ":" + (page - 1)));
+    if (page + 1 < pages) buttons.add(Map.of("type", 2, "style", 1, "label", "Next",
+        "custom_id", "lb:" + boardId + ":" + (page + 1)));
+    buttons.add(Map.of("type", 2, "style", 5, "label", "Open full leaderboard",
+        "url", publicBaseUrl + "/leaderboards/" + boardId));
+    Map<String, Object> data = new LinkedHashMap<>();
+    data.put("embeds", List.of(embed));
+    data.put("components", List.of(Map.of("type", 1, "components", buttons)));
+    data.put("flags", 64);
     data.put("allowed_mentions", Map.of("parse", List.of()));
     return new DiscordInteractionResult(Map.of("type", 4, "data", data), "leaderboard", "SUCCESS");
   }

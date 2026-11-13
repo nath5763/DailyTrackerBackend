@@ -132,6 +132,24 @@ class BillingService {
   }
 
   @Transactional
+  UrlResponse createPlanChangePortal(UUID userId) {
+    requirePortalConfiguration();
+    profiles.findByIdForUpdate(userId).orElseThrow(() -> new ApiException(409, "PROFILE_REQUIRED", "Finish setting up your profile."));
+    BillingAccount account = accounts.findById(userId)
+        .filter(value -> value.stripeCustomerId != null && value.stripeSubscriptionId != null)
+        .orElseThrow(() -> new ApiException(409, "BILLING_SUBSCRIPTION_REQUIRED", "Start a subscription before changing plans."));
+    try {
+      String returnUrl = baseUrl + "/billing/return?billing=returned";
+      StripeGateway.StripePortalSession session = stripe.createSubscriptionUpdatePortal(
+          account.stripeCustomerId, portalConfigurationId, account.stripeSubscriptionId, returnUrl);
+      log.info("Created Stripe plan change session for userId={}", userId);
+      return new UrlResponse(session.url());
+    } catch (StripeException exception) {
+      throw stripeUnavailable("plan change portal", userId, exception);
+    }
+  }
+
+  @Transactional
   void process(Event event, StripeObject object) {
     Instant eventCreated = Instant.ofEpochSecond(event.getCreated());
     if (events.insertIfAbsent(event.getId(), event.getType(), eventCreated, Instant.now()) == 0) {

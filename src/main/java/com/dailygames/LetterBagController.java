@@ -17,6 +17,7 @@ class LetterBagController {
     return current.id();
   }
   @GetMapping LetterBagService.View state(Authentication auth) { return service.state(user(auth)); }
+  @GetMapping("/replay") LetterBagService.Round replay(Authentication auth) { return service.replay(user(auth)); }
   @PostMapping("/start") LetterBagService.View start(Authentication auth) { return service.start(user(auth)); }
   @PostMapping("/words") LetterBagService.View word(Authentication auth, @RequestBody WordRequest request) {
     return service.word(user(auth), request.ids());

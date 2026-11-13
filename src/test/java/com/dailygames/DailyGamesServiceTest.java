@@ -392,7 +392,7 @@ class DailyGamesServiceTest {
   }
 
   @Test
-  void discordRequiresMultiGameBoardAndAnExplicitGame() {
+  void discordRequiresMultiGameBoardAndDetectsGame() {
     UUID userId = UUID.randomUUID();
     Profile profile = new Profile(userId, "Player", "#dfff4f", Instant.now());
     Game fermi = new Game();
@@ -432,15 +432,16 @@ class DailyGamesServiceTest {
         () -> service.submitFromDiscord(userId, single.id, "fermi", "Fermi share"));
     assertEquals("MULTI_GAME_REQUIRED", singleGame.code);
 
-    ApiException missing = assertThrows(ApiException.class,
-        () -> service.submitFromDiscord(userId, board.id, "Krillion share"));
-    assertEquals("GAME_REQUIRED", missing.code);
-    assertEquals("Select the game option when submitting from Discord.", missing.getMessage());
+    ApiException unknown = assertThrows(ApiException.class,
+        () -> service.submitFromDiscord(userId, board.id, "Unknown share"));
+    assertEquals("GAME_UNDETECTED", unknown.code);
 
+    when(adapters.detectGame("Krillion share")).thenReturn(Optional.of("krillion"));
     DailyGamesService.DiscordSubmissionResult saved =
-        service.submitFromDiscord(userId, board.id, "krillion", "Krillion share");
+        service.submitFromDiscord(userId, board.id, "Krillion share");
     assertEquals("krillion", saved.game().slug);
     verify(adapters, never()).parseResult("fermi", "Fermi share");
+    verify(adapters).detectGame("Krillion share");
     verify(adapters).parseResult("krillion", "Krillion share");
   }
 
@@ -886,4 +887,41 @@ class DailyGamesServiceTest {
     return new DailyGamesService(mock(UserRepository.class), profiles, games, boards, memberships,
         submissions, adapters, billing);
   }
+
+  @Test void todaySummaryFetchesOnceAndKeepsTiedFirstPlace() {
+    UUID a = UUID.randomUUID(), b = UUID.randomUUID();
+    Profile alpha = new Profile(a, "Alpha", "#aaaaaa", Instant.now());
+    Profile bravo = new Profile(b, "Bravo", "#bbbbbb", Instant.now());
+    Game game = game("timeguessr", "TimeGuessr", "higher");
+    Leaderboard board = new Leaderboard(a, "Friends", null, BoardType.MULTI_GAME,
+        BoardCreationBasis.SUBSCRIPTION, Instant.now());
+    ProfileRepository profiles = mock(ProfileRepository.class);
+    GameRepository games = mock(GameRepository.class);
+    LeaderboardRepository boards = mock(LeaderboardRepository.class);
+    MembershipRepository members = mock(MembershipRepository.class);
+    SubmissionRepository submissions = mock(SubmissionRepository.class);
+    BillingService billing = mock(BillingService.class);
+    GameAdapterRegistry adapters = new GameAdapterRegistry(List.of(new TimeGuessrParser()));
+    when(boards.findById(board.id)).thenReturn(Optional.of(board));
+    when(games.findByActiveTrueOrderByNameAsc()).thenReturn(List.of(game));
+    when(members.existsByIdLeaderboardIdAndIdUserId(board.id, a)).thenReturn(true);
+    when(members.findByIdLeaderboardId(board.id)).thenReturn(List.of(
+        new Membership(board.id, a, a, Instant.now()), new Membership(board.id, b, a, Instant.now())));
+    when(profiles.findById(a)).thenReturn(Optional.of(alpha));
+    when(profiles.findById(b)).thenReturn(Optional.of(bravo));
+    when(billing.isBoardAccessible(eq(board), any())).thenReturn(true);
+    LocalDate today = LocalDate.now(ZoneOffset.UTC);
+    var parsed = adapters.parseResult("timeguessr", "TimeGuessr #807 — 45,000/50,000");
+    var current = new ParsedSubmission(parsed.puzzleKey(), parsed.puzzleNumber(), today,
+        parsed.primaryScore(), parsed.metrics(), parsed.parserVersion());
+    when(submissions.findByUserIdInAndGameIdInAndPlayedOnBetween(any(), any(), eq(today), eq(today)))
+        .thenReturn(List.of(submission(a, game.id, current), submission(b, game.id, current)));
+    var summary = service(profiles, games, boards, members, submissions, adapters, billing)
+        .todaySummary(new CurrentUser(a, ""), board.id);
+    assertEquals(List.of("Alpha", "Bravo"), summary.leaders().stream()
+        .map(ApiModels.RankingView::displayName).toList());
+    assertEquals(2, summary.games().getFirst().leaders().size());
+    verify(submissions, times(1)).findByUserIdInAndGameIdInAndPlayedOnBetween(any(), any(), eq(today), eq(today));
+  }
+
 }

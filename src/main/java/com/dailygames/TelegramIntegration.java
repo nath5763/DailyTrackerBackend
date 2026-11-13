@@ -183,6 +183,7 @@ class TelegramService {
       bot.send(chatId, "Daily Tracker: /signup, /link, /unlink, /my_id, /daily, /loldle, /leaderboard. " +
           "Owners: /add_member, /setup, /set_leaderboard, /unset_leaderboard. " +
           "Send /daily followed by a complete Share result in one group message, or use /daily alone for the private flow. " +
+          "Search rankings with /leaderboard <game name>, or use /leaderboard alone for today's card. " +
           "Account codes stay in the bot's private chat. Groups use one connected multi-game leaderboard.");
       return;
     }
@@ -252,9 +253,17 @@ class TelegramService {
       return;
     }
     if (!privateChat && !command.equals("leaderboard")) { mapped(chatId); beginPrivate(userId, chatId, command); return; }
+    if (command.equals("leaderboard") && !privateChat && argument.isBlank()) {
+      postTodayCard(linked, mapped(chatId), chatId);
+      return;
+    }
+    String search = command.equals("leaderboard") ? argument : null;
+    if (search != null && search.length() > 80)
+      throw new ApiException(400, "QUERY_TOO_LONG", "Search using fewer than 80 characters.");
     UUID boardId = privateChat ? null : mapped(chatId);
-    Flow flow = new Flow(userId, privateChat ? null : chatId, command, boardId == null ? "board" : nextStep(command),
-        boardId, null, null, null, randomShort(), clock.instant().plus(FLOW_LIFETIME));
+    Flow flow = new Flow(userId, privateChat ? null : chatId, command, boardId == null ? "board"
+        : command.equals("leaderboard") && search != null && !search.isBlank() ? "game" : nextStep(command),
+        boardId, null, null, search, randomShort(), clock.instant().plus(FLOW_LIFETIME));
     saveFlow(flow);
     continueFlow(flow);
   }
@@ -318,15 +327,33 @@ class TelegramService {
       List<Leaderboard> choices = availableBoards(flow);
       if (choices.isEmpty()) throw new ApiException(404, "NO_LEADERBOARD", "Join a multi-game leaderboard first.");
       bot.send(target, "Choose a leaderboard:", choices(flow.token, "b", choices.stream().map(board -> board.name).toList()));
+    } else if (flow.step.equals("summary")) {
+      postTodayCard(linkedUser(flow.userId), currentBoard(flow), target);
+      clearFlow(flow.userId);
     } else if (flow.step.equals("game")) {
       UUID user = linkedUser(flow.userId);
       UUID boardId = currentBoard(flow);
       List<ApiModels.GameView> choices = games.searchDiscordGames(user, boardId,
           flow.shareText == null ? "" : flow.shareText, flow.name.equals("daily"));
-      if (choices.isEmpty()) throw new ApiException(404, "NO_GAMES", "No supported games are available.");
-      List<List<Map<String, String>>> buttons = new ArrayList<>(choices(flow.token, "g",
-          choices.stream().map(ApiModels.GameView::name).toList()));
-      buttons.add(List.of(Map.of("text", "Search another game", "callback_data", "f:" + flow.token + ":q")));
+      if (choices.isEmpty()) throw new ApiException(404, "NO_GAMES",
+          flow.shareText == null || flow.shareText.isBlank() ? "No supported games are available."
+              : "No games match that search. Try /leaderboard <game name> again.");
+      if (flow.name.equals("leaderboard")) {
+        String query = flow.shareText == null ? "" : flow.shareText.trim();
+        List<ApiModels.GameView> exact = choices.stream()
+            .filter(game -> game.name().equalsIgnoreCase(query) || game.slug().equalsIgnoreCase(query)).toList();
+        ApiModels.GameView selected = exact.size() == 1 ? exact.getFirst()
+            : choices.size() == 1 ? choices.getFirst() : null;
+        if (selected != null) {
+          postRankings(flow.withGame(selected.slug()).withRange("today"));
+          clearFlow(flow.userId);
+          return;
+        }
+      }
+      List<List<Map<String, String>>> buttons = new ArrayList<>();
+      buttons.add(List.of(Map.of("text", flow.shareText == null || flow.shareText.isBlank()
+          ? "Search by name" : "Search another game", "callback_data", "f:" + flow.token + ":q")));
+      buttons.addAll(choices(flow.token, "g", choices.stream().map(ApiModels.GameView::name).toList()));
       bot.send(target, "Choose a game:", buttons);
     } else if (flow.step.equals("range")) {
       bot.send(target, "Choose a date range:", choices(flow.token, "r",
@@ -345,6 +372,10 @@ class TelegramService {
     if (data.startsWith("s:")) {
       confirmSignup(userId, data.substring(2));
       bot.answer(callbackId, "Identity confirmed. Return to the website.");
+      return;
+    }
+    if (data.startsWith("lb:")) {
+      expandToday(userId, callback, callbackId, data);
       return;
     }
     String[] parts = data.split(":", 3);
@@ -368,7 +399,8 @@ class TelegramService {
       List<Leaderboard> boards = availableBoards(flow);
       int index = Integer.parseInt(choice.substring(1));
       if (index >= boards.size()) throw new ApiException(400, "INVALID_CHOICE", "That board is unavailable.");
-      flow = flow.withBoard(boards.get(index).id).withStep(nextStep(flow.name));
+      flow = flow.withBoard(boards.get(index).id).withStep(flow.name.equals("leaderboard")
+          && flow.shareText != null && !flow.shareText.isBlank() ? "game" : nextStep(flow.name));
     } else if (flow.step.equals("game") && choice.equals("q")) {
       long choiceChat = callback.path("message").path("chat").path("id").asLong(0);
       flow = flow.withStep(choiceChat == userId ? "search" : "search_private");
@@ -378,7 +410,13 @@ class TelegramService {
           flow.name.equals("daily"));
       int index = Integer.parseInt(choice.substring(1));
       if (index >= choices.size()) throw new ApiException(400, "INVALID_CHOICE", "That game is unavailable.");
-      flow = flow.withGame(choices.get(index).slug()).withStep(flow.name.equals("daily") ? "result" : "range");
+      if (flow.name.equals("leaderboard")) {
+        postRankings(flow.withGame(choices.get(index).slug()).withRange("today"));
+        clearFlow(userId);
+        bot.answer(callbackId, "Rankings posted.");
+        return;
+      }
+      flow = flow.withGame(choices.get(index).slug()).withStep("result");
     } else if (flow.step.equals("range") && choice.matches("r[0-3]")) {
       flow = flow.withRange(List.of("today", "7d", "30d", "all").get(choice.charAt(1) - '0'));
       saveFlow(flow);
@@ -442,6 +480,58 @@ class TelegramService {
             (details.isEmpty() ? "" : "\n" + details));
   }
 
+  private void postTodayCard(UUID userId, UUID boardId, long chatId) {
+    DailyGamesService.TodaySummary summary = games.todaySummary(new CurrentUser(userId, ""), boardId);
+    String leaders = summary.leaders().isEmpty() ? "Nobody has posted a score today."
+        : "First place: " + summary.leaders().stream().map(row -> clean(row.displayName(), 60))
+            .reduce((a, b) -> a + ", " + b).orElse("");
+    String text = clean(summary.boardName(), 80) + " · Today\n" + leaders + "\n"
+        + summary.games().size() + " games with results today";
+    bot.send(chatId, text, List.of(List.of(Map.of("text", "Expand", "callback_data", "lb:" + boardId + ":0")),
+        List.of(Map.of("text", "Open full leaderboard", "url", baseUrl + "/leaderboards/" + boardId))));
+  }
+
+  private void expandToday(long userId, JsonNode callback, String callbackId, String data) {
+    String[] parts = data.split(":", 3);
+    if (parts.length != 3 || !parts[2].matches("[0-9]{1,3}"))
+      throw new ApiException(400, "INVALID_CHOICE", "This leaderboard button is invalid.");
+    UUID boardId = parseBoard(parts[1]);
+    int page = Integer.parseInt(parts[2]);
+    JsonNode chat = callback.path("message").path("chat");
+    long chatId = id(chat.path("id"));
+    if (!"private".equals(chat.path("type").asText("")) && !boardId.equals(mapped(chatId)))
+      throw new ApiException(409, "MAPPING_CHANGED", "The connected leaderboard changed.");
+    UUID linked = linkedUser(userId);
+    requireAccessible(board(boardId));
+    DailyGamesService.TodaySummary summary = games.todaySummary(new CurrentUser(linked, ""), boardId);
+    int pages = Math.max(1, (summary.games().size() + 9) / 10);
+    if (page >= pages) throw new ApiException(400, "INVALID_CHOICE", "That page is unavailable.");
+    StringBuilder text = new StringBuilder(clean(summary.boardName(), 80)).append(" · Today\nGame leaders · page ")
+        .append(page + 1).append(" of ").append(pages).append("\n");
+    if (summary.games().isEmpty()) text.append("Nobody has posted a score today.");
+    for (var game : summary.games().subList(page * 10, Math.min((page + 1) * 10, summary.games().size()))) {
+      text.append("\n").append(clean(game.game().name(), 60)).append(": ");
+      text.append(game.leaders().stream().map(row -> clean(row.displayName(), 50) + " — " +
+          clean(row.displayScore() == null ? formatScore(row.average(), game.game().scoreFormat())
+              : row.displayScore(), 50)).reduce((a, b) -> a + ", " + b).orElse("No results"));
+    }
+    List<List<Map<String, String>>> buttons = new ArrayList<>();
+    List<Map<String, String>> paging = new ArrayList<>();
+    if (page > 0) paging.add(Map.of("text", "Previous", "callback_data", "lb:" + boardId + ":" + (page - 1)));
+    if (page + 1 < pages) paging.add(Map.of("text", "Next", "callback_data", "lb:" + boardId + ":" + (page + 1)));
+    if (!paging.isEmpty()) buttons.add(paging);
+    buttons.add(List.of(Map.of("text", "Open full leaderboard", "url", baseUrl + "/leaderboards/" + boardId)));
+    try { bot.send(userId, text.toString(), buttons); }
+    catch (ApiException exception) {
+      if (chatId == userId) throw exception;
+      bot.answer(callbackId, "Open the bot's private chat, then tap Expand again.");
+      bot.send(chatId, "Open the bot's private chat to see game leaders.",
+          linkButton("Open private chat", bot.deepLink("start")));
+      return;
+    }
+    bot.answer(callbackId, "Sent privately.");
+  }
+
   private void postRankings(Flow flow) {
     UUID boardId = currentBoard(flow);
     ApiModels.LeaderboardResponse board = games.board(new CurrentUser(linkedUser(flow.userId), ""),
@@ -472,7 +562,7 @@ class TelegramService {
   }
 
   private String nextStep(String name) {
-    return switch (name) { case "leaderboard", "daily" -> "game";
+    return switch (name) { case "leaderboard" -> "summary"; case "daily" -> "game";
       case "loldle" -> "result"; case "add_member" -> "member"; default -> "code"; };
   }
 

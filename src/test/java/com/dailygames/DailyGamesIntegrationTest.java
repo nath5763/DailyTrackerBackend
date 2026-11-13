@@ -147,15 +147,10 @@ class DailyGamesIntegrationTest {
     var json = new tools.jackson.databind.ObjectMapper();
 
     telegram.handle(json.readTree("{\"update_id\":90021,\"message\":{\"chat\":{\"id\":-20061,\"type\":\"group\"},\"from\":{\"id\":661},\"text\":\"/leaderboard\"}}"));
-    ArgumentCaptor<List> gamesButtons = ArgumentCaptor.forClass(List.class);
-    verify(telegramBot).send(eq(-20061L), eq("Choose a game:"), gamesButtons.capture());
-    @SuppressWarnings("unchecked") String gameChoice = ((java.util.Map<String, String>) ((List<?>) gamesButtons.getValue().getFirst()).getFirst()).get("callback_data");
-    telegram.handle(json.readTree("{\"update_id\":90022,\"callback_query\":{\"id\":\"game\",\"from\":{\"id\":661},\"data\":\"" + gameChoice + "\",\"message\":{\"chat\":{\"id\":-20061}}}}"));
-    ArgumentCaptor<List> rangeButtons = ArgumentCaptor.forClass(List.class);
-    verify(telegramBot).send(eq(-20061L), eq("Choose a date range:"), rangeButtons.capture());
-    @SuppressWarnings("unchecked") String rangeChoice = ((java.util.Map<String, String>) ((List<?>) rangeButtons.getValue().getFirst()).getFirst()).get("callback_data");
-    telegram.handle(json.readTree("{\"update_id\":90023,\"callback_query\":{\"id\":\"range\",\"from\":{\"id\":661},\"data\":\"" + rangeChoice + "\",\"message\":{\"chat\":{\"id\":-20061}}}}"));
-    verify(telegramBot).send(eq(-20061L), contains("Nobody has posted a score"));
+    verify(telegramBot).send(eq(-20061L), contains("Nobody has posted a score"), anyList());
+    telegram.handle(json.readTree("{\"update_id\":90022,\"callback_query\":{\"id\":\"expand\",\"from\":{\"id\":661},"
+        + "\"data\":\"lb:" + boardId + ":0\",\"message\":{\"chat\":{\"id\":-20061,\"type\":\"group\"}}}}"));
+    verify(telegramBot).send(eq(661L), contains("Game leaders"), anyList());
 
     telegram.handle(json.readTree("{\"update_id\":90024,\"message\":{\"chat\":{\"id\":-20061,\"type\":\"group\"},\"from\":{\"id\":661},\"text\":\"/daily\"}}"));
     ArgumentCaptor<List> privateButtons = ArgumentCaptor.forClass(List.class);
@@ -166,7 +161,7 @@ class DailyGamesIntegrationTest {
     ArgumentCaptor<List> submitButtons = ArgumentCaptor.forClass(List.class);
     verify(telegramBot).send(eq(661L), eq("Choose a game:"), submitButtons.capture());
     @SuppressWarnings("unchecked") String searchChoice = ((java.util.Map<String, String>)
-        ((List<?>) submitButtons.getValue().getLast()).getFirst()).get("callback_data");
+        ((List<?>) submitButtons.getValue().getFirst()).getFirst()).get("callback_data");
     telegram.handle(json.readTree("{\"update_id\":90026,\"callback_query\":{\"id\":\"search\",\"from\":{\"id\":661},\"data\":\"" + searchChoice + "\",\"message\":{\"chat\":{\"id\":661}}}}"));
     telegram.handle(json.readTree("{\"update_id\":90027,\"message\":{\"chat\":{\"id\":661,\"type\":\"private\"},\"from\":{\"id\":661},\"text\":\"Fermi\"}}"));
     verify(telegramBot, times(2)).send(eq(661L), eq("Choose a game:"), submitButtons.capture());
@@ -197,6 +192,7 @@ class DailyGamesIntegrationTest {
     CurrentUser current = new CurrentUser(player.id, player.normalizedEmail);
     service.onboard(current, new OnboardingRequest("Bag Player", "#dfff4f"));
     var hidden = letterBag.state(player.id);
+    assertEquals("ROUND_NOT_FINISHED", assertThrows(ApiException.class, () -> letterBag.replay(player.id)).code);
     assertNull(hidden.startedAt());
     assertTrue(hidden.rack().stream().allMatch(tile -> tile.letter().equals("?")));
     var started = letterBag.start(player.id);
@@ -209,7 +205,15 @@ class DailyGamesIntegrationTest {
     var ended = letterBag.finish(player.id);
     assertNotNull(ended.endedAt());
     assertEquals(ended.endedAt(), letterBag.finish(player.id).endedAt());
+    var replay = letterBag.replay(player.id);
+    assertEquals(ended.date(), replay.date());
+    assertNull(replay.startedAt());
+    assertEquals(0, replay.score());
+    assertEquals(LetterBagService.puzzle(ended.date()).subList(0, 15), replay.rack());
+    assertEquals(LetterBagService.puzzle(ended.date()).subList(15, 30), replay.bag());
     Game game = games.findBySlugAndActiveTrue("letter-bag").orElseThrow();
+    assertEquals("Letter Bag", game.name);
+    assertEquals("Letter Bag", jdbc.queryForObject("select name from game_catalog where slug='letter-bag'", String.class));
     var submission = submissions.findByUserIdAndGameIdAndPuzzleKey(player.id, game.id, ended.date().toString()).orElseThrow();
     assertEquals(0, BigDecimal.ZERO.compareTo(submission.primaryScore));
     assertEquals(SubmissionMethod.IN_APP, submission.submissionMethod);

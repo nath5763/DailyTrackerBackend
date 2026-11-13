@@ -156,6 +156,36 @@ class DailyGamesService {
         members, rankings, absent, combinedRankings, dailyResults, recentlyPlayedGameSlugs(data));
   }
 
+  record TodayGameLeaders(GameView game, List<RankingView> leaders) {}
+  record TodaySummary(UUID boardId, String boardName, List<RankingView> leaders,
+                      List<TodayGameLeaders> games) {}
+
+  TodaySummary todaySummary(CurrentUser current, UUID boardId) {
+    requireMembership(boardId, current.id());
+    Leaderboard board = boards.findById(boardId).orElseThrow(this::notFound);
+    requireUnlocked(board);
+    if (boardType(board) != BoardType.MULTI_GAME)
+      throw new ApiException(400, "MULTI_GAME_REQUIRED", "A multi-game leaderboard is required.");
+    List<Game> allowed = allowedGames(board);
+    List<Profile> members = memberProfiles(boardId);
+    if (allowed.isEmpty() || members.isEmpty()) return new TodaySummary(boardId, board.name, List.of(), List.of());
+    List<UUID> memberIds = members.stream().map(profile -> profile.userId).toList();
+    Map<UUID, LocalDate> today = allowed.stream().collect(Collectors.toMap(game -> game.id,
+        game -> LocalDate.now(ZoneId.of(game.releaseTimezone))));
+    LocalDate from = today.values().stream().min(LocalDate::compareTo).orElseThrow();
+    LocalDate to = today.values().stream().max(LocalDate::compareTo).orElseThrow();
+    List<Submission> scores = submissions.findByUserIdInAndGameIdInAndPlayedOnBetween(memberIds,
+        allowed.stream().map(game -> game.id).toList(), from, to).stream()
+        .filter(score -> score.playedOn.equals(today.get(score.gameId))).toList();
+    Map<UUID, List<Submission>> byGame = scores.stream().collect(Collectors.groupingBy(score -> score.gameId));
+    List<TodayGameLeaders> gameLeaders = allowed.stream().filter(game -> byGame.containsKey(game.id))
+        .map(game -> new TodayGameLeaders(gameView(game), rankScores(members, byGame.get(game.id), game).stream()
+            .filter(row -> row.rank() == 1).toList()))
+        .sorted(Comparator.comparing(value -> value.game().name(), String.CASE_INSENSITIVE_ORDER)).toList();
+    return new TodaySummary(boardId, board.name, combinedRankingsFromScores(members, allowed, scores).stream()
+        .filter(row -> row.rank() == 1).toList(), gameLeaders);
+  }
+
   LeaderboardMemberScoresResponse memberScores(CurrentUser current, UUID boardId, UUID userId,
                                                  String range, String gameSlug) {
     LeaderboardData data = leaderboardData(current, boardId, range, gameSlug);
@@ -407,7 +437,13 @@ class DailyGamesService {
       LocalDate from = range.equals("today") ? today : range.equals("7d") ? today.minusDays(6) : today.minusDays(29);
       return !value.playedOn.isBefore(from) && !value.playedOn.isAfter(today);
     }).toList();
+    return combinedRankingsFromScores(memberProfiles, allowedGames, selected);
+  }
+
+  private List<RankingView> combinedRankingsFromScores(List<Profile> memberProfiles,
+      List<Game> allowedGames, List<Submission> selected) {
     if (selected.isEmpty()) return List.of();
+    Map<UUID, Game> gamesById = allowedGames.stream().collect(Collectors.toMap(game -> game.id, game -> game));
     Map<Submission, NormalizedScore> normalized = new IdentityHashMap<>();
     for (Submission value : selected) {
       Game candidate = gamesById.get(value.gameId);
@@ -625,12 +661,12 @@ class DailyGamesService {
       throw new ApiException(403, "NOT_MEMBER", "Your Daily Tracker account is not a member of this leaderboard.");
     }
     requireUnlocked(board);
-    if (gameSlug == null || gameSlug.isBlank()) {
-      throw new ApiException(400, "GAME_REQUIRED",
-          "Select the game option when submitting from Discord.");
-    }
+    String selectedSlug = gameSlug == null || gameSlug.isBlank()
+        ? adapters.detectGame(rawText).orElseThrow(() -> new ApiException(422, "GAME_UNDETECTED",
+            "Could not identify one supported game. Paste the complete Share result, including its game header."))
+        : gameSlug;
     List<Game> allowedGames = allowedGames(board);
-    Game game = selectGame(board, allowedGames, gameSlug);
+    Game game = selectGame(board, allowedGames, selectedSlug);
     ParsedSubmission value = adapters.parseResult(game.slug, rawText);
     UUID id = persistSubmission(userId, game, value, rawText, SubmissionMethod.SHARE_TEXT);
     return new DiscordSubmissionResult(id, game, value);

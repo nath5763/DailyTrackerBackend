@@ -143,6 +143,16 @@ class LetterBagService {
     return view(round == null ? fresh(date, null) : expire(user, round, now), now);
   }
   @Transactional
+  Round replay(UUID user) {
+    LocalDate date = today();
+    Round scored = load(user, date, true);
+    if (scored == null) throw new ApiException(409, "ROUND_NOT_FINISHED", "Finish today's scored round before replaying.");
+    if (expire(user, scored, now()).endedAt() == null)
+      throw new ApiException(409, "ROUND_NOT_FINISHED", "Finish today's scored round before replaying.");
+    return fresh(date, null);
+  }
+
+  @Transactional
   View start(UUID user) {
     long now = now(); LocalDate date = today();
     Round initial = fresh(date, now);

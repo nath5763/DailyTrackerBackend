@@ -184,6 +184,46 @@ class BillingServiceTest {
     verify(stripe).createPortal("cus_test", PORTAL_CONFIGURATION_ID, "http://localhost:3000/billing/return?billing=returned");
   }
 
+  @Test void stripePlanChangeSessionUsesAnAutomaticCompletionRedirect() {
+    String returnUrl = "https://dailytracker.cc/billing/return?billing=returned";
+    var params = StripeSdkGateway.subscriptionUpdateParams("cus_test", PORTAL_CONFIGURATION_ID, "sub_test", returnUrl);
+    assertEquals("cus_test", params.getCustomer());
+    assertEquals(PORTAL_CONFIGURATION_ID, params.getConfiguration());
+    assertEquals(returnUrl, params.getReturnUrl());
+    var flow = params.getFlowData();
+    assertEquals(com.stripe.param.billingportal.SessionCreateParams.FlowData.Type.SUBSCRIPTION_UPDATE, flow.getType());
+    assertEquals("sub_test", flow.getSubscriptionUpdate().getSubscription());
+    assertEquals(com.stripe.param.billingportal.SessionCreateParams.FlowData.AfterCompletion.Type.REDIRECT,
+        flow.getAfterCompletion().getType());
+    assertEquals(returnUrl, flow.getAfterCompletion().getRedirect().getReturnUrl());
+  }
+
+  @Test void planChangePortalRedirectsToTheProfileAfterCompletion() throws Exception {
+    BillingAccount account = new BillingAccount(ownerId, now);
+    account.stripeCustomerId = "cus_test";
+    account.stripeSubscriptionId = "sub_test";
+    when(profiles.findByIdForUpdate(ownerId)).thenReturn(Optional.of(new Profile(ownerId, "Owner", "#dfff4f", now)));
+    when(accounts.findById(ownerId)).thenReturn(Optional.of(account));
+    when(stripe.createSubscriptionUpdatePortal("cus_test", PORTAL_CONFIGURATION_ID, "sub_test",
+        "http://localhost:3000/billing/return?billing=returned"))
+        .thenReturn(new StripeGateway.StripePortalSession("https://billing.stripe.test/change-plan"));
+
+    assertEquals("https://billing.stripe.test/change-plan", service.createPlanChangePortal(ownerId).url());
+    verify(stripe).createSubscriptionUpdatePortal("cus_test", PORTAL_CONFIGURATION_ID, "sub_test",
+        "http://localhost:3000/billing/return?billing=returned");
+  }
+
+  @Test void planChangeRequiresAnExistingSubscription() {
+    BillingAccount account = new BillingAccount(ownerId, now);
+    account.stripeCustomerId = "cus_test";
+    when(profiles.findByIdForUpdate(ownerId)).thenReturn(Optional.of(new Profile(ownerId, "Owner", "#dfff4f", now)));
+    when(accounts.findById(ownerId)).thenReturn(Optional.of(account));
+
+    ApiException exception = assertThrows(ApiException.class, () -> service.createPlanChangePortal(ownerId));
+    assertEquals("BILLING_SUBSCRIPTION_REQUIRED", exception.code);
+    verifyNoInteractions(stripe);
+  }
+
   @Test void missingPortalConfigurationReturnsUnavailableWithoutCallingStripe() {
     BillingService unconfiguredPortal = new BillingService(accounts, events, profiles, boards, users, stripe,
         "sk_test_configured", "price_test", "price_premium", "", "http://localhost:3000");

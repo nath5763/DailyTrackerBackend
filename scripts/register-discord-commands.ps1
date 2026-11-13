@@ -60,15 +60,6 @@ $commands = @(
     name = "daily"
     description = "Submit a daily-game share result to a leaderboard"
     options = @(
-      @{
-        type = 3
-        name = "game"
-        description = "Game whose result you are submitting"
-        required = $true
-        min_length = 1
-        max_length = 80
-        autocomplete = $true
-      },
       @{ type = 3; name = "result"; description = "Complete game share text"; required = $true; min_length = 1; max_length = 6000 },
       @{ type = 3; name = "leaderboard"; description = "Leaderboard UUID (required in DMs or unconfigured Group DMs)"; required = $false; min_length = 36; max_length = 36 }
     )
