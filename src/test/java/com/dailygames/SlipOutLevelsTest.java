@@ -14,15 +14,22 @@ class SlipOutLevelsTest {
         new SlipOutLevels.Exit(side, cell), List.of(new SlipOutLevels.Cell(2, 2)),
         List.of(new SlipOutLevels.Block("X", x, y, 1, 1, "B")));
   }
-  @Test void catalogHasFifteenVersionedLevelsInThreeTiers() {
-    assertEquals(15, SlipOutLevels.ALL.size());
+  @Test void catalogHasTutorialAndFifteenSortedLevelsInThreeTiers() {
+    assertEquals(16, SlipOutLevels.ALL.size());
+    var tutorial = SlipOutLevels.level(0);
+    assertEquals("tutorial", tutorial.difficulty());
+    assertEquals(1, tutorial.blocks().size());
+    assertEquals(2, tutorial.optimalMoves());
+    assertTrue(SlipOutLevels.replay(tutorial, solution(0)).completed());
     for (int index = 0; index < 15; index++) {
-      var level = SlipOutLevels.ALL.get(index);
+      var level = SlipOutLevels.level(index + 1);
       assertEquals(index + 1, level.number());
-      assertEquals("slipout-level-v2-%02d".formatted(index + 1), level.id());
+      assertEquals("slipout-level-v3-%02d".formatted(index + 1), level.id());
       assertEquals(index < 5 ? "easy" : index < 10 ? "medium" : "hard", level.difficulty());
       assertTrue(level.optimalMoves() >= (index < 5 ? 6 : index < 10 ? 13 : 20));
       if (index < 10) assertTrue(level.optimalMoves() <= (index < 5 ? 12 : 19));
+      if (index > 0 && index % 5 != 0)
+        assertTrue(level.optimalMoves() >= SlipOutLevels.level(index).optimalMoves());
       assertFalse(level.switches().isEmpty());
     }
   }

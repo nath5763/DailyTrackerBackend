@@ -33,18 +33,19 @@ class SlipOutLevelServiceTest {
     var db = new ProgressDb();
     var service = new SlipOutLevelService(db);
     UUID user = UUID.randomUUID();
-    assertEquals("LEVEL_LOCKED", assertThrows(ApiException.class, () -> service.start(user, 2)).code);
+    assertEquals("LEVEL_LOCKED", assertThrows(ApiException.class, () -> service.start(user, 1)).code);
     assertThrows(ApiException.class, () -> service.importGuest(user,
         List.of(new SlipOutLevelService.ImportResult(1, List.of()))));
     assertTrue(service.progress(user).isEmpty());
     var progress = service.importGuest(user, List.of(
+        new SlipOutLevelService.ImportResult(0, SlipOutLevelsTest.solution(0)),
         new SlipOutLevelService.ImportResult(1, SlipOutLevelsTest.solution(1)),
         new SlipOutLevelService.ImportResult(2, SlipOutLevelsTest.solution(2))));
-    assertEquals(2, progress.size());
-    assertEquals(SlipOutLevels.level(1).optimalMoves(), progress.getFirst().bestMoves());
+    assertEquals(3, progress.size());
+    assertEquals(SlipOutLevels.level(0).optimalMoves(), progress.getFirst().bestMoves());
     assertNotNull(service.start(user, 3).attemptId());
     assertThrows(ApiException.class, () -> service.importGuest(user,
         List.of(new SlipOutLevelService.ImportResult(4, SlipOutLevelsTest.solution(4)))));
-    assertEquals(2, service.progress(user).size());
+    assertEquals(3, service.progress(user).size());
   }
 }

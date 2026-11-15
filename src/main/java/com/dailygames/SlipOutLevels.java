@@ -41,14 +41,14 @@ final class SlipOutLevels {
             number(row, "optimalMoves"), (String) row.get("startAxis"),
             new Exit((String) opening.get("side"), number(opening, "cell")), List.copyOf(switches), List.copyOf(blocks)));
       }
-      if (levels.size() != 15) throw new IllegalStateException("Expected 15 levels");
+      if (levels.size() != 16) throw new IllegalStateException("Expected tutorial and 15 levels");
       return List.copyOf(levels);
     } catch (Exception error) { throw new IllegalStateException("Invalid level catalog", error); }
   }
   private static int number(Map<?, ?> value, String key) { return ((Number) value.get(key)).intValue(); }
   static Level level(int number) {
-    if (number < 1 || number > ALL.size()) throw new ApiException(404, "LEVEL_NOT_FOUND", "Unknown SlipOut level.");
-    return ALL.get(number - 1);
+    if (number < 0 || number >= ALL.size()) throw new ApiException(404, "LEVEL_NOT_FOUND", "Unknown SlipOut level.");
+    return ALL.get(number);
   }
   static Replay replay(Level level, List<Move> moves) {
     if (moves == null || moves.size() > 500) throw invalid();
