@@ -22,6 +22,7 @@ class AuthControllerSecurityTest {
   @MockitoBean DiscordSignupService signup;
   @MockitoBean TelegramService telegram;
   @MockitoBean LeaderboardInviteService invites;
+  @MockitoBean WeChatService wechat;
 
   @Test
   void forgotPasswordIsPublicWithoutASession() throws Exception {

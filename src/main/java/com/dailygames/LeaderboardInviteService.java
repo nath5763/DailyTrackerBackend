@@ -76,7 +76,15 @@ class LeaderboardInviteService {
   @Transactional
   UUID redeem(String token, UUID userId) {
     LeaderboardInvite invite = validInvite(token);
-    Leaderboard board = boards.findById(invite.leaderboardId)
+    return redeemBoard(invite.leaderboardId, userId);
+  }
+
+  String shareableBoardName(UUID boardId, UUID ownerId) {
+    return owned(boardId, ownerId, true, false).name;
+  }
+
+  UUID redeemBoard(UUID boardId, UUID userId) {
+    Leaderboard board = boards.findById(boardId)
         .orElseThrow(() -> new ApiException(404, "LEADERBOARD_NOT_FOUND", "That leaderboard no longer exists."));
     accessible(board);
     if (!profiles.existsById(userId)) throw new ApiException(409, "PROFILE_REQUIRED", "Finish setting up your profile first.");

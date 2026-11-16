@@ -22,6 +22,7 @@ class TelegramControllerTest {
   @MockitoBean TelegramGateway bot;
   @MockitoBean TelegramService service;
   @MockitoBean AuthService auth;
+  @MockitoBean WeChatService wechat;
 
   @Test void webhookRequiresSecretAndRejectsMalformedJson() throws Exception {
     mvc.perform(post("/api/v1/telegram/webhook").contentType(MediaType.APPLICATION_JSON)

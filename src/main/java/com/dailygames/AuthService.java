@@ -177,6 +177,26 @@ class AuthService {
   }
 
   @Transactional
+  LoginResult loginExternal(UUID userId) {
+    UserAccount user = users.findById(userId).orElseThrow(this::invalidCredentials);
+    user.lastLoginAt = Instant.now();
+    LoginResult result = createSession(user, user.lastLoginAt);
+    sessions.flush();
+    return result;
+  }
+
+  @Transactional
+  LoginResult registerExternal() {
+    Instant now = Instant.now();
+    UserAccount user = users.saveAndFlush(new UserAccount("wechat-" + UUID.randomUUID() + "@accounts.dailytracker.invalid", now));
+    LoginResult result = createSession(user, now);
+    sessions.flush();
+    return result;
+  }
+
+  String tokenHash(String rawToken) { return hash(rawToken); }
+
+  @Transactional
   void logout(String rawToken) { if (rawToken != null && !rawToken.isBlank()) sessions.deleteByTokenHash(hash(rawToken)); }
 
   @Scheduled(cron = "0 17 3 * * *")

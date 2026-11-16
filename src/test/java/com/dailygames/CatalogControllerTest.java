@@ -21,6 +21,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class CatalogControllerTest {
   @Autowired MockMvc mvc;
   @MockitoBean AuthService auth;
+  @MockitoBean WeChatService wechat;
   @MockitoBean CatalogGameRepository catalog;
   @MockitoBean GameCatalog games;
   @MockitoBean GameAdapterRegistry adapters;

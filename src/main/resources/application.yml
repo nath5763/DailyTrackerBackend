@@ -51,6 +51,16 @@ app:
     bot-username: ${TELEGRAM_BOT_USERNAME:}
     webhook-url: ${TELEGRAM_WEBHOOK_URL:}
     webhook-secret: ${TELEGRAM_WEBHOOK_SECRET:}
+  wechat:
+    enabled: ${WECHAT_MINIPROGRAM_ENABLED:false}
+    app-id: ${WECHAT_APP_ID:}
+    app-secret: ${WECHAT_APP_SECRET:}
+    session-encryption-key: ${WECHAT_SESSION_ENCRYPTION_KEY:}
+    group-context-enabled: ${WECHAT_GROUP_CONTEXT_ENABLED:false}
+    chat-tool-enabled: ${WECHAT_CHAT_TOOL_ENABLED:false}
+    chat-tool-approved: ${WECHAT_CHAT_TOOL_APPROVED:false}
+    dynamic-cards-enabled: ${WECHAT_DYNAMIC_CARDS_ENABLED:false}
+    chat-tool-version-type: ${WECHAT_CHAT_TOOL_VERSION_TYPE:0}
   token-pepper: ${AUTH_TOKEN_PEPPER:local-development-only-change-me}
   secure-cookie: ${SECURE_COOKIE:false}
   verification-hours: 24

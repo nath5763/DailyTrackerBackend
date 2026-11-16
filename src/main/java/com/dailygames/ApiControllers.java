@@ -121,8 +121,12 @@ class DailyGamesController {
   private final DailyGamesService service;
   private final LeaderboardInviteService invites;
   private final LeaderboardDeletionService deletions;
-  DailyGamesController(DailyGamesService service, LeaderboardInviteService invites, LeaderboardDeletionService deletions) {
-    this.service = service; this.invites = invites; this.deletions = deletions;
+  private final WeChatService wechat;
+  private final WeChatChatToolService chatTool;
+  DailyGamesController(DailyGamesService service, LeaderboardInviteService invites, LeaderboardDeletionService deletions,
+      WeChatService wechat, WeChatChatToolService chatTool) {
+    this.service = service; this.invites = invites; this.deletions = deletions; this.wechat = wechat;
+    this.chatTool = chatTool;
   }
 
   @GetMapping("/me") MeResponse me(Authentication authentication) { return service.me(current(authentication)); }
@@ -189,25 +193,40 @@ class DailyGamesController {
   }
 
   @PostMapping("/submissions/preview") PreviewResponse preview(Authentication authentication, @Valid @RequestBody PreviewSubmissionRequest request) {
+    wechat.limitScoreAction(token(authentication));
     return new PreviewResponse(service.preview(current(authentication), request));
   }
   @PostMapping("/submissions/loldle/preview") LoldlePreviewResponse previewLoldle(Authentication authentication,
       @Valid @RequestBody LoldleSubmissionRequest request) {
+    wechat.limitScoreAction(token(authentication));
     return new LoldlePreviewResponse(service.previewLoldle(current(authentication), request));
   }
   @PostMapping("/submissions/loldle") ResponseEntity<LoldleSaveResponse> submitLoldle(Authentication authentication,
       @Valid @RequestBody LoldleSubmissionRequest request) {
-    return ResponseEntity.status(HttpStatus.CREATED).body(new LoldleSaveResponse(service.submitLoldle(current(authentication), request)));
+    wechat.limitScoreAction(token(authentication));
+    CurrentUser user = current(authentication);
+    List<UUID> ids = service.submitLoldle(user, request);
+    chatTool.afterSubmission(user.id(), token(authentication), ids);
+    return ResponseEntity.status(HttpStatus.CREATED).body(new LoldleSaveResponse(ids));
   }
   @PostMapping("/submissions") ResponseEntity<IdResponse> submit(Authentication authentication, @Valid @RequestBody CreateSubmissionRequest request) {
-    return ResponseEntity.status(HttpStatus.CREATED).body(new IdResponse(service.submit(current(authentication), request)));
+    wechat.limitScoreAction(token(authentication));
+    CurrentUser user = current(authentication);
+    UUID id = service.submit(user, request);
+    chatTool.afterSubmission(user.id(), token(authentication), List.of(id));
+    return ResponseEntity.status(HttpStatus.CREATED).body(new IdResponse(id));
   }
   @PostMapping("/submissions/manual") ResponseEntity<IdResponse> submitManual(Authentication authentication,
       @Valid @RequestBody ManualSubmissionRequest request) {
-    return ResponseEntity.status(HttpStatus.CREATED).body(new IdResponse(service.submitManual(current(authentication), request)));
+    wechat.limitScoreAction(token(authentication));
+    CurrentUser user = current(authentication);
+    UUID id = service.submitManual(user, request);
+    chatTool.afterSubmission(user.id(), token(authentication), List.of(id));
+    return ResponseEntity.status(HttpStatus.CREATED).body(new IdResponse(id));
   }
   @PostMapping("/submissions/manual/preview") PreviewResponse previewManual(Authentication authentication,
       @Valid @RequestBody ManualSubmissionRequest request) {
+    wechat.limitScoreAction(token(authentication));
     return new PreviewResponse(service.previewManual(current(authentication), request));
   }
 
@@ -216,6 +235,9 @@ class DailyGamesController {
       throw new ApiException(401, "UNAUTHORIZED", "Sign in first.");
     }
     return current;
+  }
+  private String token(Authentication authentication) {
+    return authentication == null ? null : (String) authentication.getCredentials();
   }
 }
 

@@ -25,6 +25,7 @@ class BillingControllerErrorTest {
   @Autowired MockMvc mvc;
   @MockitoBean BillingService billing;
   @MockitoBean AuthService auth;
+  @MockitoBean WeChatService wechat;
 
   @Test
   void unexpectedCheckoutFailureReturnsJson500InsteadOf401() throws Exception {

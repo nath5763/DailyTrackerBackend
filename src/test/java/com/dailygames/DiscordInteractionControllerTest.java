@@ -31,6 +31,7 @@ class DiscordInteractionControllerTest {
   @Autowired MockMvc mvc;
   @MockitoBean DiscordService discord;
   @MockitoBean AuthService auth;
+  @MockitoBean WeChatService wechat;
 
   @DynamicPropertySource
   static void discordProperties(DynamicPropertyRegistry properties) {

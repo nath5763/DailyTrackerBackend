@@ -46,6 +46,8 @@ class SecurityConfig {
             .requestMatchers(HttpMethod.POST, "/api/v1/billing/stripe/webhook").permitAll()
             .requestMatchers(HttpMethod.POST, "/api/v1/discord/interactions").permitAll()
             .requestMatchers(HttpMethod.POST, "/api/v1/telegram/webhook").permitAll()
+            .requestMatchers(HttpMethod.POST, "/api/v1/wechat/session").permitAll()
+            .requestMatchers(HttpMethod.GET, "/api/v1/wechat/capabilities").permitAll()
             .requestMatchers(HttpMethod.GET, "/api/v1/discord/oauth/callback").permitAll()
             .requestMatchers(HttpMethod.GET, "/api/v1/discord/signup-intents/*").permitAll()
             .requestMatchers(HttpMethod.GET, "/api/v1/telegram/signup-intents/*").permitAll()
@@ -63,14 +65,21 @@ class SecurityConfig {
 @Component
 class SessionAuthenticationFilter extends OncePerRequestFilter {
   private final AuthService authService;
-  SessionAuthenticationFilter(AuthService authService) { this.authService = authService; }
+  private final WeChatService wechat;
+  SessionAuthenticationFilter(AuthService authService, WeChatService wechat) { this.authService = authService; this.wechat = wechat; }
 
   @Override protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
       throws ServletException, IOException {
     String token = request.getCookies() == null ? null : Arrays.stream(request.getCookies())
         .filter(cookie -> AuthService.COOKIE_NAME.equals(cookie.getName())).map(Cookie::getValue).findFirst().orElse(null);
-    authService.authenticate(token).ifPresent(user -> SecurityContextHolder.getContext().setAuthentication(
-        new UsernamePasswordAuthenticationToken(user, token, java.util.List.of())));
+    if (token == null && request.getHeader("Authorization") != null
+        && request.getHeader("Authorization").startsWith("Bearer ")) {
+      String candidate = request.getHeader("Authorization").substring(7);
+      if (wechat.isMiniToken(candidate)) token = candidate;
+    }
+    String sessionToken = token;
+    authService.authenticate(sessionToken).ifPresent(user -> SecurityContextHolder.getContext().setAuthentication(
+        new UsernamePasswordAuthenticationToken(user, sessionToken, java.util.List.of())));
     chain.doFilter(request, response);
   }
 }
