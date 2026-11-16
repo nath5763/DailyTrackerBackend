@@ -128,6 +128,14 @@ class DailyGamesIntegrationTest {
     var finished = slipOutLevels.finish(player.id, retry.attemptId(), SlipOutLevelsTest.firstSolution());
     assertTrue(finished.completed());
     assertEquals(SlipOutLevels.level(1).optimalMoves(), finished.progress().getFirst().bestMoves());
+    assertEquals("LEVEL_LOCKED", assertThrows(ApiException.class, () -> slipOutLevels.start(player.id, 90)).code);
+    var newProgress = slipOutLevels.importGuest(player.id, List.of(
+        new SlipOutLevelService.ImportResult(90, SlipOutLevelsTest.solution(90))));
+    assertEquals(SlipOutLevels.level(90).optimalMoves(), newProgress.getLast().bestMoves());
+    var newAttempt = slipOutLevels.start(player.id, 90);
+    var newFinish = slipOutLevels.finish(player.id, newAttempt.attemptId(), SlipOutLevelsTest.solution(90));
+    assertTrue(newFinish.completed());
+    assertEquals(SlipOutLevels.level(90).optimalMoves(), newFinish.progress().getLast().bestMoves());
   }
 
   @Test void telegramGroupSetupRejectsAnotherOwnerAndSurvivesSupergroupMigration() throws Exception {

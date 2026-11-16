@@ -57,4 +57,17 @@ class SlipOutLevelServiceTest {
     service.importGuest(user, List.of(new SlipOutLevelService.ImportResult(4, SlipOutLevelsTest.solution(4))));
     assertNotNull(service.start(user, 4).attemptId());
   }
+
+  @Test void guestImportAcceptsTheFullNinetyLevelCatalog() {
+    var db = new ProgressDb();
+    var service = new SlipOutLevelService(db);
+    UUID user = UUID.randomUUID();
+    var completions = java.util.stream.IntStream.rangeClosed(0, 90)
+        .mapToObj(number -> new SlipOutLevelService.ImportResult(number, SlipOutLevelsTest.solution(number)))
+        .toList();
+    var progress = service.importGuest(user, completions);
+    assertEquals(91, progress.size());
+    assertEquals(90, progress.getLast().levelNumber());
+    assertNotNull(service.start(user, 90).attemptId());
+  }
 }

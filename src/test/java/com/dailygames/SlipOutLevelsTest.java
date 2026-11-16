@@ -14,8 +14,8 @@ class SlipOutLevelsTest {
         new SlipOutLevels.Exit(side, cell), List.of(new SlipOutLevels.Cell(2, 2)),
         List.of(new SlipOutLevels.Block("X", x, y, 1, 1, "B")));
   }
-  @Test void catalogHasTutorialAndSixtyLevelsInThreeTiers() {
-    assertEquals(61, SlipOutLevels.ALL.size());
+  @Test void catalogHasTutorialAndNinetyLevelsInThreeTiers() {
+    assertEquals(91, SlipOutLevels.ALL.size());
     var tutorial = SlipOutLevels.level(0);
     assertEquals("tutorial", tutorial.difficulty());
     assertEquals(1, tutorial.blocks().size());
@@ -36,10 +36,18 @@ class SlipOutLevelsTest {
       var ordered = SlipOutLevels.ALL.stream().filter(level -> level.difficulty().equals(tier))
           .sorted(java.util.Comparator.comparingInt(SlipOutLevels.Level::optimalMoves)
               .thenComparingInt(SlipOutLevels.Level::number)).toList();
-      assertEquals(20, ordered.size());
+      assertEquals(30, ordered.size());
       assertEquals(0, SlipOutLevels.predecessor(ordered.getFirst().number()));
-      for (int index = 1; index < 20; index++)
+      for (int index = 1; index < 30; index++)
         assertEquals(ordered.get(index - 1).number(), SlipOutLevels.predecessor(ordered.get(index).number()));
+    }
+    for (int number = 61; number <= 90; number++) {
+      var level = SlipOutLevels.level(number);
+      assertEquals("slipout-level-v5-%02d".formatted(number), level.id());
+      String tier = number <= 70 ? "easy" : number <= 80 ? "medium" : "hard";
+      assertEquals(tier, level.difficulty());
+      assertTrue(level.optimalMoves() >= (tier.equals("easy") ? 6 : tier.equals("medium") ? 13 : 20));
+      if (!tier.equals("hard")) assertTrue(level.optimalMoves() <= (tier.equals("easy") ? 12 : 19));
     }
   }
   @Test void switchEntryCrossingAndReentryAgreeWithClient() {
@@ -91,7 +99,7 @@ class SlipOutLevelsTest {
     } catch (Exception error) { throw new IllegalStateException("Invalid test solution", error); }
   }
   @Test void everyCuratedLevelReplaysAtItsVerifiedOptimum() {
-    for (int number = 1; number <= 60; number++) {
+    for (int number = 1; number <= 90; number++) {
       var replay = SlipOutLevels.replay(SlipOutLevels.level(number), solution(number));
       assertTrue(replay.completed(), "Level " + number);
       assertEquals(SlipOutLevels.level(number).optimalMoves(), replay.moves());

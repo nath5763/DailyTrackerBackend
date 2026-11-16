@@ -41,7 +41,7 @@ final class SlipOutLevels {
             number(row, "optimalMoves"), (String) row.get("startAxis"),
             new Exit((String) opening.get("side"), number(opening, "cell")), List.copyOf(switches), List.copyOf(blocks)));
       }
-      if (levels.size() != 61) throw new IllegalStateException("Expected tutorial and 60 levels");
+      if (levels.size() != 91) throw new IllegalStateException("Expected tutorial and 90 levels");
       return List.copyOf(levels);
     } catch (Exception error) { throw new IllegalStateException("Invalid level catalog", error); }
   }

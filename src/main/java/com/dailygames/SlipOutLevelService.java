@@ -57,7 +57,7 @@ class SlipOutLevelService {
     return new Finished(replay.completed(), replay.moves(), progress(user));
   }
   @Transactional List<Progress> importGuest(UUID user, List<ImportResult> results) {
-    if (results == null || results.size() > 61) throw new ApiException(400, "INVALID_IMPORT", "Invalid level progress.");
+    if (results == null || results.size() > 91) throw new ApiException(400, "INVALID_IMPORT", "Invalid level progress.");
     int previous = -1;
     for (ImportResult result : results) {
       if (result == null || result.levelNumber() <= previous) throw new ApiException(400, "INVALID_IMPORT", "Levels must be ordered.");
