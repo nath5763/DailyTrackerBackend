@@ -26,11 +26,11 @@ class SlipOutLevelService {
         (rs, row) -> new Progress(rs.getInt(1), rs.getInt(2)), user);
   }
   private void requireUnlocked(UUID user, int level) {
-    SlipOutLevels.level(level);
-    if (level > 0 && !Boolean.TRUE.equals(db.queryForObject(
-        "select exists(select 1 from slipout_level_progress where user_id = ? and level_number = ?)",
-        Boolean.class, user, level - 1)))
-      throw new ApiException(409, "LEVEL_LOCKED", "Complete the previous level first.");
+    int previous = SlipOutLevels.predecessor(level);
+    if (previous >= 0 && !Boolean.TRUE.equals(db.queryForObject(
+        "select exists(select 1 from slipout_level_progress where user_id = ? and level_number in (?, ?))",
+        Boolean.class, user, previous, level)))
+      throw new ApiException(409, "LEVEL_LOCKED", "Complete the previous level in this difficulty first.");
   }
   @Transactional Started start(UUID user, int level) {
     requireUnlocked(user, level);
@@ -57,11 +57,10 @@ class SlipOutLevelService {
     return new Finished(replay.completed(), replay.moves(), progress(user));
   }
   @Transactional List<Progress> importGuest(UUID user, List<ImportResult> results) {
-    if (results == null || results.size() > 16) throw new ApiException(400, "INVALID_IMPORT", "Invalid level progress.");
+    if (results == null || results.size() > 61) throw new ApiException(400, "INVALID_IMPORT", "Invalid level progress.");
     int previous = -1;
     for (ImportResult result : results) {
       if (result == null || result.levelNumber() <= previous) throw new ApiException(400, "INVALID_IMPORT", "Levels must be ordered.");
-      requireUnlocked(user, result.levelNumber());
       if (!SlipOutLevels.replay(SlipOutLevels.level(result.levelNumber()), result.moves()).completed())
         throw new ApiException(400, "INVALID_IMPORT", "A level was not completed.");
       record(user, result.levelNumber(), result.moves());

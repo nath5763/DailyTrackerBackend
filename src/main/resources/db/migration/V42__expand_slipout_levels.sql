@@ -1,0 +1,4 @@
+alter table slipout_level_attempts drop constraint slipout_level_attempts_level_number_check;
+alter table slipout_level_attempts add constraint slipout_level_attempts_level_number_check check (level_number between 0 and 60);
+alter table slipout_level_progress drop constraint slipout_level_progress_level_number_check;
+alter table slipout_level_progress add constraint slipout_level_progress_level_number_check check (level_number between 0 and 60);

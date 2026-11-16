@@ -14,8 +14,8 @@ class SlipOutLevelsTest {
         new SlipOutLevels.Exit(side, cell), List.of(new SlipOutLevels.Cell(2, 2)),
         List.of(new SlipOutLevels.Block("X", x, y, 1, 1, "B")));
   }
-  @Test void catalogHasTutorialAndFifteenSortedLevelsInThreeTiers() {
-    assertEquals(16, SlipOutLevels.ALL.size());
+  @Test void catalogHasTutorialAndSixtyLevelsInThreeTiers() {
+    assertEquals(61, SlipOutLevels.ALL.size());
     var tutorial = SlipOutLevels.level(0);
     assertEquals("tutorial", tutorial.difficulty());
     assertEquals(1, tutorial.blocks().size());
@@ -31,6 +31,15 @@ class SlipOutLevelsTest {
       if (index > 0 && index % 5 != 0)
         assertTrue(level.optimalMoves() >= SlipOutLevels.level(index).optimalMoves());
       assertFalse(level.switches().isEmpty());
+    }
+    for (String tier : List.of("easy", "medium", "hard")) {
+      var ordered = SlipOutLevels.ALL.stream().filter(level -> level.difficulty().equals(tier))
+          .sorted(java.util.Comparator.comparingInt(SlipOutLevels.Level::optimalMoves)
+              .thenComparingInt(SlipOutLevels.Level::number)).toList();
+      assertEquals(20, ordered.size());
+      assertEquals(0, SlipOutLevels.predecessor(ordered.getFirst().number()));
+      for (int index = 1; index < 20; index++)
+        assertEquals(ordered.get(index - 1).number(), SlipOutLevels.predecessor(ordered.get(index).number()));
     }
   }
   @Test void switchEntryCrossingAndReentryAgreeWithClient() {
@@ -82,7 +91,7 @@ class SlipOutLevelsTest {
     } catch (Exception error) { throw new IllegalStateException("Invalid test solution", error); }
   }
   @Test void everyCuratedLevelReplaysAtItsVerifiedOptimum() {
-    for (int number = 1; number <= 15; number++) {
+    for (int number = 1; number <= 60; number++) {
       var replay = SlipOutLevels.replay(SlipOutLevels.level(number), solution(number));
       assertTrue(replay.completed(), "Level " + number);
       assertEquals(SlipOutLevels.level(number).optimalMoves(), replay.moves());

@@ -14,7 +14,7 @@ class SlipOutLevelServiceTest {
   private static class ProgressDb extends JdbcTemplate {
     final Map<Integer, Integer> best = new HashMap<>();
     @Override public <T> T queryForObject(String sql, Class<T> type, Object... args) {
-      return type.cast(best.containsKey((Integer) args[1]));
+      return type.cast(best.containsKey((Integer) args[1]) || best.containsKey((Integer) args[2]));
     }
     @SuppressWarnings("unchecked")
     @Override public <T> List<T> query(String sql, RowMapper<T> mapper, Object... args) {
@@ -29,11 +29,12 @@ class SlipOutLevelServiceTest {
       return 1;
     }
   }
-  @Test void guestImportVerifiesEachSolutionAndUnlocksSequentially() {
+  @Test void guestImportVerifiesSolutionsAndTiersUnlockIndependently() {
     var db = new ProgressDb();
     var service = new SlipOutLevelService(db);
     UUID user = UUID.randomUUID();
     assertEquals("LEVEL_LOCKED", assertThrows(ApiException.class, () -> service.start(user, 1)).code);
+    assertEquals("LEVEL_LOCKED", assertThrows(ApiException.class, () -> service.start(user, 6)).code);
     assertThrows(ApiException.class, () -> service.importGuest(user,
         List.of(new SlipOutLevelService.ImportResult(1, List.of()))));
     assertTrue(service.progress(user).isEmpty());
@@ -43,9 +44,17 @@ class SlipOutLevelServiceTest {
         new SlipOutLevelService.ImportResult(2, SlipOutLevelsTest.solution(2))));
     assertEquals(3, progress.size());
     assertEquals(SlipOutLevels.level(0).optimalMoves(), progress.getFirst().bestMoves());
-    assertNotNull(service.start(user, 3).attemptId());
+    int firstMedium = SlipOutLevels.ALL.stream().filter(level -> level.difficulty().equals("medium") &&
+        SlipOutLevels.predecessor(level.number()) == 0).findFirst().orElseThrow().number();
+    int firstHard = SlipOutLevels.ALL.stream().filter(level -> level.difficulty().equals("hard") &&
+        SlipOutLevels.predecessor(level.number()) == 0).findFirst().orElseThrow().number();
+    assertNotNull(service.start(user, firstMedium).attemptId());
+    assertNotNull(service.start(user, firstHard).attemptId());
+    assertThrows(ApiException.class, () -> service.start(user, 45));
     assertThrows(ApiException.class, () -> service.importGuest(user,
-        List.of(new SlipOutLevelService.ImportResult(4, SlipOutLevelsTest.solution(4)))));
+        List.of(new SlipOutLevelService.ImportResult(4, List.of()))));
     assertEquals(3, service.progress(user).size());
+    service.importGuest(user, List.of(new SlipOutLevelService.ImportResult(4, SlipOutLevelsTest.solution(4))));
+    assertNotNull(service.start(user, 4).attemptId());
   }
 }

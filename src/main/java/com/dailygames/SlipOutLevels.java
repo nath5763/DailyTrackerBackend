@@ -41,7 +41,7 @@ final class SlipOutLevels {
             number(row, "optimalMoves"), (String) row.get("startAxis"),
             new Exit((String) opening.get("side"), number(opening, "cell")), List.copyOf(switches), List.copyOf(blocks)));
       }
-      if (levels.size() != 16) throw new IllegalStateException("Expected tutorial and 15 levels");
+      if (levels.size() != 61) throw new IllegalStateException("Expected tutorial and 60 levels");
       return List.copyOf(levels);
     } catch (Exception error) { throw new IllegalStateException("Invalid level catalog", error); }
   }
@@ -49,6 +49,14 @@ final class SlipOutLevels {
   static Level level(int number) {
     if (number < 0 || number >= ALL.size()) throw new ApiException(404, "LEVEL_NOT_FOUND", "Unknown SlipOut level.");
     return ALL.get(number);
+  }
+  static int predecessor(int number) {
+    Level current = level(number);
+    if (number == 0) return -1;
+    List<Level> tier = ALL.stream().filter(candidate -> candidate.difficulty().equals(current.difficulty()))
+        .sorted(Comparator.comparingInt(Level::optimalMoves).thenComparingInt(Level::number)).toList();
+    int position = tier.indexOf(current);
+    return position == 0 ? 0 : tier.get(position - 1).number();
   }
   static Replay replay(Level level, List<Move> moves) {
     if (moves == null || moves.size() > 500) throw invalid();
