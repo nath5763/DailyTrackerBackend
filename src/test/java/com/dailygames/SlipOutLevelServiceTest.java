@@ -8,24 +8,37 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.sql.ResultSet;
+import java.lang.reflect.Proxy;
 import static org.junit.jupiter.api.Assertions.*;
 
 class SlipOutLevelServiceTest {
   private static class ProgressDb extends JdbcTemplate {
-    final Map<Integer, Integer> best = new HashMap<>();
+    final Map<String, Integer> best = new HashMap<>();
     @Override public <T> T queryForObject(String sql, Class<T> type, Object... args) {
-      return type.cast(best.containsKey((Integer) args[1]) || best.containsKey((Integer) args[2]));
+      return type.cast(best.keySet().stream().anyMatch(key -> key.startsWith(args[1] + ":") ||
+          key.startsWith(args[2] + ":")));
     }
     @SuppressWarnings("unchecked")
     @Override public <T> List<T> query(String sql, RowMapper<T> mapper, Object... args) {
-      List<SlipOutLevelService.Progress> rows = new ArrayList<>();
-      best.entrySet().stream().sorted(Map.Entry.comparingByKey())
-          .forEach(entry -> rows.add(new SlipOutLevelService.Progress(entry.getKey(), entry.getValue())));
+      List<T> rows = new ArrayList<>();
+      best.entrySet().stream().sorted(java.util.Comparator.comparingInt(entry ->
+          Integer.parseInt(entry.getKey().split(":", 2)[0]))).forEach(entry -> {
+        String[] key = entry.getKey().split(":", 2);
+        ResultSet rs = (ResultSet) Proxy.newProxyInstance(ResultSet.class.getClassLoader(),
+            new Class<?>[]{ResultSet.class}, (proxy, method, values) -> switch (method.getName()) {
+              case "getInt" -> (Integer) values[0] == 1 ? Integer.parseInt(key[0]) : entry.getValue();
+              case "getString" -> key[1];
+              default -> throw new UnsupportedOperationException(method.getName());
+            });
+        try { rows.add(mapper.mapRow(rs, rows.size())); }
+        catch (java.sql.SQLException error) { throw new RuntimeException(error); }
+      });
       return (List<T>) rows;
     }
     @Override public int update(String sql, Object... args) {
       if (sql.contains("insert into slipout_level_progress"))
-        best.merge((Integer) args[1], (Integer) args[2], Math::min);
+        best.merge(args[1] + ":" + args[2], (Integer) args[3], Math::min);
       return 1;
     }
   }
@@ -69,5 +82,20 @@ class SlipOutLevelServiceTest {
     assertEquals(91, progress.size());
     assertEquals(90, progress.getLast().levelNumber());
     assertNotNull(service.start(user, 90).attemptId());
+  }
+
+  @Test void historicalBoardScoresRemainStoredAndUnlockRevisedBoards() {
+    var db = new ProgressDb();
+    var service = new SlipOutLevelService(db);
+    UUID user = UUID.randomUUID();
+    db.best.put("5:slipout-level-v3-05", 8);
+    assertTrue(service.progress(user).getFirst().legacy());
+    assertNotNull(service.start(user, 5).attemptId());
+    assertEquals(8, db.best.get("5:slipout-level-v3-05"));
+    service.importGuest(user, List.of(new SlipOutLevelService.ImportResult(5, SlipOutLevelsTest.solution(5))));
+    assertEquals(2, db.best.size());
+    assertEquals(SlipOutLevels.level(5).id(), "slipout-level-v6-05");
+    assertEquals(1, service.progress(user).size());
+    assertFalse(service.progress(user).getFirst().legacy());
   }
 }

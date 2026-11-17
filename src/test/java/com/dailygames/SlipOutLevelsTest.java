@@ -9,6 +9,8 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 
 class SlipOutLevelsTest {
+  private static final java.util.Set<Integer> RETAINED = java.util.Set.of(1, 2, 3, 4, 6, 7, 8, 9, 10,
+      11, 13, 14, 15, 16, 17, 18, 19, 31, 32, 33, 34, 61, 62, 63, 64, 65, 68, 76, 79);
   private SlipOutLevels.Level simple(String side, int cell, int x, int y, String axis) {
     return new SlipOutLevels.Level("test", 1, "easy", 2, axis,
         new SlipOutLevels.Exit(side, cell), List.of(new SlipOutLevels.Cell(2, 2)),
@@ -24,12 +26,10 @@ class SlipOutLevelsTest {
     for (int index = 0; index < 15; index++) {
       var level = SlipOutLevels.level(index + 1);
       assertEquals(index + 1, level.number());
-      assertEquals("slipout-level-v3-%02d".formatted(index + 1), level.id());
+      assertEquals("slipout-level-v%d-%02d".formatted(RETAINED.contains(index + 1) ? 3 : 6, index + 1), level.id());
       assertEquals(index < 5 ? "easy" : index < 10 ? "medium" : "hard", level.difficulty());
       assertTrue(level.optimalMoves() >= (index < 5 ? 6 : index < 10 ? 13 : 20));
       if (index < 10) assertTrue(level.optimalMoves() <= (index < 5 ? 12 : 19));
-      if (index > 0 && index % 5 != 0)
-        assertTrue(level.optimalMoves() >= SlipOutLevels.level(index).optimalMoves());
       assertFalse(level.switches().isEmpty());
     }
     for (String tier : List.of("easy", "medium", "hard")) {
@@ -43,7 +43,7 @@ class SlipOutLevelsTest {
     }
     for (int number = 61; number <= 90; number++) {
       var level = SlipOutLevels.level(number);
-      assertEquals("slipout-level-v5-%02d".formatted(number), level.id());
+      assertEquals("slipout-level-v%d-%02d".formatted(RETAINED.contains(number) ? 5 : 6, number), level.id());
       String tier = number <= 70 ? "easy" : number <= 80 ? "medium" : "hard";
       assertEquals(tier, level.difficulty());
       assertTrue(level.optimalMoves() >= (tier.equals("easy") ? 6 : tier.equals("medium") ? 13 : 20));

@@ -495,133 +495,85 @@
     ]
   },
   {
-    "id": "slipout-level-v3-05",
+    "id": "slipout-level-v6-05",
     "number": 5,
     "difficulty": "easy",
-    "optimalMoves": 12,
+    "optimalMoves": 9,
     "blocks": [
       {
         "id": "X",
-        "x": 2,
-        "y": 4,
+        "x": 1,
+        "y": 3,
         "width": 1,
         "height": 1,
         "axis": "B"
       },
       {
         "id": "A",
-        "x": 3,
-        "y": 2,
+        "x": 2,
+        "y": 4,
+        "width": 3,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "B",
+        "x": 0,
+        "y": 3,
         "width": 1,
         "height": 2,
         "axis": "V"
       },
       {
-        "id": "B",
-        "x": 1,
-        "y": 1,
+        "id": "C",
+        "x": 3,
+        "y": 0,
         "width": 2,
         "height": 1,
         "axis": "H"
       },
       {
-        "id": "C",
-        "x": 0,
-        "y": 2,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "D",
-        "x": 1,
-        "y": 3,
-        "width": 1,
-        "height": 3,
-        "axis": "V"
-      },
-      {
-        "id": "E",
-        "x": 4,
-        "y": 1,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "F",
-        "x": 5,
-        "y": 1,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
         "id": "G",
         "x": 2,
-        "y": 2,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "H",
-        "x": 4,
         "y": 3,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "I",
-        "x": 2,
-        "y": 5,
         "width": 2,
         "height": 1,
         "axis": "H"
       },
       {
         "id": "J",
-        "x": 1,
-        "y": 0,
-        "width": 3,
-        "height": 1,
-        "axis": "H"
+        "x": 5,
+        "y": 2,
+        "width": 1,
+        "height": 3,
+        "axis": "V"
       },
       {
         "id": "K",
-        "x": 0,
-        "y": 0,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "L",
-        "x": 5,
-        "y": 4,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
+        "x": 4,
+        "y": 5,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
       }
     ],
-    "startAxis": "V",
+    "startAxis": "H",
     "exit": {
-      "side": "right",
-      "cell": 0
+      "side": "top",
+      "cell": 5
     },
     "switches": [
       {
-        "x": 2,
-        "y": 2
+        "x": 3,
+        "y": 3
       },
       {
         "x": 3,
         "y": 2
       },
       {
-        "x": 3,
-        "y": 0
+        "x": 5,
+        "y": 2
       }
     ]
   },
@@ -1428,38 +1380,38 @@
     ]
   },
   {
-    "id": "slipout-level-v3-12",
+    "id": "slipout-level-v6-12",
     "number": 12,
     "difficulty": "hard",
-    "optimalMoves": 21,
+    "optimalMoves": 26,
     "blocks": [
       {
         "id": "X",
-        "x": 1,
-        "y": 2,
+        "x": 4,
+        "y": 0,
         "width": 1,
         "height": 2,
         "axis": "B"
       },
       {
         "id": "A",
-        "x": 1,
-        "y": 1,
+        "x": 3,
+        "y": 2,
+        "width": 1,
+        "height": 3,
+        "axis": "V"
+      },
+      {
+        "id": "B",
+        "x": 0,
+        "y": 0,
         "width": 2,
         "height": 1,
         "axis": "H"
       },
       {
-        "id": "B",
-        "x": 1,
-        "y": 4,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
         "id": "C",
-        "x": 5,
+        "x": 1,
         "y": 1,
         "width": 1,
         "height": 2,
@@ -1467,90 +1419,106 @@
       },
       {
         "id": "D",
-        "x": 2,
-        "y": 0,
-        "width": 3,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "E",
-        "x": 3,
-        "y": 5,
-        "width": 3,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "F",
-        "x": 2,
-        "y": 2,
+        "x": 1,
+        "y": 4,
         "width": 2,
         "height": 1,
         "axis": "H"
       },
       {
+        "id": "E",
+        "x": 0,
+        "y": 5,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "F",
+        "x": 0,
+        "y": 1,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
         "id": "G",
-        "x": 4,
-        "y": 2,
+        "x": 5,
+        "y": 4,
         "width": 1,
         "height": 2,
         "axis": "V"
       },
       {
         "id": "H",
-        "x": 0,
-        "y": 3,
+        "x": 5,
+        "y": 0,
         "width": 1,
-        "height": 2,
+        "height": 3,
         "axis": "V"
       },
       {
         "id": "I",
-        "x": 3,
-        "y": 1,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
+        "x": 4,
+        "y": 3,
+        "width": 1,
+        "height": 3,
+        "axis": "V"
       },
       {
         "id": "J",
-        "x": 2,
-        "y": 3,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "K",
-        "x": 5,
+        "x": 0,
         "y": 3,
         "width": 1,
         "height": 2,
         "axis": "V"
       },
       {
-        "id": "L",
-        "x": 0,
+        "id": "K",
+        "x": 2,
         "y": 1,
         "width": 1,
-        "height": 2,
+        "height": 3,
         "axis": "V"
       }
     ],
     "startAxis": "V",
     "exit": {
-      "side": "top",
+      "side": "bottom",
       "cell": 2
     },
     "switches": [
+      {
+        "x": 4,
+        "y": 2
+      },
+      {
+        "x": 3,
+        "y": 2
+      },
+      {
+        "x": 3,
+        "y": 0
+      },
+      {
+        "x": 1,
+        "y": 1
+      },
+      {
+        "x": 1,
+        "y": 3
+      },
       {
         "x": 1,
         "y": 2
       },
       {
+        "x": 1,
+        "y": 4
+      },
+      {
         "x": 2,
-        "y": 2
+        "y": 5
       }
     ]
   },
@@ -2220,14 +2188,14 @@
     ]
   },
   {
-    "id": "slipout-level-v4-20",
+    "id": "slipout-level-v6-20",
     "number": 20,
     "difficulty": "easy",
-    "optimalMoves": 12,
+    "optimalMoves": 9,
     "blocks": [
       {
         "id": "X",
-        "x": 2,
+        "x": 3,
         "y": 4,
         "width": 1,
         "height": 1,
@@ -2235,8 +2203,8 @@
       },
       {
         "id": "A",
-        "x": 3,
-        "y": 2,
+        "x": 2,
+        "y": 3,
         "width": 1,
         "height": 2,
         "axis": "V"
@@ -2244,22 +2212,22 @@
       {
         "id": "B",
         "x": 1,
-        "y": 1,
+        "y": 5,
         "width": 2,
         "height": 1,
         "axis": "H"
       },
       {
         "id": "C",
-        "x": 0,
-        "y": 2,
+        "x": 5,
+        "y": 4,
         "width": 1,
         "height": 2,
         "axis": "V"
       },
       {
         "id": "G",
-        "x": 2,
+        "x": 3,
         "y": 2,
         "width": 1,
         "height": 2,
@@ -2267,7 +2235,7 @@
       },
       {
         "id": "J",
-        "x": 1,
+        "x": 2,
         "y": 0,
         "width": 3,
         "height": 1,
@@ -2275,7 +2243,7 @@
       },
       {
         "id": "K",
-        "x": 0,
+        "x": 5,
         "y": 0,
         "width": 1,
         "height": 2,
@@ -2284,206 +2252,29 @@
     ],
     "startAxis": "V",
     "exit": {
-      "side": "right",
+      "side": "left",
       "cell": 0
     },
     "switches": [
+      {
+        "x": 3,
+        "y": 2
+      },
       {
         "x": 2,
         "y": 2
       },
       {
-        "x": 3,
-        "y": 2
-      },
-      {
-        "x": 3,
+        "x": 2,
         "y": 0
       }
     ]
   },
   {
-    "id": "slipout-level-v4-21",
+    "id": "slipout-level-v6-21",
     "number": 21,
     "difficulty": "easy",
-    "optimalMoves": 6,
-    "blocks": [
-      {
-        "id": "X",
-        "x": 1,
-        "y": 2,
-        "width": 1,
-        "height": 1,
-        "axis": "B"
-      },
-      {
-        "id": "B",
-        "x": 2,
-        "y": 2,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "D",
-        "x": 3,
-        "y": 3,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      }
-    ],
-    "startAxis": "H",
-    "exit": {
-      "side": "bottom",
-      "cell": 5
-    },
-    "switches": [
-      {
-        "x": 2,
-        "y": 2
-      },
-      {
-        "x": 2,
-        "y": 3
-      },
-      {
-        "x": 5,
-        "y": 3
-      }
-    ]
-  },
-  {
-    "id": "slipout-level-v4-22",
-    "number": 22,
-    "difficulty": "easy",
-    "optimalMoves": 8,
-    "blocks": [
-      {
-        "id": "X",
-        "x": 4,
-        "y": 2,
-        "width": 2,
-        "height": 1,
-        "axis": "B"
-      },
-      {
-        "id": "A",
-        "x": 4,
-        "y": 0,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "B",
-        "x": 1,
-        "y": 2,
-        "width": 1,
-        "height": 3,
-        "axis": "V"
-      },
-      {
-        "id": "G",
-        "x": 2,
-        "y": 2,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "H",
-        "x": 3,
-        "y": 0,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      }
-    ],
-    "startAxis": "H",
-    "exit": {
-      "side": "right",
-      "cell": 0
-    },
-    "switches": [
-      {
-        "x": 5,
-        "y": 2
-      },
-      {
-        "x": 5,
-        "y": 0
-      }
-    ]
-  },
-  {
-    "id": "slipout-level-v4-23",
-    "number": 23,
-    "difficulty": "easy",
-    "optimalMoves": 8,
-    "blocks": [
-      {
-        "id": "X",
-        "x": 0,
-        "y": 4,
-        "width": 1,
-        "height": 1,
-        "axis": "B"
-      },
-      {
-        "id": "B",
-        "x": 3,
-        "y": 2,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "G",
-        "x": 0,
-        "y": 3,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "H",
-        "x": 2,
-        "y": 2,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      }
-    ],
-    "startAxis": "V",
-    "exit": {
-      "side": "bottom",
-      "cell": 5
-    },
-    "switches": [
-      {
-        "x": 0,
-        "y": 2
-      },
-      {
-        "x": 4,
-        "y": 2
-      },
-      {
-        "x": 4,
-        "y": 3
-      },
-      {
-        "x": 5,
-        "y": 3
-      }
-    ]
-  },
-  {
-    "id": "slipout-level-v4-24",
-    "number": 24,
-    "difficulty": "easy",
-    "optimalMoves": 12,
+    "optimalMoves": 7,
     "blocks": [
       {
         "id": "X",
@@ -2522,6 +2313,630 @@
         "x": 2,
         "y": 3,
         "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "J",
+        "x": 0,
+        "y": 1,
+        "width": 1,
+        "height": 3,
+        "axis": "V"
+      },
+      {
+        "id": "K",
+        "x": 0,
+        "y": 5,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      }
+    ],
+    "startAxis": "H",
+    "exit": {
+      "side": "top",
+      "cell": 5
+    },
+    "switches": [
+      {
+        "x": 3,
+        "y": 3
+      },
+      {
+        "x": 3,
+        "y": 2
+      },
+      {
+        "x": 5,
+        "y": 2
+      }
+    ]
+  },
+  {
+    "id": "slipout-level-v6-22",
+    "number": 22,
+    "difficulty": "easy",
+    "optimalMoves": 6,
+    "blocks": [
+      {
+        "id": "X",
+        "x": 4,
+        "y": 2,
+        "width": 2,
+        "height": 1,
+        "axis": "B"
+      },
+      {
+        "id": "A",
+        "x": 2,
+        "y": 1,
+        "width": 3,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "B",
+        "x": 4,
+        "y": 3,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "G",
+        "x": 2,
+        "y": 2,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "H",
+        "x": 0,
+        "y": 3,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      }
+    ],
+    "startAxis": "H",
+    "exit": {
+      "side": "right",
+      "cell": 0
+    },
+    "switches": [
+      {
+        "x": 5,
+        "y": 2
+      },
+      {
+        "x": 5,
+        "y": 0
+      }
+    ]
+  },
+  {
+    "id": "slipout-level-v6-23",
+    "number": 23,
+    "difficulty": "easy",
+    "optimalMoves": 9,
+    "blocks": [
+      {
+        "id": "X",
+        "x": 3,
+        "y": 4,
+        "width": 1,
+        "height": 1,
+        "axis": "B"
+      },
+      {
+        "id": "A",
+        "x": 2,
+        "y": 3,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "B",
+        "x": 0,
+        "y": 1,
+        "width": 3,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "C",
+        "x": 5,
+        "y": 4,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "G",
+        "x": 3,
+        "y": 2,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "J",
+        "x": 2,
+        "y": 0,
+        "width": 3,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "K",
+        "x": 0,
+        "y": 3,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      }
+    ],
+    "startAxis": "V",
+    "exit": {
+      "side": "left",
+      "cell": 0
+    },
+    "switches": [
+      {
+        "x": 3,
+        "y": 2
+      },
+      {
+        "x": 2,
+        "y": 2
+      },
+      {
+        "x": 2,
+        "y": 0
+      }
+    ]
+  },
+  {
+    "id": "slipout-level-v6-24",
+    "number": 24,
+    "difficulty": "easy",
+    "optimalMoves": 7,
+    "blocks": [
+      {
+        "id": "X",
+        "x": 1,
+        "y": 3,
+        "width": 1,
+        "height": 1,
+        "axis": "B"
+      },
+      {
+        "id": "A",
+        "x": 0,
+        "y": 2,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "B",
+        "x": 3,
+        "y": 0,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "C",
+        "x": 1,
+        "y": 0,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "G",
+        "x": 2,
+        "y": 4,
+        "width": 3,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "J",
+        "x": 5,
+        "y": 2,
+        "width": 1,
+        "height": 3,
+        "axis": "V"
+      },
+      {
+        "id": "K",
+        "x": 4,
+        "y": 1,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      }
+    ],
+    "startAxis": "H",
+    "exit": {
+      "side": "top",
+      "cell": 5
+    },
+    "switches": [
+      {
+        "x": 3,
+        "y": 3
+      },
+      {
+        "x": 3,
+        "y": 2
+      },
+      {
+        "x": 5,
+        "y": 2
+      }
+    ]
+  },
+  {
+    "id": "slipout-level-v6-25",
+    "number": 25,
+    "difficulty": "easy",
+    "optimalMoves": 9,
+    "blocks": [
+      {
+        "id": "X",
+        "x": 2,
+        "y": 1,
+        "width": 1,
+        "height": 1,
+        "axis": "B"
+      },
+      {
+        "id": "A",
+        "x": 3,
+        "y": 2,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "B",
+        "x": 1,
+        "y": 4,
+        "width": 3,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "C",
+        "x": 0,
+        "y": 2,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "G",
+        "x": 1,
+        "y": 2,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "J",
+        "x": 1,
+        "y": 5,
+        "width": 3,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "K",
+        "x": 0,
+        "y": 4,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      }
+    ],
+    "startAxis": "V",
+    "exit": {
+      "side": "right",
+      "cell": 5
+    },
+    "switches": [
+      {
+        "x": 2,
+        "y": 3
+      },
+      {
+        "x": 3,
+        "y": 3
+      },
+      {
+        "x": 3,
+        "y": 5
+      }
+    ]
+  },
+  {
+    "id": "slipout-level-v6-26",
+    "number": 26,
+    "difficulty": "easy",
+    "optimalMoves": 6,
+    "blocks": [
+      {
+        "id": "X",
+        "x": 3,
+        "y": 4,
+        "width": 1,
+        "height": 2,
+        "axis": "B"
+      },
+      {
+        "id": "A",
+        "x": 5,
+        "y": 4,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "B",
+        "x": 1,
+        "y": 1,
+        "width": 3,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "G",
+        "x": 4,
+        "y": 3,
+        "width": 1,
+        "height": 3,
+        "axis": "V"
+      },
+      {
+        "id": "H",
+        "x": 0,
+        "y": 3,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      }
+    ],
+    "startAxis": "V",
+    "exit": {
+      "side": "bottom",
+      "cell": 5
+    },
+    "switches": [
+      {
+        "x": 3,
+        "y": 5
+      },
+      {
+        "x": 5,
+        "y": 5
+      }
+    ]
+  },
+  {
+    "id": "slipout-level-v6-27",
+    "number": 27,
+    "difficulty": "easy",
+    "optimalMoves": 10,
+    "blocks": [
+      {
+        "id": "X",
+        "x": 2,
+        "y": 4,
+        "width": 1,
+        "height": 1,
+        "axis": "B"
+      },
+      {
+        "id": "A",
+        "x": 5,
+        "y": 0,
+        "width": 1,
+        "height": 3,
+        "axis": "V"
+      },
+      {
+        "id": "B",
+        "x": 1,
+        "y": 1,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "C",
+        "x": 0,
+        "y": 2,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "G",
+        "x": 2,
+        "y": 2,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "J",
+        "x": 1,
+        "y": 0,
+        "width": 3,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "K",
+        "x": 4,
+        "y": 2,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      }
+    ],
+    "startAxis": "V",
+    "exit": {
+      "side": "right",
+      "cell": 0
+    },
+    "switches": [
+      {
+        "x": 2,
+        "y": 2
+      },
+      {
+        "x": 3,
+        "y": 2
+      },
+      {
+        "x": 3,
+        "y": 0
+      }
+    ]
+  },
+  {
+    "id": "slipout-level-v6-28",
+    "number": 28,
+    "difficulty": "easy",
+    "optimalMoves": 7,
+    "blocks": [
+      {
+        "id": "X",
+        "x": 2,
+        "y": 4,
+        "width": 1,
+        "height": 1,
+        "axis": "B"
+      },
+      {
+        "id": "A",
+        "x": 3,
+        "y": 2,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "B",
+        "x": 4,
+        "y": 1,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "C",
+        "x": 0,
+        "y": 2,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "G",
+        "x": 5,
+        "y": 3,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "J",
+        "x": 3,
+        "y": 4,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "K",
+        "x": 1,
+        "y": 2,
+        "width": 1,
+        "height": 3,
+        "axis": "V"
+      }
+    ],
+    "startAxis": "V",
+    "exit": {
+      "side": "right",
+      "cell": 0
+    },
+    "switches": [
+      {
+        "x": 2,
+        "y": 2
+      },
+      {
+        "x": 3,
+        "y": 2
+      },
+      {
+        "x": 3,
+        "y": 0
+      }
+    ]
+  },
+  {
+    "id": "slipout-level-v6-29",
+    "number": 29,
+    "difficulty": "easy",
+    "optimalMoves": 8,
+    "blocks": [
+      {
+        "id": "X",
+        "x": 1,
+        "y": 3,
+        "width": 1,
+        "height": 1,
+        "axis": "B"
+      },
+      {
+        "id": "A",
+        "x": 0,
+        "y": 5,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "B",
+        "x": 4,
+        "y": 2,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "C",
+        "x": 2,
+        "y": 2,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "G",
+        "x": 1,
+        "y": 0,
+        "width": 3,
         "height": 1,
         "axis": "H"
       },
@@ -2563,375 +2978,32 @@
     ]
   },
   {
-    "id": "slipout-level-v4-25",
-    "number": 25,
-    "difficulty": "easy",
-    "optimalMoves": 12,
-    "blocks": [
-      {
-        "id": "X",
-        "x": 1,
-        "y": 2,
-        "width": 1,
-        "height": 1,
-        "axis": "B"
-      },
-      {
-        "id": "A",
-        "x": 2,
-        "y": 3,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "B",
-        "x": 4,
-        "y": 1,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "C",
-        "x": 2,
-        "y": 0,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "G",
-        "x": 2,
-        "y": 2,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "J",
-        "x": 5,
-        "y": 1,
-        "width": 1,
-        "height": 3,
-        "axis": "V"
-      },
-      {
-        "id": "K",
-        "x": 4,
-        "y": 0,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      }
-    ],
-    "startAxis": "H",
-    "exit": {
-      "side": "bottom",
-      "cell": 5
-    },
-    "switches": [
-      {
-        "x": 3,
-        "y": 2
-      },
-      {
-        "x": 3,
-        "y": 3
-      },
-      {
-        "x": 5,
-        "y": 3
-      }
-    ]
-  },
-  {
-    "id": "slipout-level-v4-26",
-    "number": 26,
-    "difficulty": "easy",
-    "optimalMoves": 6,
-    "blocks": [
-      {
-        "id": "X",
-        "x": 3,
-        "y": 1,
-        "width": 1,
-        "height": 1,
-        "axis": "B"
-      },
-      {
-        "id": "B",
-        "x": 3,
-        "y": 2,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "D",
-        "x": 2,
-        "y": 3,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      }
-    ],
-    "startAxis": "V",
-    "exit": {
-      "side": "left",
-      "cell": 5
-    },
-    "switches": [
-      {
-        "x": 3,
-        "y": 2
-      },
-      {
-        "x": 2,
-        "y": 2
-      },
-      {
-        "x": 2,
-        "y": 5
-      }
-    ]
-  },
-  {
-    "id": "slipout-level-v4-27",
-    "number": 27,
-    "difficulty": "easy",
-    "optimalMoves": 8,
-    "blocks": [
-      {
-        "id": "X",
-        "x": 3,
-        "y": 4,
-        "width": 1,
-        "height": 2,
-        "axis": "B"
-      },
-      {
-        "id": "A",
-        "x": 5,
-        "y": 4,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "B",
-        "x": 1,
-        "y": 1,
-        "width": 3,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "G",
-        "x": 3,
-        "y": 2,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "H",
-        "x": 4,
-        "y": 3,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      }
-    ],
-    "startAxis": "V",
-    "exit": {
-      "side": "bottom",
-      "cell": 5
-    },
-    "switches": [
-      {
-        "x": 3,
-        "y": 5
-      },
-      {
-        "x": 5,
-        "y": 5
-      }
-    ]
-  },
-  {
-    "id": "slipout-level-v4-28",
-    "number": 28,
-    "difficulty": "easy",
-    "optimalMoves": 8,
-    "blocks": [
-      {
-        "id": "X",
-        "x": 1,
-        "y": 0,
-        "width": 1,
-        "height": 1,
-        "axis": "B"
-      },
-      {
-        "id": "B",
-        "x": 2,
-        "y": 3,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "G",
-        "x": 2,
-        "y": 0,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "H",
-        "x": 2,
-        "y": 2,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      }
-    ],
-    "startAxis": "H",
-    "exit": {
-      "side": "left",
-      "cell": 5
-    },
-    "switches": [
-      {
-        "x": 3,
-        "y": 0
-      },
-      {
-        "x": 3,
-        "y": 4
-      },
-      {
-        "x": 2,
-        "y": 4
-      },
-      {
-        "x": 2,
-        "y": 5
-      }
-    ]
-  },
-  {
-    "id": "slipout-level-v4-29",
-    "number": 29,
-    "difficulty": "easy",
-    "optimalMoves": 12,
-    "blocks": [
-      {
-        "id": "X",
-        "x": 2,
-        "y": 1,
-        "width": 1,
-        "height": 1,
-        "axis": "B"
-      },
-      {
-        "id": "A",
-        "x": 3,
-        "y": 2,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "B",
-        "x": 1,
-        "y": 4,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "C",
-        "x": 0,
-        "y": 2,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "G",
-        "x": 2,
-        "y": 2,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "J",
-        "x": 1,
-        "y": 5,
-        "width": 3,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "K",
-        "x": 0,
-        "y": 4,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      }
-    ],
-    "startAxis": "V",
-    "exit": {
-      "side": "right",
-      "cell": 5
-    },
-    "switches": [
-      {
-        "x": 2,
-        "y": 3
-      },
-      {
-        "x": 3,
-        "y": 3
-      },
-      {
-        "x": 3,
-        "y": 5
-      }
-    ]
-  },
-  {
-    "id": "slipout-level-v4-30",
+    "id": "slipout-level-v6-30",
     "number": 30,
     "difficulty": "easy",
-    "optimalMoves": 12,
+    "optimalMoves": 9,
     "blocks": [
       {
         "id": "X",
         "x": 3,
-        "y": 1,
+        "y": 4,
         "width": 1,
         "height": 1,
         "axis": "B"
       },
       {
         "id": "A",
-        "x": 2,
-        "y": 2,
+        "x": 0,
+        "y": 0,
         "width": 1,
         "height": 2,
         "axis": "V"
       },
       {
         "id": "B",
-        "x": 3,
-        "y": 4,
-        "width": 2,
+        "x": 0,
+        "y": 3,
+        "width": 3,
         "height": 1,
         "axis": "H"
       },
@@ -2954,7 +3026,7 @@
       {
         "id": "J",
         "x": 2,
-        "y": 5,
+        "y": 0,
         "width": 3,
         "height": 1,
         "axis": "H"
@@ -2971,20 +3043,20 @@
     "startAxis": "V",
     "exit": {
       "side": "left",
-      "cell": 5
+      "cell": 0
     },
     "switches": [
       {
         "x": 3,
-        "y": 3
+        "y": 2
       },
       {
         "x": 2,
-        "y": 3
+        "y": 2
       },
       {
         "x": 2,
-        "y": 5
+        "y": 0
       }
     ]
   },
@@ -3377,55 +3449,55 @@
     ]
   },
   {
-    "id": "slipout-level-v4-35",
+    "id": "slipout-level-v6-35",
     "number": 35,
     "difficulty": "medium",
     "optimalMoves": 15,
     "blocks": [
       {
         "id": "X",
-        "x": 1,
-        "y": 1,
-        "width": 2,
+        "x": 5,
+        "y": 4,
+        "width": 1,
         "height": 1,
         "axis": "B"
       },
       {
         "id": "B",
-        "x": 0,
-        "y": 1,
+        "x": 2,
+        "y": 0,
         "width": 1,
         "height": 3,
         "axis": "V"
       },
       {
         "id": "C",
-        "x": 4,
-        "y": 0,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
+        "x": 2,
+        "y": 5,
+        "width": 3,
+        "height": 1,
+        "axis": "H"
       },
       {
         "id": "D",
         "x": 1,
-        "y": 2,
-        "width": 1,
-        "height": 3,
-        "axis": "V"
-      },
-      {
-        "id": "E",
-        "x": 3,
         "y": 4,
         "width": 2,
         "height": 1,
         "axis": "H"
       },
       {
-        "id": "I",
-        "x": 2,
+        "id": "F",
+        "x": 4,
         "y": 2,
+        "width": 1,
+        "height": 3,
+        "axis": "V"
+      },
+      {
+        "id": "G",
+        "x": 3,
+        "y": 0,
         "width": 3,
         "height": 1,
         "axis": "H"
@@ -3434,37 +3506,45 @@
     "startAxis": "H",
     "exit": {
       "side": "left",
-      "cell": 4
+      "cell": 2
     },
     "switches": [
       {
-        "x": 4,
-        "y": 1
+        "x": 5,
+        "y": 4
       },
       {
-        "x": 4,
-        "y": 3
-      },
-      {
-        "x": 2,
-        "y": 3
+        "x": 5,
+        "y": 0
       },
       {
         "x": 3,
-        "y": 5
+        "y": 0
       },
       {
-        "x": 1,
-        "y": 5
+        "x": 3,
+        "y": 1
       },
       {
-        "x": 1,
-        "y": 4
+        "x": 2,
+        "y": 1
+      },
+      {
+        "x": 2,
+        "y": 0
+      },
+      {
+        "x": 0,
+        "y": 0
+      },
+      {
+        "x": 0,
+        "y": 2
       }
     ]
   },
   {
-    "id": "slipout-level-v4-36",
+    "id": "slipout-level-v6-36",
     "number": 36,
     "difficulty": "medium",
     "optimalMoves": 17,
@@ -3472,220 +3552,14 @@
       {
         "id": "X",
         "x": 4,
-        "y": 0,
-        "width": 1,
-        "height": 1,
-        "axis": "B"
-      },
-      {
-        "id": "A",
-        "x": 3,
-        "y": 3,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "D",
-        "x": 4,
-        "y": 2,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "E",
-        "x": 2,
-        "y": 2,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "F",
-        "x": 3,
-        "y": 0,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "G",
-        "x": 1,
-        "y": 1,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "I",
-        "x": 4,
-        "y": 4,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      }
-    ],
-    "startAxis": "V",
-    "exit": {
-      "side": "bottom",
-      "cell": 4
-    },
-    "switches": [
-      {
-        "x": 4,
-        "y": 0
-      },
-      {
-        "x": 1,
-        "y": 0
-      },
-      {
-        "x": 1,
-        "y": 2
-      },
-      {
-        "x": 2,
-        "y": 2
-      },
-      {
-        "x": 2,
-        "y": 4
-      },
-      {
-        "x": 4,
-        "y": 4
-      }
-    ]
-  },
-  {
-    "id": "slipout-level-v4-37",
-    "number": 37,
-    "difficulty": "medium",
-    "optimalMoves": 15,
-    "blocks": [
-      {
-        "id": "X",
-        "x": 1,
-        "y": 2,
-        "width": 1,
-        "height": 2,
-        "axis": "B"
-      },
-      {
-        "id": "A",
-        "x": 0,
         "y": 1,
         "width": 1,
         "height": 2,
-        "axis": "V"
+        "axis": "B"
       },
       {
         "id": "B",
         "x": 3,
-        "y": 4,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "C",
-        "x": 0,
-        "y": 3,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "D",
-        "x": 1,
-        "y": 5,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "E",
-        "x": 2,
-        "y": 2,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "H",
-        "x": 2,
-        "y": 3,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "I",
-        "x": 0,
-        "y": 0,
-        "width": 3,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "J",
-        "x": 1,
-        "y": 4,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "L",
-        "x": 4,
-        "y": 2,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      }
-    ],
-    "startAxis": "V",
-    "exit": {
-      "side": "bottom",
-      "cell": 4
-    },
-    "switches": [
-      {
-        "x": 1,
-        "y": 3
-      },
-      {
-        "x": 2,
-        "y": 2
-      },
-      {
-        "x": 2,
-        "y": 4
-      },
-      {
-        "x": 4,
-        "y": 4
-      }
-    ]
-  },
-  {
-    "id": "slipout-level-v4-38",
-    "number": 38,
-    "difficulty": "medium",
-    "optimalMoves": 18,
-    "blocks": [
-      {
-        "id": "X",
-        "x": 4,
-        "y": 0,
-        "width": 1,
-        "height": 1,
-        "axis": "B"
-      },
-      {
-        "id": "B",
-        "x": 0,
         "y": 3,
         "width": 3,
         "height": 1,
@@ -3693,129 +3567,34 @@
       },
       {
         "id": "C",
-        "x": 1,
+        "x": 4,
         "y": 4,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
+        "width": 2,
+        "height": 1,
+        "axis": "H"
       },
       {
         "id": "D",
         "x": 1,
-        "y": 0,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "F",
-        "x": 2,
         "y": 1,
         "width": 3,
         "height": 1,
         "axis": "H"
       },
       {
-        "id": "G",
+        "id": "E",
         "x": 0,
-        "y": 0,
+        "y": 2,
         "width": 1,
         "height": 3,
         "axis": "V"
-      }
-    ],
-    "startAxis": "V",
-    "exit": {
-      "side": "bottom",
-      "cell": 2
-    },
-    "switches": [
-      {
-        "x": 4,
-        "y": 0
-      },
-      {
-        "x": 0,
-        "y": 0
-      },
-      {
-        "x": 0,
-        "y": 2
-      },
-      {
-        "x": 1,
-        "y": 2
-      },
-      {
-        "x": 1,
-        "y": 3
-      },
-      {
-        "x": 0,
-        "y": 3
-      },
-      {
-        "x": 0,
-        "y": 5
-      },
-      {
-        "x": 2,
-        "y": 5
-      }
-    ]
-  },
-  {
-    "id": "slipout-level-v4-39",
-    "number": 39,
-    "difficulty": "medium",
-    "optimalMoves": 15,
-    "blocks": [
-      {
-        "id": "X",
-        "x": 4,
-        "y": 1,
-        "width": 1,
-        "height": 2,
-        "axis": "B"
-      },
-      {
-        "id": "B",
-        "x": 2,
-        "y": 0,
-        "width": 3,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "C",
-        "x": 4,
-        "y": 4,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "D",
-        "x": 1,
-        "y": 1,
-        "width": 3,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "E",
-        "x": 1,
-        "y": 3,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
       },
       {
         "id": "I",
-        "x": 3,
-        "y": 2,
+        "x": 2,
+        "y": 4,
         "width": 1,
-        "height": 3,
+        "height": 2,
         "axis": "V"
       }
     ],
@@ -3838,8 +3617,8 @@
         "y": 2
       },
       {
-        "x": 0,
-        "y": 3
+        "x": 2,
+        "y": 1
       },
       {
         "x": 0,
@@ -3852,357 +3631,56 @@
     ]
   },
   {
-    "id": "slipout-level-v4-40",
-    "number": 40,
+    "id": "slipout-level-v6-37",
+    "number": 37,
     "difficulty": "medium",
-    "optimalMoves": 17,
+    "optimalMoves": 16,
     "blocks": [
       {
         "id": "X",
-        "x": 5,
-        "y": 4,
-        "width": 1,
-        "height": 1,
-        "axis": "B"
-      },
-      {
-        "id": "A",
-        "x": 1,
-        "y": 3,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "D",
-        "x": 2,
+        "x": 3,
         "y": 4,
         "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "E",
-        "x": 2,
-        "y": 2,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "F",
-        "x": 4,
-        "y": 3,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "G",
-        "x": 4,
-        "y": 1,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "I",
-        "x": 0,
-        "y": 4,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      }
-    ],
-    "startAxis": "H",
-    "exit": {
-      "side": "left",
-      "cell": 4
-    },
-    "switches": [
-      {
-        "x": 5,
-        "y": 4
-      },
-      {
-        "x": 5,
-        "y": 1
-      },
-      {
-        "x": 3,
-        "y": 1
-      },
-      {
-        "x": 3,
-        "y": 2
-      },
-      {
-        "x": 1,
-        "y": 2
-      },
-      {
-        "x": 1,
-        "y": 4
-      }
-    ]
-  },
-  {
-    "id": "slipout-level-v4-41",
-    "number": 41,
-    "difficulty": "medium",
-    "optimalMoves": 15,
-    "blocks": [
-      {
-        "id": "X",
-        "x": 2,
-        "y": 1,
-        "width": 2,
-        "height": 1,
-        "axis": "B"
-      },
-      {
-        "id": "A",
-        "x": 3,
-        "y": 0,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "B",
-        "x": 0,
-        "y": 3,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "C",
-        "x": 1,
-        "y": 0,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "D",
-        "x": 0,
-        "y": 1,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "E",
-        "x": 3,
-        "y": 2,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "H",
-        "x": 2,
-        "y": 2,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "I",
-        "x": 5,
-        "y": 0,
-        "width": 1,
-        "height": 3,
-        "axis": "V"
-      },
-      {
-        "id": "J",
-        "x": 1,
-        "y": 1,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "L",
-        "x": 2,
-        "y": 4,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      }
-    ],
-    "startAxis": "H",
-    "exit": {
-      "side": "left",
-      "cell": 4
-    },
-    "switches": [
-      {
-        "x": 2,
-        "y": 1
-      },
-      {
-        "x": 3,
-        "y": 2
-      },
-      {
-        "x": 1,
-        "y": 2
-      },
-      {
-        "x": 1,
-        "y": 4
-      }
-    ]
-  },
-  {
-    "id": "slipout-level-v4-42",
-    "number": 42,
-    "difficulty": "medium",
-    "optimalMoves": 18,
-    "blocks": [
-      {
-        "id": "X",
-        "x": 5,
-        "y": 4,
-        "width": 1,
         "height": 1,
         "axis": "B"
       },
       {
         "id": "B",
-        "x": 2,
-        "y": 0,
+        "x": 5,
+        "y": 1,
         "width": 1,
-        "height": 3,
+        "height": 2,
         "axis": "V"
       },
       {
         "id": "C",
-        "x": 0,
-        "y": 1,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
+        "x": 1,
+        "y": 4,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
       },
       {
         "id": "D",
         "x": 4,
         "y": 1,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "F",
-        "x": 4,
-        "y": 2,
         "width": 1,
         "height": 3,
         "axis": "V"
       },
       {
-        "id": "G",
-        "x": 3,
-        "y": 0,
+        "id": "E",
+        "x": 1,
+        "y": 1,
         "width": 3,
         "height": 1,
         "axis": "H"
-      }
-    ],
-    "startAxis": "H",
-    "exit": {
-      "side": "left",
-      "cell": 2
-    },
-    "switches": [
-      {
-        "x": 5,
-        "y": 4
-      },
-      {
-        "x": 5,
-        "y": 0
-      },
-      {
-        "x": 3,
-        "y": 0
-      },
-      {
-        "x": 3,
-        "y": 1
-      },
-      {
-        "x": 2,
-        "y": 1
-      },
-      {
-        "x": 2,
-        "y": 0
-      },
-      {
-        "x": 0,
-        "y": 0
-      },
-      {
-        "x": 0,
-        "y": 2
-      }
-    ]
-  },
-  {
-    "id": "slipout-level-v4-43",
-    "number": 43,
-    "difficulty": "medium",
-    "optimalMoves": 15,
-    "blocks": [
-      {
-        "id": "X",
-        "x": 3,
-        "y": 4,
-        "width": 2,
-        "height": 1,
-        "axis": "B"
-      },
-      {
-        "id": "B",
-        "x": 5,
-        "y": 2,
-        "width": 1,
-        "height": 3,
-        "axis": "V"
-      },
-      {
-        "id": "C",
-        "x": 1,
-        "y": 4,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "D",
-        "x": 4,
-        "y": 1,
-        "width": 1,
-        "height": 3,
-        "axis": "V"
-      },
-      {
-        "id": "E",
-        "x": 1,
-        "y": 1,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
       },
       {
         "id": "I",
-        "x": 1,
-        "y": 3,
-        "width": 3,
+        "x": 0,
+        "y": 2,
+        "width": 2,
         "height": 1,
         "axis": "H"
       }
@@ -4222,8 +3700,8 @@
         "y": 2
       },
       {
-        "x": 3,
-        "y": 2
+        "x": 4,
+        "y": 4
       },
       {
         "x": 2,
@@ -4240,7 +3718,609 @@
     ]
   },
   {
-    "id": "slipout-level-v4-44",
+    "id": "slipout-level-v6-38",
+    "number": 38,
+    "difficulty": "medium",
+    "optimalMoves": 15,
+    "blocks": [
+      {
+        "id": "X",
+        "x": 0,
+        "y": 1,
+        "width": 1,
+        "height": 1,
+        "axis": "B"
+      },
+      {
+        "id": "B",
+        "x": 3,
+        "y": 3,
+        "width": 1,
+        "height": 3,
+        "axis": "V"
+      },
+      {
+        "id": "C",
+        "x": 4,
+        "y": 4,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "D",
+        "x": 2,
+        "y": 2,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "F",
+        "x": 5,
+        "y": 1,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "G",
+        "x": 0,
+        "y": 5,
+        "width": 3,
+        "height": 1,
+        "axis": "H"
+      }
+    ],
+    "startAxis": "H",
+    "exit": {
+      "side": "right",
+      "cell": 3
+    },
+    "switches": [
+      {
+        "x": 0,
+        "y": 1
+      },
+      {
+        "x": 0,
+        "y": 5
+      },
+      {
+        "x": 2,
+        "y": 5
+      },
+      {
+        "x": 2,
+        "y": 4
+      },
+      {
+        "x": 3,
+        "y": 4
+      },
+      {
+        "x": 3,
+        "y": 5
+      },
+      {
+        "x": 5,
+        "y": 5
+      },
+      {
+        "x": 5,
+        "y": 3
+      }
+    ]
+  },
+  {
+    "id": "slipout-level-v6-39",
+    "number": 39,
+    "difficulty": "medium",
+    "optimalMoves": 17,
+    "blocks": [
+      {
+        "id": "X",
+        "x": 4,
+        "y": 2,
+        "width": 1,
+        "height": 2,
+        "axis": "B"
+      },
+      {
+        "id": "A",
+        "x": 5,
+        "y": 3,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "B",
+        "x": 2,
+        "y": 0,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "C",
+        "x": 5,
+        "y": 1,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "D",
+        "x": 3,
+        "y": 0,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "E",
+        "x": 1,
+        "y": 3,
+        "width": 3,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "H",
+        "x": 2,
+        "y": 2,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "I",
+        "x": 3,
+        "y": 5,
+        "width": 3,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "J",
+        "x": 2,
+        "y": 4,
+        "width": 3,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "L",
+        "x": 1,
+        "y": 1,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      }
+    ],
+    "startAxis": "V",
+    "exit": {
+      "side": "top",
+      "cell": 1
+    },
+    "switches": [
+      {
+        "x": 4,
+        "y": 2
+      },
+      {
+        "x": 3,
+        "y": 3
+      },
+      {
+        "x": 3,
+        "y": 1
+      },
+      {
+        "x": 1,
+        "y": 1
+      }
+    ]
+  },
+  {
+    "id": "slipout-level-v6-40",
+    "number": 40,
+    "difficulty": "medium",
+    "optimalMoves": 17,
+    "blocks": [
+      {
+        "id": "X",
+        "x": 4,
+        "y": 2,
+        "width": 1,
+        "height": 2,
+        "axis": "B"
+      },
+      {
+        "id": "A",
+        "x": 3,
+        "y": 1,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "B",
+        "x": 4,
+        "y": 4,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "C",
+        "x": 5,
+        "y": 4,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "D",
+        "x": 2,
+        "y": 0,
+        "width": 3,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "E",
+        "x": 0,
+        "y": 5,
+        "width": 3,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "F",
+        "x": 2,
+        "y": 2,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "G",
+        "x": 1,
+        "y": 3,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "I",
+        "x": 1,
+        "y": 1,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "J",
+        "x": 2,
+        "y": 3,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "K",
+        "x": 0,
+        "y": 3,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "L",
+        "x": 5,
+        "y": 1,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      }
+    ],
+    "startAxis": "V",
+    "exit": {
+      "side": "top",
+      "cell": 3
+    },
+    "switches": [
+      {
+        "x": 4,
+        "y": 2
+      },
+      {
+        "x": 3,
+        "y": 2
+      }
+    ]
+  },
+  {
+    "id": "slipout-level-v6-41",
+    "number": 41,
+    "difficulty": "medium",
+    "optimalMoves": 14,
+    "blocks": [
+      {
+        "id": "X",
+        "x": 5,
+        "y": 4,
+        "width": 1,
+        "height": 1,
+        "axis": "B"
+      },
+      {
+        "id": "A",
+        "x": 1,
+        "y": 0,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "D",
+        "x": 3,
+        "y": 5,
+        "width": 3,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "E",
+        "x": 0,
+        "y": 3,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "F",
+        "x": 4,
+        "y": 3,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "G",
+        "x": 4,
+        "y": 1,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "I",
+        "x": 0,
+        "y": 4,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      }
+    ],
+    "startAxis": "H",
+    "exit": {
+      "side": "left",
+      "cell": 4
+    },
+    "switches": [
+      {
+        "x": 5,
+        "y": 4
+      },
+      {
+        "x": 5,
+        "y": 1
+      },
+      {
+        "x": 3,
+        "y": 1
+      },
+      {
+        "x": 3,
+        "y": 2
+      },
+      {
+        "x": 1,
+        "y": 2
+      },
+      {
+        "x": 1,
+        "y": 4
+      }
+    ]
+  },
+  {
+    "id": "slipout-level-v6-42",
+    "number": 42,
+    "difficulty": "medium",
+    "optimalMoves": 14,
+    "blocks": [
+      {
+        "id": "X",
+        "x": 4,
+        "y": 0,
+        "width": 1,
+        "height": 1,
+        "axis": "B"
+      },
+      {
+        "id": "A",
+        "x": 3,
+        "y": 4,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "D",
+        "x": 4,
+        "y": 2,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "E",
+        "x": 5,
+        "y": 1,
+        "width": 1,
+        "height": 3,
+        "axis": "V"
+      },
+      {
+        "id": "F",
+        "x": 3,
+        "y": 0,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "G",
+        "x": 1,
+        "y": 1,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "I",
+        "x": 1,
+        "y": 2,
+        "width": 1,
+        "height": 3,
+        "axis": "V"
+      }
+    ],
+    "startAxis": "V",
+    "exit": {
+      "side": "bottom",
+      "cell": 4
+    },
+    "switches": [
+      {
+        "x": 4,
+        "y": 0
+      },
+      {
+        "x": 1,
+        "y": 0
+      },
+      {
+        "x": 1,
+        "y": 2
+      },
+      {
+        "x": 2,
+        "y": 2
+      },
+      {
+        "x": 2,
+        "y": 4
+      },
+      {
+        "x": 4,
+        "y": 4
+      }
+    ]
+  },
+  {
+    "id": "slipout-level-v6-43",
+    "number": 43,
+    "difficulty": "medium",
+    "optimalMoves": 14,
+    "blocks": [
+      {
+        "id": "X",
+        "x": 4,
+        "y": 1,
+        "width": 1,
+        "height": 2,
+        "axis": "B"
+      },
+      {
+        "id": "B",
+        "x": 2,
+        "y": 0,
+        "width": 3,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "C",
+        "x": 4,
+        "y": 4,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "D",
+        "x": 1,
+        "y": 1,
+        "width": 3,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "E",
+        "x": 2,
+        "y": 4,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "I",
+        "x": 0,
+        "y": 2,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      }
+    ],
+    "startAxis": "V",
+    "exit": {
+      "side": "top",
+      "cell": 1
+    },
+    "switches": [
+      {
+        "x": 4,
+        "y": 4
+      },
+      {
+        "x": 2,
+        "y": 4
+      },
+      {
+        "x": 2,
+        "y": 2
+      },
+      {
+        "x": 0,
+        "y": 3
+      },
+      {
+        "x": 0,
+        "y": 1
+      },
+      {
+        "x": 1,
+        "y": 1
+      }
+    ]
+  },
+  {
+    "id": "slipout-level-v6-44",
     "number": 44,
     "difficulty": "medium",
     "optimalMoves": 17,
@@ -4248,118 +4328,23 @@
       {
         "id": "X",
         "x": 1,
-        "y": 5,
+        "y": 2,
         "width": 1,
-        "height": 1,
+        "height": 2,
         "axis": "B"
       },
       {
         "id": "A",
-        "x": 2,
+        "x": 4,
         "y": 1,
         "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "D",
-        "x": 1,
-        "y": 2,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "E",
-        "x": 3,
-        "y": 2,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "F",
-        "x": 2,
-        "y": 4,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "G",
-        "x": 3,
-        "y": 4,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "I",
-        "x": 1,
-        "y": 0,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      }
-    ],
-    "startAxis": "V",
-    "exit": {
-      "side": "top",
-      "cell": 1
-    },
-    "switches": [
-      {
-        "x": 1,
-        "y": 5
-      },
-      {
-        "x": 4,
-        "y": 5
-      },
-      {
-        "x": 4,
-        "y": 3
-      },
-      {
-        "x": 3,
-        "y": 3
-      },
-      {
-        "x": 3,
-        "y": 1
-      },
-      {
-        "x": 1,
-        "y": 1
-      }
-    ]
-  },
-  {
-    "id": "slipout-level-v4-45",
-    "number": 45,
-    "difficulty": "medium",
-    "optimalMoves": 15,
-    "blocks": [
-      {
-        "id": "X",
-        "x": 4,
-        "y": 2,
-        "width": 1,
-        "height": 2,
-        "axis": "B"
-      },
-      {
-        "id": "A",
-        "x": 5,
-        "y": 3,
-        "width": 1,
-        "height": 2,
+        "height": 3,
         "axis": "V"
       },
       {
         "id": "B",
-        "x": 2,
-        "y": 0,
+        "x": 5,
+        "y": 4,
         "width": 1,
         "height": 2,
         "axis": "V"
@@ -4367,15 +4352,15 @@
       {
         "id": "C",
         "x": 5,
-        "y": 1,
+        "y": 2,
         "width": 1,
         "height": 2,
         "axis": "V"
       },
       {
         "id": "D",
-        "x": 3,
-        "y": 0,
+        "x": 1,
+        "y": 5,
         "width": 2,
         "height": 1,
         "axis": "H"
@@ -4383,7 +4368,7 @@
       {
         "id": "E",
         "x": 2,
-        "y": 3,
+        "y": 2,
         "width": 2,
         "height": 1,
         "axis": "H"
@@ -4391,31 +4376,31 @@
       {
         "id": "H",
         "x": 2,
-        "y": 2,
+        "y": 3,
         "width": 2,
         "height": 1,
         "axis": "H"
       },
       {
         "id": "I",
-        "x": 3,
-        "y": 5,
+        "x": 0,
+        "y": 0,
         "width": 3,
         "height": 1,
         "axis": "H"
       },
       {
         "id": "J",
-        "x": 3,
-        "y": 1,
+        "x": 1,
+        "y": 4,
         "width": 2,
         "height": 1,
         "axis": "H"
       },
       {
         "id": "L",
-        "x": 1,
-        "y": 2,
+        "x": 0,
+        "y": 4,
         "width": 1,
         "height": 2,
         "axis": "V"
@@ -4423,108 +4408,346 @@
     ],
     "startAxis": "V",
     "exit": {
-      "side": "top",
-      "cell": 1
+      "side": "bottom",
+      "cell": 4
     },
     "switches": [
+      {
+        "x": 1,
+        "y": 3
+      },
+      {
+        "x": 2,
+        "y": 2
+      },
+      {
+        "x": 2,
+        "y": 4
+      },
+      {
+        "x": 4,
+        "y": 4
+      }
+    ]
+  },
+  {
+    "id": "slipout-level-v6-45",
+    "number": 45,
+    "difficulty": "medium",
+    "optimalMoves": 14,
+    "blocks": [
+      {
+        "id": "X",
+        "x": 2,
+        "y": 1,
+        "width": 2,
+        "height": 1,
+        "axis": "B"
+      },
+      {
+        "id": "A",
+        "x": 3,
+        "y": 0,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "B",
+        "x": 0,
+        "y": 3,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "C",
+        "x": 1,
+        "y": 0,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "D",
+        "x": 0,
+        "y": 0,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "E",
+        "x": 4,
+        "y": 2,
+        "width": 1,
+        "height": 3,
+        "axis": "V"
+      },
+      {
+        "id": "H",
+        "x": 2,
+        "y": 2,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "I",
+        "x": 5,
+        "y": 0,
+        "width": 1,
+        "height": 3,
+        "axis": "V"
+      },
+      {
+        "id": "J",
+        "x": 1,
+        "y": 1,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "L",
+        "x": 0,
+        "y": 4,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      }
+    ],
+    "startAxis": "H",
+    "exit": {
+      "side": "left",
+      "cell": 4
+    },
+    "switches": [
+      {
+        "x": 2,
+        "y": 1
+      },
+      {
+        "x": 3,
+        "y": 2
+      },
+      {
+        "x": 1,
+        "y": 2
+      },
+      {
+        "x": 1,
+        "y": 4
+      }
+    ]
+  },
+  {
+    "id": "slipout-level-v6-46",
+    "number": 46,
+    "difficulty": "hard",
+    "optimalMoves": 26,
+    "blocks": [
+      {
+        "id": "X",
+        "x": 1,
+        "y": 4,
+        "width": 1,
+        "height": 2,
+        "axis": "B"
+      },
+      {
+        "id": "A",
+        "x": 2,
+        "y": 1,
+        "width": 1,
+        "height": 3,
+        "axis": "V"
+      },
+      {
+        "id": "B",
+        "x": 4,
+        "y": 5,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "C",
+        "x": 4,
+        "y": 3,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "D",
+        "x": 3,
+        "y": 1,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "E",
+        "x": 3,
+        "y": 0,
+        "width": 3,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "F",
+        "x": 5,
+        "y": 3,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "G",
+        "x": 0,
+        "y": 1,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "H",
+        "x": 0,
+        "y": 4,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "I",
+        "x": 1,
+        "y": 1,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "J",
+        "x": 5,
+        "y": 1,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "K",
+        "x": 3,
+        "y": 2,
+        "width": 1,
+        "height": 3,
+        "axis": "V"
+      }
+    ],
+    "startAxis": "V",
+    "exit": {
+      "side": "top",
+      "cell": 3
+    },
+    "switches": [
+      {
+        "x": 1,
+        "y": 3
+      },
+      {
+        "x": 2,
+        "y": 3
+      },
+      {
+        "x": 2,
+        "y": 5
+      },
+      {
+        "x": 4,
+        "y": 4
+      },
       {
         "x": 4,
         "y": 2
       },
       {
-        "x": 3,
+        "x": 4,
         "y": 3
       },
       {
-        "x": 3,
-        "y": 1
+        "x": 4,
+        "y": 0
       },
       {
-        "x": 1,
-        "y": 1
+        "x": 3,
+        "y": 0
       }
     ]
   },
   {
-    "id": "slipout-level-v4-46",
-    "number": 46,
+    "id": "slipout-level-v6-47",
+    "number": 47,
     "difficulty": "hard",
     "optimalMoves": 21,
     "blocks": [
       {
         "id": "X",
-        "x": 1,
-        "y": 2,
-        "width": 1,
-        "height": 2,
+        "x": 2,
+        "y": 1,
+        "width": 2,
+        "height": 1,
         "axis": "B"
       },
       {
         "id": "A",
         "x": 1,
-        "y": 4,
+        "y": 1,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "B",
+        "x": 4,
+        "y": 1,
         "width": 2,
         "height": 1,
         "axis": "H"
       },
       {
-        "id": "B",
-        "x": 1,
-        "y": 0,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
         "id": "C",
-        "x": 5,
-        "y": 4,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
+        "x": 0,
+        "y": 5,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
       },
       {
         "id": "D",
-        "x": 2,
-        "y": 5,
-        "width": 3,
-        "height": 1,
-        "axis": "H"
+        "x": 0,
+        "y": 2,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
       },
       {
         "id": "E",
-        "x": 3,
-        "y": 0,
-        "width": 3,
-        "height": 1,
-        "axis": "H"
+        "x": 5,
+        "y": 3,
+        "width": 1,
+        "height": 3,
+        "axis": "V"
       },
       {
         "id": "F",
         "x": 2,
-        "y": 3,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
+        "y": 4,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
       },
       {
         "id": "G",
-        "x": 4,
-        "y": 2,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "H",
-        "x": 0,
-        "y": 1,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "I",
         "x": 3,
         "y": 4,
         "width": 2,
@@ -4532,175 +4755,64 @@
         "axis": "H"
       },
       {
-        "id": "J",
-        "x": 2,
-        "y": 2,
+        "id": "H",
+        "x": 3,
+        "y": 0,
         "width": 2,
         "height": 1,
         "axis": "H"
+      },
+      {
+        "id": "I",
+        "x": 1,
+        "y": 3,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "J",
+        "x": 3,
+        "y": 2,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
       },
       {
         "id": "K",
-        "x": 5,
-        "y": 1,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "L",
-        "x": 0,
-        "y": 3,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      }
-    ],
-    "startAxis": "V",
-    "exit": {
-      "side": "bottom",
-      "cell": 2
-    },
-    "switches": [
-      {
-        "x": 1,
-        "y": 3
-      },
-      {
-        "x": 2,
-        "y": 3
-      }
-    ]
-  },
-  {
-    "id": "slipout-level-v4-47",
-    "number": 47,
-    "difficulty": "hard",
-    "optimalMoves": 20,
-    "blocks": [
-      {
-        "id": "X",
-        "x": 1,
-        "y": 2,
-        "width": 1,
-        "height": 2,
-        "axis": "B"
-      },
-      {
-        "id": "A",
-        "x": 1,
-        "y": 4,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "B",
-        "x": 1,
-        "y": 0,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "C",
-        "x": 5,
-        "y": 3,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "D",
-        "x": 2,
+        "x": 3,
         "y": 5,
-        "width": 3,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "E",
-        "x": 2,
-        "y": 0,
-        "width": 3,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "F",
-        "x": 2,
-        "y": 3,
         "width": 2,
         "height": 1,
         "axis": "H"
-      },
-      {
-        "id": "G",
-        "x": 4,
-        "y": 2,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "H",
-        "x": 0,
-        "y": 1,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "I",
-        "x": 3,
-        "y": 4,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "J",
-        "x": 2,
-        "y": 2,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "K",
-        "x": 5,
-        "y": 1,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
       },
       {
         "id": "L",
-        "x": 0,
-        "y": 3,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
+        "x": 1,
+        "y": 0,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
       }
     ],
-    "startAxis": "V",
+    "startAxis": "H",
     "exit": {
-      "side": "bottom",
+      "side": "left",
       "cell": 2
     },
     "switches": [
       {
-        "x": 1,
-        "y": 3
+        "x": 2,
+        "y": 1
       },
       {
         "x": 2,
-        "y": 3
+        "y": 2
       }
     ]
   },
   {
-    "id": "slipout-level-v4-48",
+    "id": "slipout-level-v6-48",
     "number": 48,
     "difficulty": "hard",
     "optimalMoves": 21,
@@ -4731,7 +4843,7 @@
       },
       {
         "id": "C",
-        "x": 1,
+        "x": 0,
         "y": 5,
         "width": 2,
         "height": 1,
@@ -4740,9 +4852,9 @@
       {
         "id": "D",
         "x": 0,
-        "y": 2,
+        "y": 3,
         "width": 1,
-        "height": 3,
+        "height": 2,
         "axis": "V"
       },
       {
@@ -4755,8 +4867,8 @@
       },
       {
         "id": "F",
-        "x": 2,
-        "y": 2,
+        "x": 0,
+        "y": 1,
         "width": 1,
         "height": 2,
         "axis": "V"
@@ -4803,7 +4915,7 @@
       },
       {
         "id": "L",
-        "x": 1,
+        "x": 0,
         "y": 0,
         "width": 2,
         "height": 1,
@@ -4827,405 +4939,8 @@
     ]
   },
   {
-    "id": "slipout-level-v4-49",
+    "id": "slipout-level-v6-49",
     "number": 49,
-    "difficulty": "hard",
-    "optimalMoves": 21,
-    "blocks": [
-      {
-        "id": "X",
-        "x": 2,
-        "y": 1,
-        "width": 2,
-        "height": 1,
-        "axis": "B"
-      },
-      {
-        "id": "A",
-        "x": 4,
-        "y": 1,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "B",
-        "x": 0,
-        "y": 1,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "C",
-        "x": 3,
-        "y": 5,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "D",
-        "x": 5,
-        "y": 2,
-        "width": 1,
-        "height": 3,
-        "axis": "V"
-      },
-      {
-        "id": "E",
-        "x": 0,
-        "y": 3,
-        "width": 1,
-        "height": 3,
-        "axis": "V"
-      },
-      {
-        "id": "F",
-        "x": 3,
-        "y": 2,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "G",
-        "x": 2,
-        "y": 4,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "H",
-        "x": 1,
-        "y": 0,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "I",
-        "x": 4,
-        "y": 3,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "J",
-        "x": 2,
-        "y": 2,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "K",
-        "x": 1,
-        "y": 5,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "L",
-        "x": 3,
-        "y": 0,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      }
-    ],
-    "startAxis": "H",
-    "exit": {
-      "side": "right",
-      "cell": 2
-    },
-    "switches": [
-      {
-        "x": 3,
-        "y": 1
-      },
-      {
-        "x": 3,
-        "y": 2
-      }
-    ]
-  },
-  {
-    "id": "slipout-level-v4-50",
-    "number": 50,
-    "difficulty": "hard",
-    "optimalMoves": 30,
-    "blocks": [
-      {
-        "id": "X",
-        "x": 0,
-        "y": 1,
-        "width": 2,
-        "height": 1,
-        "axis": "B"
-      },
-      {
-        "id": "A",
-        "x": 2,
-        "y": 2,
-        "width": 3,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "B",
-        "x": 0,
-        "y": 3,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "C",
-        "x": 1,
-        "y": 4,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "D",
-        "x": 4,
-        "y": 3,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "E",
-        "x": 5,
-        "y": 3,
-        "width": 1,
-        "height": 3,
-        "axis": "V"
-      },
-      {
-        "id": "F",
-        "x": 1,
-        "y": 5,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "G",
-        "x": 3,
-        "y": 0,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "H",
-        "x": 0,
-        "y": 0,
-        "width": 3,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "I",
-        "x": 3,
-        "y": 1,
-        "width": 3,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "J",
-        "x": 3,
-        "y": 5,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "K",
-        "x": 1,
-        "y": 3,
-        "width": 3,
-        "height": 1,
-        "axis": "H"
-      }
-    ],
-    "startAxis": "H",
-    "exit": {
-      "side": "right",
-      "cell": 3
-    },
-    "switches": [
-      {
-        "x": 2,
-        "y": 1
-      },
-      {
-        "x": 2,
-        "y": 2
-      },
-      {
-        "x": 0,
-        "y": 2
-      },
-      {
-        "x": 1,
-        "y": 4
-      },
-      {
-        "x": 3,
-        "y": 4
-      },
-      {
-        "x": 2,
-        "y": 4
-      },
-      {
-        "x": 5,
-        "y": 4
-      },
-      {
-        "x": 5,
-        "y": 3
-      }
-    ]
-  },
-  {
-    "id": "slipout-level-v4-51",
-    "number": 51,
-    "difficulty": "hard",
-    "optimalMoves": 21,
-    "blocks": [
-      {
-        "id": "X",
-        "x": 2,
-        "y": 1,
-        "width": 2,
-        "height": 1,
-        "axis": "B"
-      },
-      {
-        "id": "A",
-        "x": 1,
-        "y": 1,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "B",
-        "x": 4,
-        "y": 1,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "C",
-        "x": 0,
-        "y": 5,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "D",
-        "x": 0,
-        "y": 2,
-        "width": 1,
-        "height": 3,
-        "axis": "V"
-      },
-      {
-        "id": "E",
-        "x": 5,
-        "y": 3,
-        "width": 1,
-        "height": 3,
-        "axis": "V"
-      },
-      {
-        "id": "F",
-        "x": 2,
-        "y": 2,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "G",
-        "x": 2,
-        "y": 4,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "H",
-        "x": 3,
-        "y": 0,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "I",
-        "x": 1,
-        "y": 3,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "J",
-        "x": 3,
-        "y": 2,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "K",
-        "x": 3,
-        "y": 5,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "L",
-        "x": 1,
-        "y": 0,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      }
-    ],
-    "startAxis": "H",
-    "exit": {
-      "side": "left",
-      "cell": 2
-    },
-    "switches": [
-      {
-        "x": 2,
-        "y": 1
-      },
-      {
-        "x": 2,
-        "y": 2
-      }
-    ]
-  },
-  {
-    "id": "slipout-level-v4-52",
-    "number": 52,
     "difficulty": "hard",
     "optimalMoves": 20,
     "blocks": [
@@ -5255,7 +4970,7 @@
       },
       {
         "id": "C",
-        "x": 1,
+        "x": 0,
         "y": 5,
         "width": 2,
         "height": 1,
@@ -5272,9 +4987,263 @@
       {
         "id": "E",
         "x": 5,
+        "y": 3,
+        "width": 1,
+        "height": 3,
+        "axis": "V"
+      },
+      {
+        "id": "F",
+        "x": 4,
         "y": 2,
         "width": 1,
         "height": 3,
+        "axis": "V"
+      },
+      {
+        "id": "G",
+        "x": 2,
+        "y": 4,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "H",
+        "x": 3,
+        "y": 0,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "I",
+        "x": 1,
+        "y": 3,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "J",
+        "x": 3,
+        "y": 2,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "K",
+        "x": 3,
+        "y": 5,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "L",
+        "x": 0,
+        "y": 0,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      }
+    ],
+    "startAxis": "H",
+    "exit": {
+      "side": "left",
+      "cell": 2
+    },
+    "switches": [
+      {
+        "x": 2,
+        "y": 1
+      },
+      {
+        "x": 2,
+        "y": 2
+      }
+    ]
+  },
+  {
+    "id": "slipout-level-v6-50",
+    "number": 50,
+    "difficulty": "hard",
+    "optimalMoves": 21,
+    "blocks": [
+      {
+        "id": "X",
+        "x": 1,
+        "y": 2,
+        "width": 1,
+        "height": 2,
+        "axis": "B"
+      },
+      {
+        "id": "A",
+        "x": 1,
+        "y": 4,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "B",
+        "x": 1,
+        "y": 0,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "C",
+        "x": 5,
+        "y": 4,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "D",
+        "x": 2,
+        "y": 5,
+        "width": 3,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "E",
+        "x": 3,
+        "y": 0,
+        "width": 3,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "F",
+        "x": 4,
+        "y": 3,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "G",
+        "x": 2,
+        "y": 0,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "H",
+        "x": 0,
+        "y": 1,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "I",
+        "x": 3,
+        "y": 4,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "J",
+        "x": 2,
+        "y": 2,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "K",
+        "x": 5,
+        "y": 1,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "L",
+        "x": 0,
+        "y": 3,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      }
+    ],
+    "startAxis": "V",
+    "exit": {
+      "side": "bottom",
+      "cell": 2
+    },
+    "switches": [
+      {
+        "x": 1,
+        "y": 3
+      },
+      {
+        "x": 2,
+        "y": 3
+      }
+    ]
+  },
+  {
+    "id": "slipout-level-v6-51",
+    "number": 51,
+    "difficulty": "hard",
+    "optimalMoves": 20,
+    "blocks": [
+      {
+        "id": "X",
+        "x": 2,
+        "y": 1,
+        "width": 2,
+        "height": 1,
+        "axis": "B"
+      },
+      {
+        "id": "A",
+        "x": 1,
+        "y": 1,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "B",
+        "x": 4,
+        "y": 1,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "C",
+        "x": 0,
+        "y": 5,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "D",
+        "x": 4,
+        "y": 3,
+        "width": 1,
+        "height": 3,
+        "axis": "V"
+      },
+      {
+        "id": "E",
+        "x": 5,
+        "y": 2,
+        "width": 1,
+        "height": 2,
         "axis": "V"
       },
       {
@@ -5319,7 +5288,7 @@
       },
       {
         "id": "K",
-        "x": 3,
+        "x": 2,
         "y": 5,
         "width": 2,
         "height": 1,
@@ -5351,63 +5320,190 @@
     ]
   },
   {
-    "id": "slipout-level-v4-53",
+    "id": "slipout-level-v6-52",
+    "number": 52,
+    "difficulty": "hard",
+    "optimalMoves": 22,
+    "blocks": [
+      {
+        "id": "X",
+        "x": 2,
+        "y": 1,
+        "width": 2,
+        "height": 1,
+        "axis": "B"
+      },
+      {
+        "id": "A",
+        "x": 1,
+        "y": 1,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "B",
+        "x": 4,
+        "y": 1,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "C",
+        "x": 1,
+        "y": 5,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "D",
+        "x": 0,
+        "y": 2,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "E",
+        "x": 5,
+        "y": 3,
+        "width": 1,
+        "height": 3,
+        "axis": "V"
+      },
+      {
+        "id": "F",
+        "x": 2,
+        "y": 3,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "G",
+        "x": 3,
+        "y": 4,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "H",
+        "x": 2,
+        "y": 2,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "I",
+        "x": 1,
+        "y": 3,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "J",
+        "x": 4,
+        "y": 2,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "K",
+        "x": 3,
+        "y": 5,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "L",
+        "x": 0,
+        "y": 0,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      }
+    ],
+    "startAxis": "H",
+    "exit": {
+      "side": "left",
+      "cell": 2
+    },
+    "switches": [
+      {
+        "x": 2,
+        "y": 1
+      },
+      {
+        "x": 2,
+        "y": 2
+      }
+    ]
+  },
+  {
+    "id": "slipout-level-v6-53",
     "number": 53,
     "difficulty": "hard",
-    "optimalMoves": 21,
+    "optimalMoves": 29,
     "blocks": [
       {
         "id": "X",
         "x": 4,
-        "y": 2,
-        "width": 1,
-        "height": 2,
+        "y": 4,
+        "width": 2,
+        "height": 1,
         "axis": "B"
       },
       {
         "id": "A",
-        "x": 3,
-        "y": 1,
-        "width": 2,
+        "x": 1,
+        "y": 3,
+        "width": 3,
         "height": 1,
         "axis": "H"
       },
       {
         "id": "B",
-        "x": 4,
-        "y": 4,
+        "x": 5,
+        "y": 1,
         "width": 1,
         "height": 2,
         "axis": "V"
       },
       {
         "id": "C",
-        "x": 0,
+        "x": 2,
+        "y": 1,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "D",
+        "x": 1,
         "y": 1,
         "width": 1,
         "height": 2,
         "axis": "V"
       },
       {
-        "id": "D",
-        "x": 1,
-        "y": 0,
-        "width": 3,
-        "height": 1,
-        "axis": "H"
-      },
-      {
         "id": "E",
         "x": 0,
-        "y": 5,
-        "width": 3,
-        "height": 1,
-        "axis": "H"
+        "y": 0,
+        "width": 1,
+        "height": 3,
+        "axis": "V"
       },
       {
         "id": "F",
-        "x": 2,
-        "y": 2,
+        "x": 3,
+        "y": 0,
         "width": 2,
         "height": 1,
         "axis": "H"
@@ -5415,200 +5511,89 @@
       {
         "id": "G",
         "x": 1,
-        "y": 2,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
+        "y": 5,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
       },
       {
         "id": "H",
-        "x": 5,
-        "y": 3,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
+        "x": 3,
+        "y": 5,
+        "width": 3,
+        "height": 1,
+        "axis": "H"
       },
       {
         "id": "I",
         "x": 1,
-        "y": 1,
+        "y": 4,
         "width": 2,
         "height": 1,
         "axis": "H"
       },
       {
         "id": "J",
-        "x": 2,
-        "y": 3,
+        "x": 1,
+        "y": 0,
         "width": 2,
         "height": 1,
         "axis": "H"
       },
       {
         "id": "K",
-        "x": 0,
-        "y": 3,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "L",
-        "x": 5,
-        "y": 1,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
+        "x": 2,
+        "y": 2,
+        "width": 3,
+        "height": 1,
+        "axis": "H"
       }
     ],
-    "startAxis": "V",
+    "startAxis": "H",
     "exit": {
-      "side": "top",
-      "cell": 3
+      "side": "left",
+      "cell": 2
     },
     "switches": [
       {
-        "x": 4,
-        "y": 2
+        "x": 3,
+        "y": 4
       },
       {
         "x": 3,
+        "y": 3
+      },
+      {
+        "x": 5,
+        "y": 3
+      },
+      {
+        "x": 4,
+        "y": 1
+      },
+      {
+        "x": 0,
+        "y": 5
+      },
+      {
+        "x": 3,
+        "y": 1
+      },
+      {
+        "x": 0,
+        "y": 1
+      },
+      {
+        "x": 0,
         "y": 2
       }
     ]
   },
   {
-    "id": "slipout-level-v4-54",
+    "id": "slipout-level-v6-54",
     "number": 54,
     "difficulty": "hard",
-    "optimalMoves": 21,
-    "blocks": [
-      {
-        "id": "X",
-        "x": 4,
-        "y": 2,
-        "width": 1,
-        "height": 2,
-        "axis": "B"
-      },
-      {
-        "id": "A",
-        "x": 3,
-        "y": 4,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "B",
-        "x": 4,
-        "y": 0,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "C",
-        "x": 0,
-        "y": 3,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "D",
-        "x": 1,
-        "y": 5,
-        "width": 3,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "E",
-        "x": 0,
-        "y": 0,
-        "width": 3,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "F",
-        "x": 2,
-        "y": 3,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "G",
-        "x": 1,
-        "y": 2,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "H",
-        "x": 5,
-        "y": 1,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "I",
-        "x": 1,
-        "y": 4,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "J",
-        "x": 2,
-        "y": 2,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "K",
-        "x": 0,
-        "y": 1,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "L",
-        "x": 5,
-        "y": 3,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      }
-    ],
-    "startAxis": "V",
-    "exit": {
-      "side": "bottom",
-      "cell": 3
-    },
-    "switches": [
-      {
-        "x": 4,
-        "y": 3
-      },
-      {
-        "x": 3,
-        "y": 3
-      }
-    ]
-  },
-  {
-    "id": "slipout-level-v4-55",
-    "number": 55,
-    "difficulty": "hard",
-    "optimalMoves": 30,
+    "optimalMoves": 28,
     "blocks": [
       {
         "id": "X",
@@ -5671,15 +5656,15 @@
         "x": 5,
         "y": 3,
         "width": 1,
-        "height": 2,
+        "height": 3,
         "axis": "V"
       },
       {
         "id": "H",
         "x": 5,
-        "y": 0,
+        "y": 1,
         "width": 1,
-        "height": 3,
+        "height": 2,
         "axis": "V"
       },
       {
@@ -5730,8 +5715,8 @@
         "y": 1
       },
       {
-        "x": 1,
-        "y": 3
+        "x": 4,
+        "y": 1
       },
       {
         "x": 1,
@@ -5748,8 +5733,8 @@
     ]
   },
   {
-    "id": "slipout-level-v4-56",
-    "number": 56,
+    "id": "slipout-level-v6-55",
+    "number": 55,
     "difficulty": "hard",
     "optimalMoves": 21,
     "blocks": [
@@ -5787,9 +5772,9 @@
       },
       {
         "id": "D",
-        "x": 1,
+        "x": 4,
         "y": 0,
-        "width": 3,
+        "width": 2,
         "height": 1,
         "axis": "H"
       },
@@ -5803,8 +5788,8 @@
       },
       {
         "id": "F",
-        "x": 2,
-        "y": 2,
+        "x": 1,
+        "y": 4,
         "width": 2,
         "height": 1,
         "axis": "H"
@@ -5875,269 +5860,15 @@
     ]
   },
   {
-    "id": "slipout-level-v4-57",
-    "number": 57,
+    "id": "slipout-level-v6-56",
+    "number": 56,
     "difficulty": "hard",
     "optimalMoves": 20,
     "blocks": [
       {
         "id": "X",
-        "x": 4,
-        "y": 2,
-        "width": 1,
-        "height": 2,
-        "axis": "B"
-      },
-      {
-        "id": "A",
-        "x": 3,
-        "y": 1,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "B",
-        "x": 4,
-        "y": 4,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "C",
-        "x": 0,
-        "y": 1,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "D",
-        "x": 1,
-        "y": 0,
-        "width": 3,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "E",
-        "x": 1,
-        "y": 5,
-        "width": 3,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "F",
-        "x": 2,
-        "y": 2,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "G",
-        "x": 1,
-        "y": 2,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "H",
-        "x": 5,
-        "y": 3,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "I",
-        "x": 1,
-        "y": 1,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "J",
-        "x": 2,
-        "y": 3,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "K",
-        "x": 0,
-        "y": 3,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "L",
-        "x": 5,
-        "y": 1,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      }
-    ],
-    "startAxis": "V",
-    "exit": {
-      "side": "top",
-      "cell": 3
-    },
-    "switches": [
-      {
-        "x": 4,
-        "y": 2
-      },
-      {
-        "x": 3,
-        "y": 2
-      }
-    ]
-  },
-  {
-    "id": "slipout-level-v4-58",
-    "number": 58,
-    "difficulty": "hard",
-    "optimalMoves": 21,
-    "blocks": [
-      {
-        "id": "X",
-        "x": 2,
-        "y": 4,
-        "width": 2,
-        "height": 1,
-        "axis": "B"
-      },
-      {
-        "id": "A",
-        "x": 4,
-        "y": 3,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "B",
-        "x": 0,
-        "y": 4,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "C",
-        "x": 3,
-        "y": 0,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "D",
-        "x": 5,
-        "y": 1,
-        "width": 1,
-        "height": 3,
-        "axis": "V"
-      },
-      {
-        "id": "E",
-        "x": 0,
-        "y": 0,
-        "width": 1,
-        "height": 3,
-        "axis": "V"
-      },
-      {
-        "id": "F",
-        "x": 3,
-        "y": 2,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "G",
         "x": 2,
         "y": 1,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "H",
-        "x": 1,
-        "y": 5,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "I",
-        "x": 4,
-        "y": 1,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "J",
-        "x": 2,
-        "y": 2,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "K",
-        "x": 1,
-        "y": 0,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "L",
-        "x": 3,
-        "y": 5,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      }
-    ],
-    "startAxis": "H",
-    "exit": {
-      "side": "right",
-      "cell": 3
-    },
-    "switches": [
-      {
-        "x": 3,
-        "y": 4
-      },
-      {
-        "x": 3,
-        "y": 3
-      }
-    ]
-  },
-  {
-    "id": "slipout-level-v4-59",
-    "number": 59,
-    "difficulty": "hard",
-    "optimalMoves": 21,
-    "blocks": [
-      {
-        "id": "X",
-        "x": 2,
-        "y": 4,
         "width": 2,
         "height": 1,
         "axis": "B"
@@ -6145,7 +5876,7 @@
       {
         "id": "A",
         "x": 1,
-        "y": 3,
+        "y": 1,
         "width": 1,
         "height": 2,
         "axis": "V"
@@ -6153,7 +5884,7 @@
       {
         "id": "B",
         "x": 4,
-        "y": 4,
+        "y": 1,
         "width": 2,
         "height": 1,
         "axis": "H"
@@ -6161,7 +5892,7 @@
       {
         "id": "C",
         "x": 1,
-        "y": 0,
+        "y": 5,
         "width": 2,
         "height": 1,
         "axis": "H"
@@ -6169,17 +5900,17 @@
       {
         "id": "D",
         "x": 0,
-        "y": 1,
+        "y": 2,
         "width": 1,
-        "height": 3,
+        "height": 2,
         "axis": "V"
       },
       {
         "id": "E",
-        "x": 5,
+        "x": 0,
         "y": 0,
         "width": 1,
-        "height": 3,
+        "height": 2,
         "axis": "V"
       },
       {
@@ -6187,13 +5918,13 @@
         "x": 2,
         "y": 2,
         "width": 1,
-        "height": 2,
+        "height": 3,
         "axis": "V"
       },
       {
         "id": "G",
-        "x": 2,
-        "y": 1,
+        "x": 3,
+        "y": 4,
         "width": 2,
         "height": 1,
         "axis": "H"
@@ -6201,7 +5932,7 @@
       {
         "id": "H",
         "x": 3,
-        "y": 5,
+        "y": 0,
         "width": 2,
         "height": 1,
         "axis": "H"
@@ -6209,7 +5940,7 @@
       {
         "id": "I",
         "x": 1,
-        "y": 1,
+        "y": 3,
         "width": 1,
         "height": 2,
         "axis": "V"
@@ -6225,7 +5956,7 @@
       {
         "id": "K",
         "x": 3,
-        "y": 0,
+        "y": 5,
         "width": 2,
         "height": 1,
         "axis": "H"
@@ -6233,7 +5964,7 @@
       {
         "id": "L",
         "x": 1,
-        "y": 5,
+        "y": 0,
         "width": 2,
         "height": 1,
         "axis": "H"
@@ -6242,24 +5973,167 @@
     "startAxis": "H",
     "exit": {
       "side": "left",
-      "cell": 3
+      "cell": 2
     },
     "switches": [
       {
         "x": 2,
-        "y": 4
+        "y": 1
       },
       {
         "x": 2,
-        "y": 3
+        "y": 2
       }
     ]
   },
   {
-    "id": "slipout-level-v4-60",
-    "number": 60,
+    "id": "slipout-level-v6-57",
+    "number": 57,
     "difficulty": "hard",
-    "optimalMoves": 30,
+    "optimalMoves": 29,
+    "blocks": [
+      {
+        "id": "X",
+        "x": 1,
+        "y": 4,
+        "width": 1,
+        "height": 2,
+        "axis": "B"
+      },
+      {
+        "id": "A",
+        "x": 2,
+        "y": 1,
+        "width": 1,
+        "height": 3,
+        "axis": "V"
+      },
+      {
+        "id": "B",
+        "x": 4,
+        "y": 5,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "C",
+        "x": 4,
+        "y": 3,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "D",
+        "x": 3,
+        "y": 1,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "E",
+        "x": 3,
+        "y": 0,
+        "width": 3,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "F",
+        "x": 3,
+        "y": 2,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "G",
+        "x": 0,
+        "y": 1,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "H",
+        "x": 0,
+        "y": 4,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "I",
+        "x": 1,
+        "y": 1,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "J",
+        "x": 5,
+        "y": 2,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "K",
+        "x": 3,
+        "y": 4,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      }
+    ],
+    "startAxis": "V",
+    "exit": {
+      "side": "top",
+      "cell": 3
+    },
+    "switches": [
+      {
+        "x": 1,
+        "y": 3
+      },
+      {
+        "x": 2,
+        "y": 3
+      },
+      {
+        "x": 2,
+        "y": 5
+      },
+      {
+        "x": 4,
+        "y": 4
+      },
+      {
+        "x": 4,
+        "y": 2
+      },
+      {
+        "x": 4,
+        "y": 3
+      },
+      {
+        "x": 4,
+        "y": 0
+      },
+      {
+        "x": 3,
+        "y": 0
+      }
+    ]
+  },
+  {
+    "id": "slipout-level-v6-58",
+    "number": 58,
+    "difficulty": "hard",
+    "optimalMoves": 29,
     "blocks": [
       {
         "id": "X",
@@ -6280,14 +6154,14 @@
       {
         "id": "B",
         "x": 5,
-        "y": 1,
+        "y": 2,
         "width": 1,
         "height": 2,
         "axis": "V"
       },
       {
         "id": "C",
-        "x": 3,
+        "x": 4,
         "y": 1,
         "width": 2,
         "height": 1,
@@ -6311,7 +6185,7 @@
       },
       {
         "id": "F",
-        "x": 3,
+        "x": 4,
         "y": 0,
         "width": 2,
         "height": 1,
@@ -6335,9 +6209,9 @@
       },
       {
         "id": "I",
-        "x": 0,
+        "x": 1,
         "y": 4,
-        "width": 3,
+        "width": 2,
         "height": 1,
         "axis": "H"
       },
@@ -6381,8 +6255,8 @@
         "y": 1
       },
       {
-        "x": 2,
-        "y": 1
+        "x": 0,
+        "y": 5
       },
       {
         "x": 3,
@@ -6394,6 +6268,276 @@
       },
       {
         "x": 0,
+        "y": 2
+      }
+    ]
+  },
+  {
+    "id": "slipout-level-v6-59",
+    "number": 59,
+    "difficulty": "hard",
+    "optimalMoves": 28,
+    "blocks": [
+      {
+        "id": "X",
+        "x": 4,
+        "y": 0,
+        "width": 1,
+        "height": 2,
+        "axis": "B"
+      },
+      {
+        "id": "A",
+        "x": 3,
+        "y": 2,
+        "width": 1,
+        "height": 3,
+        "axis": "V"
+      },
+      {
+        "id": "B",
+        "x": 0,
+        "y": 0,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "C",
+        "x": 1,
+        "y": 1,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "D",
+        "x": 1,
+        "y": 4,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "E",
+        "x": 2,
+        "y": 5,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "F",
+        "x": 0,
+        "y": 1,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "G",
+        "x": 5,
+        "y": 4,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "H",
+        "x": 5,
+        "y": 0,
+        "width": 1,
+        "height": 3,
+        "axis": "V"
+      },
+      {
+        "id": "I",
+        "x": 4,
+        "y": 3,
+        "width": 1,
+        "height": 3,
+        "axis": "V"
+      },
+      {
+        "id": "J",
+        "x": 0,
+        "y": 4,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "K",
+        "x": 2,
+        "y": 0,
+        "width": 1,
+        "height": 3,
+        "axis": "V"
+      }
+    ],
+    "startAxis": "V",
+    "exit": {
+      "side": "bottom",
+      "cell": 2
+    },
+    "switches": [
+      {
+        "x": 4,
+        "y": 2
+      },
+      {
+        "x": 3,
+        "y": 2
+      },
+      {
+        "x": 3,
+        "y": 0
+      },
+      {
+        "x": 1,
+        "y": 1
+      },
+      {
+        "x": 1,
+        "y": 3
+      },
+      {
+        "x": 1,
+        "y": 2
+      },
+      {
+        "x": 1,
+        "y": 4
+      },
+      {
+        "x": 2,
+        "y": 5
+      }
+    ]
+  },
+  {
+    "id": "slipout-level-v6-60",
+    "number": 60,
+    "difficulty": "hard",
+    "optimalMoves": 20,
+    "blocks": [
+      {
+        "id": "X",
+        "x": 2,
+        "y": 1,
+        "width": 2,
+        "height": 1,
+        "axis": "B"
+      },
+      {
+        "id": "A",
+        "x": 1,
+        "y": 1,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "B",
+        "x": 4,
+        "y": 1,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "C",
+        "x": 0,
+        "y": 5,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "D",
+        "x": 0,
+        "y": 2,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "E",
+        "x": 5,
+        "y": 2,
+        "width": 1,
+        "height": 3,
+        "axis": "V"
+      },
+      {
+        "id": "F",
+        "x": 2,
+        "y": 2,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "G",
+        "x": 2,
+        "y": 4,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "H",
+        "x": 3,
+        "y": 0,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "I",
+        "x": 1,
+        "y": 3,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "J",
+        "x": 3,
+        "y": 2,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "K",
+        "x": 3,
+        "y": 5,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "L",
+        "x": 1,
+        "y": 0,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      }
+    ],
+    "startAxis": "H",
+    "exit": {
+      "side": "left",
+      "cell": 2
+    },
+    "switches": [
+      {
+        "x": 2,
+        "y": 1
+      },
+      {
+        "x": 2,
         "y": 2
       }
     ]
@@ -6814,97 +6958,14 @@
     ]
   },
   {
-    "id": "slipout-level-v5-66",
+    "id": "slipout-level-v6-66",
     "number": 66,
     "difficulty": "easy",
-    "optimalMoves": 12,
+    "optimalMoves": 10,
     "blocks": [
       {
         "id": "X",
-        "x": 1,
-        "y": 3,
-        "width": 1,
-        "height": 1,
-        "axis": "B"
-      },
-      {
-        "id": "A",
-        "x": 2,
-        "y": 2,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "B",
-        "x": 4,
-        "y": 2,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "C",
-        "x": 2,
-        "y": 5,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "G",
-        "x": 2,
-        "y": 3,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "J",
-        "x": 5,
-        "y": 2,
-        "width": 1,
-        "height": 3,
-        "axis": "V"
-      },
-      {
-        "id": "K",
-        "x": 4,
-        "y": 5,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      }
-    ],
-    "startAxis": "H",
-    "exit": {
-      "side": "top",
-      "cell": 5
-    },
-    "switches": [
-      {
         "x": 3,
-        "y": 3
-      },
-      {
-        "x": 3,
-        "y": 2
-      },
-      {
-        "x": 5,
-        "y": 2
-      }
-    ]
-  },
-  {
-    "id": "slipout-level-v5-67",
-    "number": 67,
-    "difficulty": "easy",
-    "optimalMoves": 11,
-    "blocks": [
-      {
-        "id": "X",
-        "x": 2,
         "y": 4,
         "width": 1,
         "height": 1,
@@ -6912,15 +6973,15 @@
       },
       {
         "id": "A",
-        "x": 3,
-        "y": 2,
+        "x": 0,
+        "y": 1,
         "width": 1,
-        "height": 2,
+        "height": 3,
         "axis": "V"
       },
       {
         "id": "B",
-        "x": 4,
+        "x": 3,
         "y": 1,
         "width": 2,
         "height": 1,
@@ -6928,23 +6989,23 @@
       },
       {
         "id": "C",
-        "x": 0,
-        "y": 2,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "G",
-        "x": 2,
+        "x": 1,
         "y": 1,
         "width": 1,
         "height": 2,
         "axis": "V"
       },
       {
+        "id": "G",
+        "x": 3,
+        "y": 2,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
         "id": "J",
-        "x": 1,
+        "x": 2,
         "y": 0,
         "width": 3,
         "height": 1,
@@ -6952,7 +7013,7 @@
       },
       {
         "id": "K",
-        "x": 0,
+        "x": 5,
         "y": 0,
         "width": 1,
         "height": 2,
@@ -6961,21 +7022,104 @@
     ],
     "startAxis": "V",
     "exit": {
-      "side": "right",
+      "side": "left",
       "cell": 0
     },
     "switches": [
+      {
+        "x": 3,
+        "y": 2
+      },
       {
         "x": 2,
         "y": 2
       },
       {
+        "x": 2,
+        "y": 0
+      }
+    ]
+  },
+  {
+    "id": "slipout-level-v6-67",
+    "number": 67,
+    "difficulty": "easy",
+    "optimalMoves": 10,
+    "blocks": [
+      {
+        "id": "X",
         "x": 3,
-        "y": 2
+        "y": 1,
+        "width": 1,
+        "height": 1,
+        "axis": "B"
       },
       {
+        "id": "A",
+        "x": 2,
+        "y": 2,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "B",
+        "x": 1,
+        "y": 4,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "C",
+        "x": 5,
+        "y": 2,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "G",
         "x": 3,
-        "y": 0
+        "y": 3,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "J",
+        "x": 1,
+        "y": 5,
+        "width": 3,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "K",
+        "x": 4,
+        "y": 2,
+        "width": 1,
+        "height": 3,
+        "axis": "V"
+      }
+    ],
+    "startAxis": "V",
+    "exit": {
+      "side": "left",
+      "cell": 5
+    },
+    "switches": [
+      {
+        "x": 3,
+        "y": 3
+      },
+      {
+        "x": 2,
+        "y": 3
+      },
+      {
+        "x": 2,
+        "y": 5
       }
     ]
   },
@@ -7063,10 +7207,10 @@
     ]
   },
   {
-    "id": "slipout-level-v5-69",
+    "id": "slipout-level-v6-69",
     "number": 69,
     "difficulty": "easy",
-    "optimalMoves": 11,
+    "optimalMoves": 12,
     "blocks": [
       {
         "id": "X",
@@ -7078,17 +7222,17 @@
       },
       {
         "id": "A",
-        "x": 3,
-        "y": 2,
+        "x": 4,
+        "y": 1,
         "width": 1,
-        "height": 2,
+        "height": 3,
         "axis": "V"
       },
       {
         "id": "B",
         "x": 1,
         "y": 4,
-        "width": 2,
+        "width": 3,
         "height": 1,
         "axis": "H"
       },
@@ -7146,10 +7290,10 @@
     ]
   },
   {
-    "id": "slipout-level-v5-70",
+    "id": "slipout-level-v6-70",
     "number": 70,
     "difficulty": "easy",
-    "optimalMoves": 11,
+    "optimalMoves": 10,
     "blocks": [
       {
         "id": "X",
@@ -7169,16 +7313,16 @@
       },
       {
         "id": "B",
-        "x": 4,
-        "y": 1,
+        "x": 1,
+        "y": 3,
         "width": 1,
         "height": 2,
         "axis": "V"
       },
       {
         "id": "C",
-        "x": 0,
-        "y": 0,
+        "x": 4,
+        "y": 5,
         "width": 2,
         "height": 1,
         "axis": "H"
@@ -7186,7 +7330,7 @@
       {
         "id": "G",
         "x": 2,
-        "y": 2,
+        "y": 5,
         "width": 2,
         "height": 1,
         "axis": "H"
@@ -7229,10 +7373,10 @@
     ]
   },
   {
-    "id": "slipout-level-v5-71",
+    "id": "slipout-level-v6-71",
     "number": 71,
     "difficulty": "medium",
-    "optimalMoves": 19,
+    "optimalMoves": 14,
     "blocks": [
       {
         "id": "X",
@@ -7261,24 +7405,24 @@
       {
         "id": "C",
         "x": 0,
-        "y": 0,
+        "y": 1,
         "width": 1,
         "height": 2,
         "axis": "V"
       },
       {
         "id": "D",
-        "x": 1,
+        "x": 2,
         "y": 0,
-        "width": 3,
+        "width": 2,
         "height": 1,
         "axis": "H"
       },
       {
         "id": "E",
         "x": 0,
-        "y": 5,
-        "width": 3,
+        "y": 0,
+        "width": 2,
         "height": 1,
         "axis": "H"
       },
@@ -7348,434 +7492,61 @@
     ]
   },
   {
-    "id": "slipout-level-v5-72",
+    "id": "slipout-level-v6-72",
     "number": 72,
     "difficulty": "medium",
     "optimalMoves": 19,
     "blocks": [
       {
         "id": "X",
-        "x": 4,
-        "y": 2,
-        "width": 1,
-        "height": 2,
+        "x": 2,
+        "y": 4,
+        "width": 2,
+        "height": 1,
         "axis": "B"
       },
       {
         "id": "A",
-        "x": 3,
-        "y": 1,
+        "x": 4,
+        "y": 3,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "B",
+        "x": 0,
+        "y": 4,
         "width": 2,
         "height": 1,
         "axis": "H"
       },
       {
-        "id": "B",
-        "x": 4,
-        "y": 4,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
         "id": "C",
-        "x": 0,
+        "x": 4,
         "y": 0,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
+        "width": 2,
+        "height": 1,
+        "axis": "H"
       },
       {
         "id": "D",
-        "x": 2,
-        "y": 0,
-        "width": 3,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "E",
-        "x": 0,
-        "y": 5,
-        "width": 3,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "F",
-        "x": 2,
-        "y": 2,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "G",
-        "x": 1,
-        "y": 2,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "I",
-        "x": 1,
-        "y": 1,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "J",
-        "x": 2,
-        "y": 3,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "K",
-        "x": 0,
-        "y": 3,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "L",
         "x": 5,
         "y": 1,
         "width": 1,
         "height": 2,
         "axis": "V"
-      }
-    ],
-    "startAxis": "V",
-    "exit": {
-      "side": "top",
-      "cell": 3
-    },
-    "switches": [
-      {
-        "x": 4,
-        "y": 2
-      },
-      {
-        "x": 3,
-        "y": 2
-      }
-    ]
-  },
-  {
-    "id": "slipout-level-v5-73",
-    "number": 73,
-    "difficulty": "medium",
-    "optimalMoves": 19,
-    "blocks": [
-      {
-        "id": "X",
-        "x": 4,
-        "y": 2,
-        "width": 1,
-        "height": 2,
-        "axis": "B"
-      },
-      {
-        "id": "A",
-        "x": 3,
-        "y": 1,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "B",
-        "x": 4,
-        "y": 4,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "C",
-        "x": 0,
-        "y": 1,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "D",
-        "x": 1,
-        "y": 0,
-        "width": 3,
-        "height": 1,
-        "axis": "H"
       },
       {
         "id": "E",
         "x": 0,
-        "y": 5,
-        "width": 3,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "F",
-        "x": 2,
-        "y": 2,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "G",
-        "x": 1,
-        "y": 2,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "I",
-        "x": 1,
-        "y": 1,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "J",
-        "x": 2,
-        "y": 3,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "K",
-        "x": 0,
-        "y": 3,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "L",
-        "x": 5,
-        "y": 3,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      }
-    ],
-    "startAxis": "V",
-    "exit": {
-      "side": "top",
-      "cell": 3
-    },
-    "switches": [
-      {
-        "x": 4,
-        "y": 2
-      },
-      {
-        "x": 3,
-        "y": 2
-      }
-    ]
-  },
-  {
-    "id": "slipout-level-v5-74",
-    "number": 74,
-    "difficulty": "medium",
-    "optimalMoves": 19,
-    "blocks": [
-      {
-        "id": "X",
-        "x": 4,
-        "y": 2,
-        "width": 1,
-        "height": 2,
-        "axis": "B"
-      },
-      {
-        "id": "A",
-        "x": 3,
-        "y": 1,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "B",
-        "x": 4,
-        "y": 4,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "C",
-        "x": 0,
-        "y": 0,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "D",
-        "x": 1,
-        "y": 0,
-        "width": 3,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "E",
-        "x": 0,
-        "y": 5,
-        "width": 3,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "F",
-        "x": 2,
-        "y": 2,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "G",
-        "x": 1,
-        "y": 3,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "I",
-        "x": 1,
-        "y": 1,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "J",
-        "x": 2,
-        "y": 3,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "K",
-        "x": 0,
-        "y": 3,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "L",
-        "x": 5,
-        "y": 1,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      }
-    ],
-    "startAxis": "V",
-    "exit": {
-      "side": "top",
-      "cell": 3
-    },
-    "switches": [
-      {
-        "x": 4,
-        "y": 2
-      },
-      {
-        "x": 3,
-        "y": 2
-      }
-    ]
-  },
-  {
-    "id": "slipout-level-v5-75",
-    "number": 75,
-    "difficulty": "medium",
-    "optimalMoves": 19,
-    "blocks": [
-      {
-        "id": "X",
-        "x": 2,
-        "y": 4,
-        "width": 2,
-        "height": 1,
-        "axis": "B"
-      },
-      {
-        "id": "A",
-        "x": 1,
-        "y": 3,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "B",
-        "x": 4,
-        "y": 4,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "C",
-        "x": 1,
-        "y": 0,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "E",
-        "x": 5,
         "y": 0,
         "width": 1,
         "height": 3,
         "axis": "V"
       },
       {
-        "id": "G",
-        "x": 2,
-        "y": 1,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "H",
-        "x": 3,
-        "y": 5,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "I",
-        "x": 1,
-        "y": 1,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "J",
+        "id": "F",
         "x": 3,
         "y": 2,
         "width": 1,
@@ -7783,8 +7554,32 @@
         "axis": "V"
       },
       {
+        "id": "G",
+        "x": 0,
+        "y": 3,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "I",
+        "x": 4,
+        "y": 1,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "J",
+        "x": 2,
+        "y": 2,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
         "id": "K",
-        "x": 3,
+        "x": 1,
         "y": 0,
         "width": 2,
         "height": 1,
@@ -7792,7 +7587,7 @@
       },
       {
         "id": "L",
-        "x": 1,
+        "x": 3,
         "y": 5,
         "width": 2,
         "height": 1,
@@ -7801,17 +7596,374 @@
     ],
     "startAxis": "H",
     "exit": {
-      "side": "left",
+      "side": "right",
       "cell": 3
     },
     "switches": [
       {
-        "x": 2,
+        "x": 3,
         "y": 4
+      },
+      {
+        "x": 3,
+        "y": 3
+      }
+    ]
+  },
+  {
+    "id": "slipout-level-v6-73",
+    "number": 73,
+    "difficulty": "medium",
+    "optimalMoves": 15,
+    "blocks": [
+      {
+        "id": "X",
+        "x": 1,
+        "y": 2,
+        "width": 1,
+        "height": 2,
+        "axis": "B"
+      },
+      {
+        "id": "A",
+        "x": 1,
+        "y": 4,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "B",
+        "x": 1,
+        "y": 0,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "C",
+        "x": 5,
+        "y": 4,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "D",
+        "x": 2,
+        "y": 5,
+        "width": 3,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "E",
+        "x": 3,
+        "y": 1,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "F",
+        "x": 2,
+        "y": 3,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "G",
+        "x": 4,
+        "y": 2,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "I",
+        "x": 3,
+        "y": 4,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "J",
+        "x": 2,
+        "y": 2,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "K",
+        "x": 5,
+        "y": 1,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "L",
+        "x": 0,
+        "y": 3,
+        "width": 1,
+        "height": 3,
+        "axis": "V"
+      }
+    ],
+    "startAxis": "V",
+    "exit": {
+      "side": "bottom",
+      "cell": 2
+    },
+    "switches": [
+      {
+        "x": 1,
+        "y": 2
       },
       {
         "x": 2,
         "y": 3
+      }
+    ]
+  },
+  {
+    "id": "slipout-level-v6-74",
+    "number": 74,
+    "difficulty": "medium",
+    "optimalMoves": 15,
+    "blocks": [
+      {
+        "id": "X",
+        "x": 2,
+        "y": 1,
+        "width": 2,
+        "height": 1,
+        "axis": "B"
+      },
+      {
+        "id": "A",
+        "x": 1,
+        "y": 1,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "B",
+        "x": 4,
+        "y": 1,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "C",
+        "x": 0,
+        "y": 5,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "D",
+        "x": 0,
+        "y": 2,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "E",
+        "x": 5,
+        "y": 3,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "F",
+        "x": 2,
+        "y": 4,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "G",
+        "x": 3,
+        "y": 4,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "I",
+        "x": 1,
+        "y": 3,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "J",
+        "x": 3,
+        "y": 2,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "K",
+        "x": 3,
+        "y": 5,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "L",
+        "x": 1,
+        "y": 0,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      }
+    ],
+    "startAxis": "H",
+    "exit": {
+      "side": "left",
+      "cell": 2
+    },
+    "switches": [
+      {
+        "x": 2,
+        "y": 1
+      },
+      {
+        "x": 2,
+        "y": 2
+      }
+    ]
+  },
+  {
+    "id": "slipout-level-v6-75",
+    "number": 75,
+    "difficulty": "medium",
+    "optimalMoves": 14,
+    "blocks": [
+      {
+        "id": "X",
+        "x": 4,
+        "y": 2,
+        "width": 1,
+        "height": 2,
+        "axis": "B"
+      },
+      {
+        "id": "A",
+        "x": 3,
+        "y": 1,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "B",
+        "x": 4,
+        "y": 4,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "C",
+        "x": 0,
+        "y": 0,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "D",
+        "x": 1,
+        "y": 0,
+        "width": 3,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "E",
+        "x": 0,
+        "y": 5,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "F",
+        "x": 2,
+        "y": 2,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "G",
+        "x": 5,
+        "y": 4,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "I",
+        "x": 1,
+        "y": 1,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "J",
+        "x": 2,
+        "y": 3,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "K",
+        "x": 0,
+        "y": 3,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "L",
+        "x": 5,
+        "y": 1,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      }
+    ],
+    "startAxis": "V",
+    "exit": {
+      "side": "top",
+      "cell": 3
+    },
+    "switches": [
+      {
+        "x": 4,
+        "y": 2
+      },
+      {
+        "x": 3,
+        "y": 2
       }
     ]
   },
@@ -7935,14 +8087,14 @@
     ]
   },
   {
-    "id": "slipout-level-v5-77",
+    "id": "slipout-level-v6-77",
     "number": 77,
     "difficulty": "medium",
-    "optimalMoves": 18,
+    "optimalMoves": 16,
     "blocks": [
       {
         "id": "X",
-        "x": 4,
+        "x": 1,
         "y": 2,
         "width": 1,
         "height": 2,
@@ -7950,24 +8102,24 @@
       },
       {
         "id": "A",
-        "x": 3,
+        "x": 2,
         "y": 1,
-        "width": 2,
+        "width": 3,
         "height": 1,
         "axis": "H"
       },
       {
         "id": "B",
-        "x": 4,
-        "y": 4,
+        "x": 1,
+        "y": 0,
         "width": 1,
         "height": 2,
         "axis": "V"
       },
       {
         "id": "C",
-        "x": 0,
-        "y": 0,
+        "x": 5,
+        "y": 4,
         "width": 1,
         "height": 2,
         "axis": "V"
@@ -7975,15 +8127,15 @@
       {
         "id": "D",
         "x": 1,
-        "y": 0,
+        "y": 5,
         "width": 3,
         "height": 1,
         "axis": "H"
       },
       {
         "id": "E",
-        "x": 1,
-        "y": 5,
+        "x": 3,
+        "y": 0,
         "width": 3,
         "height": 1,
         "axis": "H"
@@ -7991,14 +8143,14 @@
       {
         "id": "F",
         "x": 2,
-        "y": 2,
+        "y": 3,
         "width": 2,
         "height": 1,
         "axis": "H"
       },
       {
         "id": "G",
-        "x": 1,
+        "x": 4,
         "y": 2,
         "width": 1,
         "height": 2,
@@ -8007,31 +8159,31 @@
       {
         "id": "I",
         "x": 1,
-        "y": 1,
-        "width": 2,
+        "y": 4,
+        "width": 3,
         "height": 1,
         "axis": "H"
       },
       {
         "id": "J",
         "x": 2,
-        "y": 3,
+        "y": 2,
         "width": 2,
         "height": 1,
         "axis": "H"
       },
       {
         "id": "K",
-        "x": 0,
-        "y": 3,
+        "x": 5,
+        "y": 1,
         "width": 1,
         "height": 2,
         "axis": "V"
       },
       {
         "id": "L",
-        "x": 5,
-        "y": 1,
+        "x": 0,
+        "y": 4,
         "width": 1,
         "height": 2,
         "axis": "V"
@@ -8039,135 +8191,135 @@
     ],
     "startAxis": "V",
     "exit": {
-      "side": "top",
-      "cell": 3
+      "side": "bottom",
+      "cell": 2
     },
     "switches": [
       {
-        "x": 4,
-        "y": 2
+        "x": 1,
+        "y": 3
       },
       {
-        "x": 3,
-        "y": 2
+        "x": 2,
+        "y": 3
       }
     ]
   },
   {
-    "id": "slipout-level-v5-78",
+    "id": "slipout-level-v6-78",
     "number": 78,
     "difficulty": "medium",
-    "optimalMoves": 19,
+    "optimalMoves": 14,
     "blocks": [
       {
         "id": "X",
-        "x": 4,
-        "y": 2,
-        "width": 1,
-        "height": 2,
+        "x": 2,
+        "y": 1,
+        "width": 2,
+        "height": 1,
         "axis": "B"
       },
       {
         "id": "A",
-        "x": 3,
+        "x": 1,
         "y": 1,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
+        "width": 1,
+        "height": 2,
+        "axis": "V"
       },
       {
         "id": "B",
         "x": 4,
-        "y": 4,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "C",
-        "x": 0,
-        "y": 0,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "D",
-        "x": 3,
-        "y": 0,
-        "width": 3,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "E",
-        "x": 0,
-        "y": 5,
-        "width": 3,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "F",
-        "x": 2,
-        "y": 2,
+        "y": 1,
         "width": 2,
         "height": 1,
         "axis": "H"
       },
       {
-        "id": "G",
+        "id": "C",
         "x": 1,
+        "y": 5,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "D",
+        "x": 0,
+        "y": 2,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "E",
+        "x": 4,
+        "y": 2,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "F",
+        "x": 5,
         "y": 3,
         "width": 1,
         "height": 2,
         "axis": "V"
+      },
+      {
+        "id": "G",
+        "x": 2,
+        "y": 4,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
       },
       {
         "id": "I",
         "x": 1,
-        "y": 1,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
+        "y": 3,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
       },
       {
         "id": "J",
-        "x": 2,
-        "y": 3,
+        "x": 3,
+        "y": 2,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "K",
+        "x": 3,
+        "y": 5,
         "width": 2,
         "height": 1,
         "axis": "H"
       },
       {
-        "id": "K",
-        "x": 0,
-        "y": 3,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
         "id": "L",
-        "x": 5,
-        "y": 1,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
+        "x": 1,
+        "y": 0,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
       }
     ],
-    "startAxis": "V",
+    "startAxis": "H",
     "exit": {
-      "side": "top",
-      "cell": 3
+      "side": "left",
+      "cell": 2
     },
     "switches": [
       {
-        "x": 4,
-        "y": 2
+        "x": 2,
+        "y": 1
       },
       {
-        "x": 3,
+        "x": 2,
         "y": 2
       }
     ]
@@ -8284,10 +8436,256 @@
     ]
   },
   {
-    "id": "slipout-level-v5-80",
+    "id": "slipout-level-v6-80",
     "number": 80,
     "difficulty": "medium",
-    "optimalMoves": 19,
+    "optimalMoves": 16,
+    "blocks": [
+      {
+        "id": "X",
+        "x": 2,
+        "y": 4,
+        "width": 2,
+        "height": 1,
+        "axis": "B"
+      },
+      {
+        "id": "A",
+        "x": 1,
+        "y": 1,
+        "width": 1,
+        "height": 3,
+        "axis": "V"
+      },
+      {
+        "id": "B",
+        "x": 0,
+        "y": 4,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "C",
+        "x": 3,
+        "y": 0,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "D",
+        "x": 5,
+        "y": 2,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "E",
+        "x": 5,
+        "y": 0,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "F",
+        "x": 3,
+        "y": 2,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "G",
+        "x": 2,
+        "y": 1,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "I",
+        "x": 4,
+        "y": 2,
+        "width": 1,
+        "height": 3,
+        "axis": "V"
+      },
+      {
+        "id": "J",
+        "x": 2,
+        "y": 2,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "K",
+        "x": 1,
+        "y": 0,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "L",
+        "x": 4,
+        "y": 5,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      }
+    ],
+    "startAxis": "H",
+    "exit": {
+      "side": "right",
+      "cell": 3
+    },
+    "switches": [
+      {
+        "x": 3,
+        "y": 4
+      },
+      {
+        "x": 3,
+        "y": 3
+      }
+    ]
+  },
+  {
+    "id": "slipout-level-v6-81",
+    "number": 81,
+    "difficulty": "hard",
+    "optimalMoves": 20,
+    "blocks": [
+      {
+        "id": "X",
+        "x": 2,
+        "y": 1,
+        "width": 2,
+        "height": 1,
+        "axis": "B"
+      },
+      {
+        "id": "A",
+        "x": 1,
+        "y": 1,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "B",
+        "x": 4,
+        "y": 1,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "C",
+        "x": 1,
+        "y": 5,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "D",
+        "x": 0,
+        "y": 2,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "E",
+        "x": 4,
+        "y": 2,
+        "width": 1,
+        "height": 3,
+        "axis": "V"
+      },
+      {
+        "id": "F",
+        "x": 2,
+        "y": 2,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "G",
+        "x": 2,
+        "y": 4,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "H",
+        "x": 3,
+        "y": 0,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "I",
+        "x": 1,
+        "y": 3,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "J",
+        "x": 3,
+        "y": 2,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "K",
+        "x": 3,
+        "y": 5,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "L",
+        "x": 1,
+        "y": 0,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      }
+    ],
+    "startAxis": "H",
+    "exit": {
+      "side": "left",
+      "cell": 2
+    },
+    "switches": [
+      {
+        "x": 2,
+        "y": 1
+      },
+      {
+        "x": 2,
+        "y": 2
+      }
+    ]
+  },
+  {
+    "id": "slipout-level-v6-82",
+    "number": 82,
+    "difficulty": "hard",
+    "optimalMoves": 20,
     "blocks": [
       {
         "id": "X",
@@ -8316,14 +8714,14 @@
       {
         "id": "C",
         "x": 0,
-        "y": 0,
+        "y": 1,
         "width": 1,
         "height": 2,
         "axis": "V"
       },
       {
         "id": "D",
-        "x": 2,
+        "x": 1,
         "y": 0,
         "width": 3,
         "height": 1,
@@ -8333,21 +8731,29 @@
         "id": "E",
         "x": 0,
         "y": 5,
-        "width": 3,
+        "width": 2,
         "height": 1,
         "axis": "H"
       },
       {
         "id": "F",
-        "x": 2,
-        "y": 2,
-        "width": 2,
+        "x": 1,
+        "y": 4,
+        "width": 3,
         "height": 1,
         "axis": "H"
       },
       {
         "id": "G",
         "x": 1,
+        "y": 2,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "H",
+        "x": 5,
         "y": 3,
         "width": 1,
         "height": 2,
@@ -8403,261 +8809,7 @@
     ]
   },
   {
-    "id": "slipout-level-v5-81",
-    "number": 81,
-    "difficulty": "hard",
-    "optimalMoves": 21,
-    "blocks": [
-      {
-        "id": "X",
-        "x": 2,
-        "y": 1,
-        "width": 2,
-        "height": 1,
-        "axis": "B"
-      },
-      {
-        "id": "A",
-        "x": 1,
-        "y": 1,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "B",
-        "x": 4,
-        "y": 1,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "C",
-        "x": 1,
-        "y": 5,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "D",
-        "x": 0,
-        "y": 2,
-        "width": 1,
-        "height": 3,
-        "axis": "V"
-      },
-      {
-        "id": "E",
-        "x": 5,
-        "y": 3,
-        "width": 1,
-        "height": 3,
-        "axis": "V"
-      },
-      {
-        "id": "F",
-        "x": 2,
-        "y": 2,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "G",
-        "x": 3,
-        "y": 4,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "H",
-        "x": 3,
-        "y": 0,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "I",
-        "x": 1,
-        "y": 3,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "J",
-        "x": 3,
-        "y": 2,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "K",
-        "x": 3,
-        "y": 5,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "L",
-        "x": 1,
-        "y": 0,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      }
-    ],
-    "startAxis": "H",
-    "exit": {
-      "side": "left",
-      "cell": 2
-    },
-    "switches": [
-      {
-        "x": 2,
-        "y": 1
-      },
-      {
-        "x": 2,
-        "y": 2
-      }
-    ]
-  },
-  {
-    "id": "slipout-level-v5-82",
-    "number": 82,
-    "difficulty": "hard",
-    "optimalMoves": 20,
-    "blocks": [
-      {
-        "id": "X",
-        "x": 2,
-        "y": 1,
-        "width": 2,
-        "height": 1,
-        "axis": "B"
-      },
-      {
-        "id": "A",
-        "x": 1,
-        "y": 1,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "B",
-        "x": 4,
-        "y": 1,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "C",
-        "x": 1,
-        "y": 5,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "D",
-        "x": 0,
-        "y": 2,
-        "width": 1,
-        "height": 3,
-        "axis": "V"
-      },
-      {
-        "id": "E",
-        "x": 5,
-        "y": 3,
-        "width": 1,
-        "height": 3,
-        "axis": "V"
-      },
-      {
-        "id": "F",
-        "x": 2,
-        "y": 2,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "G",
-        "x": 2,
-        "y": 4,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "H",
-        "x": 4,
-        "y": 0,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "I",
-        "x": 1,
-        "y": 3,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "J",
-        "x": 3,
-        "y": 2,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "K",
-        "x": 3,
-        "y": 5,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "L",
-        "x": 1,
-        "y": 0,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      }
-    ],
-    "startAxis": "H",
-    "exit": {
-      "side": "left",
-      "cell": 2
-    },
-    "switches": [
-      {
-        "x": 2,
-        "y": 1
-      },
-      {
-        "x": 2,
-        "y": 2
-      }
-    ]
-  },
-  {
-    "id": "slipout-level-v5-83",
+    "id": "slipout-level-v6-83",
     "number": 83,
     "difficulty": "hard",
     "optimalMoves": 20,
@@ -8665,54 +8817,54 @@
       {
         "id": "X",
         "x": 2,
-        "y": 1,
+        "y": 4,
         "width": 2,
         "height": 1,
         "axis": "B"
       },
       {
         "id": "A",
-        "x": 1,
-        "y": 1,
+        "x": 4,
+        "y": 3,
         "width": 1,
         "height": 2,
         "axis": "V"
       },
       {
         "id": "B",
-        "x": 4,
-        "y": 1,
+        "x": 0,
+        "y": 4,
         "width": 2,
         "height": 1,
         "axis": "H"
       },
       {
         "id": "C",
-        "x": 0,
-        "y": 5,
+        "x": 3,
+        "y": 0,
         "width": 2,
         "height": 1,
         "axis": "H"
       },
       {
         "id": "D",
-        "x": 0,
+        "x": 5,
         "y": 2,
         "width": 1,
-        "height": 3,
+        "height": 2,
         "axis": "V"
       },
       {
         "id": "E",
-        "x": 5,
-        "y": 2,
+        "x": 0,
+        "y": 0,
         "width": 1,
         "height": 3,
         "axis": "V"
       },
       {
         "id": "F",
-        "x": 2,
+        "x": 3,
         "y": 2,
         "width": 1,
         "height": 2,
@@ -8720,31 +8872,31 @@
       },
       {
         "id": "G",
-        "x": 3,
-        "y": 4,
+        "x": 1,
+        "y": 1,
         "width": 2,
         "height": 1,
         "axis": "H"
       },
       {
         "id": "H",
-        "x": 3,
-        "y": 0,
+        "x": 1,
+        "y": 5,
         "width": 2,
         "height": 1,
         "axis": "H"
       },
       {
         "id": "I",
-        "x": 1,
-        "y": 3,
+        "x": 4,
+        "y": 1,
         "width": 1,
         "height": 2,
         "axis": "V"
       },
       {
         "id": "J",
-        "x": 3,
+        "x": 2,
         "y": 2,
         "width": 1,
         "height": 2,
@@ -8752,16 +8904,16 @@
       },
       {
         "id": "K",
-        "x": 3,
-        "y": 5,
+        "x": 1,
+        "y": 0,
         "width": 2,
         "height": 1,
         "axis": "H"
       },
       {
         "id": "L",
-        "x": 1,
-        "y": 0,
+        "x": 4,
+        "y": 5,
         "width": 2,
         "height": 1,
         "axis": "H"
@@ -8769,84 +8921,100 @@
     ],
     "startAxis": "H",
     "exit": {
-      "side": "left",
-      "cell": 2
+      "side": "right",
+      "cell": 3
     },
     "switches": [
       {
-        "x": 2,
-        "y": 1
+        "x": 3,
+        "y": 4
       },
       {
-        "x": 2,
-        "y": 2
+        "x": 3,
+        "y": 3
       }
     ]
   },
   {
-    "id": "slipout-level-v5-84",
+    "id": "slipout-level-v6-84",
     "number": 84,
     "difficulty": "hard",
     "optimalMoves": 20,
     "blocks": [
       {
         "id": "X",
-        "x": 2,
-        "y": 1,
-        "width": 2,
-        "height": 1,
+        "x": 1,
+        "y": 2,
+        "width": 1,
+        "height": 2,
         "axis": "B"
       },
       {
         "id": "A",
         "x": 1,
-        "y": 1,
+        "y": 4,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "B",
+        "x": 1,
+        "y": 0,
         "width": 1,
         "height": 2,
         "axis": "V"
       },
       {
-        "id": "B",
-        "x": 4,
-        "y": 1,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
         "id": "C",
-        "x": 1,
-        "y": 5,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "D",
-        "x": 0,
-        "y": 1,
-        "width": 1,
-        "height": 3,
-        "axis": "V"
-      },
-      {
-        "id": "E",
         "x": 5,
         "y": 3,
         "width": 1,
-        "height": 3,
+        "height": 2,
         "axis": "V"
+      },
+      {
+        "id": "D",
+        "x": 3,
+        "y": 0,
+        "width": 3,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "E",
+        "x": 2,
+        "y": 1,
+        "width": 3,
+        "height": 1,
+        "axis": "H"
       },
       {
         "id": "F",
         "x": 2,
+        "y": 3,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "G",
+        "x": 4,
         "y": 2,
         "width": 1,
         "height": 2,
         "axis": "V"
       },
       {
-        "id": "G",
+        "id": "H",
+        "x": 0,
+        "y": 1,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "I",
         "x": 3,
         "y": 4,
         "width": 2,
@@ -8854,64 +9022,48 @@
         "axis": "H"
       },
       {
-        "id": "H",
-        "x": 3,
-        "y": 0,
-        "width": 2,
+        "id": "J",
+        "x": 0,
+        "y": 5,
+        "width": 3,
         "height": 1,
         "axis": "H"
-      },
-      {
-        "id": "I",
-        "x": 1,
-        "y": 3,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "J",
-        "x": 3,
-        "y": 2,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
       },
       {
         "id": "K",
-        "x": 3,
-        "y": 5,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
+        "x": 5,
+        "y": 1,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
       },
       {
         "id": "L",
         "x": 0,
-        "y": 0,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
+        "y": 3,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
       }
     ],
-    "startAxis": "H",
+    "startAxis": "V",
     "exit": {
-      "side": "left",
+      "side": "bottom",
       "cell": 2
     },
     "switches": [
       {
-        "x": 2,
-        "y": 1
+        "x": 1,
+        "y": 3
       },
       {
         "x": 2,
-        "y": 2
+        "y": 3
       }
     ]
   },
   {
-    "id": "slipout-level-v5-85",
+    "id": "slipout-level-v6-85",
     "number": 85,
     "difficulty": "hard",
     "optimalMoves": 20,
@@ -8953,21 +9105,21 @@
         "x": 0,
         "y": 2,
         "width": 1,
-        "height": 3,
+        "height": 2,
         "axis": "V"
       },
       {
         "id": "E",
-        "x": 5,
-        "y": 3,
+        "x": 4,
+        "y": 2,
         "width": 1,
         "height": 3,
         "axis": "V"
       },
       {
         "id": "F",
-        "x": 2,
-        "y": 2,
+        "x": 5,
+        "y": 3,
         "width": 1,
         "height": 2,
         "axis": "V"
@@ -8982,7 +9134,7 @@
       },
       {
         "id": "H",
-        "x": 2,
+        "x": 3,
         "y": 0,
         "width": 2,
         "height": 1,
@@ -9016,9 +9168,9 @@
         "id": "L",
         "x": 0,
         "y": 0,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
+        "width": 1,
+        "height": 2,
+        "axis": "V"
       }
     ],
     "startAxis": "H",
@@ -9038,204 +9190,164 @@
     ]
   },
   {
-    "id": "slipout-level-v5-86",
+    "id": "slipout-level-v6-86",
     "number": 86,
     "difficulty": "hard",
     "optimalMoves": 20,
     "blocks": [
       {
         "id": "X",
-        "x": 2,
-        "y": 1,
-        "width": 2,
-        "height": 1,
+        "x": 4,
+        "y": 2,
+        "width": 1,
+        "height": 2,
         "axis": "B"
       },
       {
         "id": "A",
-        "x": 1,
+        "x": 3,
         "y": 1,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
+        "width": 2,
+        "height": 1,
+        "axis": "H"
       },
       {
         "id": "B",
         "x": 4,
+        "y": 4,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "C",
+        "x": 0,
+        "y": 1,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "D",
+        "x": 0,
+        "y": 0,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "E",
+        "x": 4,
+        "y": 0,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "F",
+        "x": 1,
+        "y": 4,
+        "width": 3,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "G",
+        "x": 1,
+        "y": 2,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "H",
+        "x": 5,
+        "y": 3,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "I",
+        "x": 1,
         "y": 1,
         "width": 2,
         "height": 1,
         "axis": "H"
       },
       {
-        "id": "C",
-        "x": 1,
-        "y": 5,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "D",
-        "x": 0,
-        "y": 2,
-        "width": 1,
-        "height": 3,
-        "axis": "V"
-      },
-      {
-        "id": "E",
-        "x": 5,
-        "y": 3,
-        "width": 1,
-        "height": 3,
-        "axis": "V"
-      },
-      {
-        "id": "F",
-        "x": 2,
-        "y": 2,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "G",
-        "x": 2,
-        "y": 4,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "H",
-        "x": 3,
-        "y": 0,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "I",
-        "x": 1,
-        "y": 3,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
         "id": "J",
-        "x": 3,
-        "y": 2,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
+        "x": 2,
+        "y": 3,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
       },
       {
         "id": "K",
-        "x": 3,
-        "y": 5,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
+        "x": 0,
+        "y": 3,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
       },
       {
         "id": "L",
-        "x": 0,
-        "y": 0,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
+        "x": 5,
+        "y": 1,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
       }
     ],
-    "startAxis": "H",
+    "startAxis": "V",
     "exit": {
-      "side": "left",
-      "cell": 2
+      "side": "top",
+      "cell": 3
     },
     "switches": [
       {
-        "x": 2,
-        "y": 1
+        "x": 4,
+        "y": 2
       },
       {
-        "x": 2,
+        "x": 3,
         "y": 2
       }
     ]
   },
   {
-    "id": "slipout-level-v5-87",
+    "id": "slipout-level-v6-87",
     "number": 87,
     "difficulty": "hard",
-    "optimalMoves": 20,
+    "optimalMoves": 21,
     "blocks": [
       {
         "id": "X",
         "x": 2,
-        "y": 1,
+        "y": 4,
         "width": 2,
         "height": 1,
         "axis": "B"
       },
       {
         "id": "A",
-        "x": 1,
-        "y": 1,
+        "x": 4,
+        "y": 3,
         "width": 1,
         "height": 2,
         "axis": "V"
       },
       {
         "id": "B",
-        "x": 4,
-        "y": 1,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "C",
         "x": 0,
-        "y": 5,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
-        "id": "D",
-        "x": 0,
-        "y": 2,
-        "width": 1,
-        "height": 3,
-        "axis": "V"
-      },
-      {
-        "id": "E",
-        "x": 5,
-        "y": 3,
-        "width": 1,
-        "height": 3,
-        "axis": "V"
-      },
-      {
-        "id": "F",
-        "x": 2,
-        "y": 2,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "G",
-        "x": 2,
         "y": 4,
         "width": 2,
         "height": 1,
         "axis": "H"
       },
       {
-        "id": "H",
+        "id": "C",
         "x": 3,
         "y": 0,
         "width": 2,
@@ -9243,9 +9355,49 @@
         "axis": "H"
       },
       {
-        "id": "I",
+        "id": "D",
+        "x": 5,
+        "y": 1,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "E",
+        "x": 0,
+        "y": 0,
+        "width": 1,
+        "height": 3,
+        "axis": "V"
+      },
+      {
+        "id": "F",
+        "x": 5,
+        "y": 3,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "G",
+        "x": 2,
+        "y": 1,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "H",
         "x": 1,
         "y": 3,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "I",
+        "x": 4,
+        "y": 1,
         "width": 1,
         "height": 2,
         "axis": "V"
@@ -9260,16 +9412,16 @@
       },
       {
         "id": "K",
-        "x": 3,
-        "y": 5,
+        "x": 1,
+        "y": 0,
         "width": 2,
         "height": 1,
         "axis": "H"
       },
       {
         "id": "L",
-        "x": 0,
-        "y": 0,
+        "x": 4,
+        "y": 5,
         "width": 2,
         "height": 1,
         "axis": "H"
@@ -9277,84 +9429,100 @@
     ],
     "startAxis": "H",
     "exit": {
-      "side": "left",
-      "cell": 2
+      "side": "right",
+      "cell": 3
     },
     "switches": [
       {
-        "x": 2,
-        "y": 1
+        "x": 3,
+        "y": 4
       },
       {
-        "x": 2,
-        "y": 2
+        "x": 3,
+        "y": 3
       }
     ]
   },
   {
-    "id": "slipout-level-v5-88",
+    "id": "slipout-level-v6-88",
     "number": 88,
     "difficulty": "hard",
     "optimalMoves": 20,
     "blocks": [
       {
         "id": "X",
-        "x": 2,
-        "y": 1,
-        "width": 2,
-        "height": 1,
+        "x": 1,
+        "y": 2,
+        "width": 1,
+        "height": 2,
         "axis": "B"
       },
       {
         "id": "A",
         "x": 1,
-        "y": 1,
+        "y": 4,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "B",
+        "x": 1,
+        "y": 0,
         "width": 1,
         "height": 2,
         "axis": "V"
       },
       {
-        "id": "B",
-        "x": 4,
-        "y": 1,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
-      },
-      {
         "id": "C",
-        "x": 1,
-        "y": 5,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
+        "x": 5,
+        "y": 3,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
       },
       {
         "id": "D",
         "x": 0,
-        "y": 2,
-        "width": 1,
-        "height": 3,
-        "axis": "V"
+        "y": 5,
+        "width": 3,
+        "height": 1,
+        "axis": "H"
       },
       {
         "id": "E",
-        "x": 5,
-        "y": 3,
-        "width": 1,
-        "height": 3,
-        "axis": "V"
+        "x": 2,
+        "y": 0,
+        "width": 3,
+        "height": 1,
+        "axis": "H"
       },
       {
         "id": "F",
         "x": 2,
-        "y": 2,
+        "y": 3,
+        "width": 2,
+        "height": 1,
+        "axis": "H"
+      },
+      {
+        "id": "G",
+        "x": 4,
+        "y": 1,
         "width": 1,
         "height": 2,
         "axis": "V"
       },
       {
-        "id": "G",
+        "id": "H",
+        "x": 0,
+        "y": 1,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
+      },
+      {
+        "id": "I",
         "x": 3,
         "y": 4,
         "width": 2,
@@ -9362,67 +9530,51 @@
         "axis": "H"
       },
       {
-        "id": "H",
+        "id": "J",
         "x": 2,
-        "y": 0,
+        "y": 2,
         "width": 2,
         "height": 1,
         "axis": "H"
-      },
-      {
-        "id": "I",
-        "x": 1,
-        "y": 3,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
-      },
-      {
-        "id": "J",
-        "x": 3,
-        "y": 2,
-        "width": 1,
-        "height": 2,
-        "axis": "V"
       },
       {
         "id": "K",
-        "x": 3,
-        "y": 5,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
+        "x": 5,
+        "y": 1,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
       },
       {
         "id": "L",
         "x": 0,
-        "y": 0,
-        "width": 2,
-        "height": 1,
-        "axis": "H"
+        "y": 3,
+        "width": 1,
+        "height": 2,
+        "axis": "V"
       }
     ],
-    "startAxis": "H",
+    "startAxis": "V",
     "exit": {
-      "side": "left",
+      "side": "bottom",
       "cell": 2
     },
     "switches": [
       {
-        "x": 2,
-        "y": 1
+        "x": 1,
+        "y": 3
       },
       {
         "x": 2,
-        "y": 2
+        "y": 3
       }
     ]
   },
   {
-    "id": "slipout-level-v5-89",
+    "id": "slipout-level-v6-89",
     "number": 89,
     "difficulty": "hard",
-    "optimalMoves": 20,
+    "optimalMoves": 21,
     "blocks": [
       {
         "id": "X",
@@ -9450,7 +9602,7 @@
       },
       {
         "id": "C",
-        "x": 1,
+        "x": 0,
         "y": 5,
         "width": 2,
         "height": 1,
@@ -9458,8 +9610,8 @@
       },
       {
         "id": "D",
-        "x": 0,
-        "y": 2,
+        "x": 4,
+        "y": 3,
         "width": 1,
         "height": 3,
         "axis": "V"
@@ -9467,9 +9619,9 @@
       {
         "id": "E",
         "x": 5,
-        "y": 3,
+        "y": 4,
         "width": 1,
-        "height": 3,
+        "height": 2,
         "axis": "V"
       },
       {
@@ -9482,7 +9634,7 @@
       },
       {
         "id": "G",
-        "x": 3,
+        "x": 2,
         "y": 4,
         "width": 2,
         "height": 1,
@@ -9490,7 +9642,7 @@
       },
       {
         "id": "H",
-        "x": 4,
+        "x": 3,
         "y": 0,
         "width": 2,
         "height": 1,
@@ -9506,7 +9658,7 @@
       },
       {
         "id": "J",
-        "x": 3,
+        "x": 0,
         "y": 2,
         "width": 1,
         "height": 2,
@@ -9514,7 +9666,7 @@
       },
       {
         "id": "K",
-        "x": 3,
+        "x": 2,
         "y": 5,
         "width": 2,
         "height": 1,
@@ -9546,7 +9698,7 @@
     ]
   },
   {
-    "id": "slipout-level-v5-90",
+    "id": "slipout-level-v6-90",
     "number": 90,
     "difficulty": "hard",
     "optimalMoves": 20,
@@ -9554,54 +9706,54 @@
       {
         "id": "X",
         "x": 2,
-        "y": 1,
+        "y": 4,
         "width": 2,
         "height": 1,
         "axis": "B"
       },
       {
         "id": "A",
-        "x": 1,
-        "y": 1,
+        "x": 4,
+        "y": 3,
         "width": 1,
         "height": 2,
         "axis": "V"
       },
       {
         "id": "B",
-        "x": 4,
-        "y": 1,
+        "x": 0,
+        "y": 4,
         "width": 2,
         "height": 1,
         "axis": "H"
       },
       {
         "id": "C",
-        "x": 1,
-        "y": 5,
+        "x": 3,
+        "y": 0,
         "width": 2,
         "height": 1,
         "axis": "H"
       },
       {
         "id": "D",
-        "x": 0,
+        "x": 5,
         "y": 2,
         "width": 1,
-        "height": 3,
+        "height": 2,
         "axis": "V"
       },
       {
         "id": "E",
-        "x": 5,
-        "y": 2,
+        "x": 0,
+        "y": 0,
         "width": 1,
         "height": 3,
         "axis": "V"
       },
       {
         "id": "F",
-        "x": 2,
+        "x": 1,
         "y": 2,
         "width": 1,
         "height": 2,
@@ -9609,31 +9761,31 @@
       },
       {
         "id": "G",
-        "x": 3,
-        "y": 4,
+        "x": 2,
+        "y": 1,
         "width": 2,
         "height": 1,
         "axis": "H"
       },
       {
         "id": "H",
-        "x": 3,
-        "y": 0,
+        "x": 1,
+        "y": 5,
         "width": 2,
         "height": 1,
         "axis": "H"
       },
       {
         "id": "I",
-        "x": 1,
-        "y": 3,
+        "x": 4,
+        "y": 1,
         "width": 1,
         "height": 2,
         "axis": "V"
       },
       {
         "id": "J",
-        "x": 3,
+        "x": 2,
         "y": 2,
         "width": 1,
         "height": 2,
@@ -9641,16 +9793,16 @@
       },
       {
         "id": "K",
-        "x": 3,
-        "y": 5,
+        "x": 1,
+        "y": 0,
         "width": 2,
         "height": 1,
         "axis": "H"
       },
       {
         "id": "L",
-        "x": 1,
-        "y": 0,
+        "x": 3,
+        "y": 5,
         "width": 2,
         "height": 1,
         "axis": "H"
@@ -9658,17 +9810,17 @@
     ],
     "startAxis": "H",
     "exit": {
-      "side": "left",
-      "cell": 2
+      "side": "right",
+      "cell": 3
     },
     "switches": [
       {
-        "x": 2,
-        "y": 1
+        "x": 3,
+        "y": 4
       },
       {
-        "x": 2,
-        "y": 2
+        "x": 3,
+        "y": 3
       }
     ]
   }
