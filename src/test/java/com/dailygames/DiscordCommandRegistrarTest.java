@@ -71,14 +71,13 @@ class DiscordCommandRegistrarTest {
     assertEquals("32", bodies.get(6).path("default_member_permissions").asText());
     assertEquals("result", bodies.get(7).path("options").get(0).path("name").asText());
     assertTrue(bodies.get(7).path("options").get(0).path("required").asBoolean());
-    assertEquals("leaderboard", bodies.get(7).path("options").get(1).path("name").asText());
-    assertFalse(bodies.get(7).path("options").get(1).path("required").asBoolean());
-    assertEquals(2, bodies.get(7).path("options").size());
+    assertEquals(1, bodies.get(7).path("options").size());
     assertEquals("[0,1,2]", bodies.get(7).path("contexts").toString());
     assertEquals("[0,1]", bodies.get(7).path("integration_types").toString());
     assertEquals("result", bodies.get(8).path("options").get(0).path("name").asText());
     assertEquals("date", bodies.get(8).path("options").get(1).path("name").asText());
     assertTrue(bodies.get(8).path("options").get(1).path("required").asBoolean());
+    assertEquals(2, bodies.get(8).path("options").size());
     assertEquals("game", bodies.get(9).path("options").get(0).path("name").asText());
     assertFalse(bodies.get(9).path("options").get(0).path("required").asBoolean());
     assertTrue(bodies.get(9).path("options").get(0).path("autocomplete").asBoolean());

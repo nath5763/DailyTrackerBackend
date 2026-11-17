@@ -182,9 +182,9 @@ class TelegramService {
     if (command.equals("help")) {
       bot.send(chatId, "Daily Tracker: /signup, /link, /unlink, /my_id, /daily, /loldle, /leaderboard. " +
           "Owners: /add_member, /setup, /set_leaderboard, /unset_leaderboard. " +
-          "Send /daily followed by a complete Share result in one group message, or use /daily alone for the private flow. " +
+          "Link your account, then send /daily followed by a complete Share result in any group, or use /daily alone for the private flow. " +
           "Search rankings with /leaderboard <game name>, or use /leaderboard alone for today's card. " +
-          "Account codes stay in the bot's private chat. Groups use one connected multi-game leaderboard.");
+          "Account codes stay in the bot's private chat. Rankings require a connected multi-game leaderboard.");
       return;
     }
     if (command.equals("signup")) {
@@ -246,13 +246,15 @@ class TelegramService {
     if (!Set.of("daily", "loldle", "leaderboard", "add_member").contains(command)) return;
     UUID linked = linkedUser(userId);
     if (command.equals("daily") && !privateChat && !argument.isBlank()) {
-      UUID boardId = mapped(chatId);
       String gameSlug = adapters.detectGame(argument).orElseThrow(() -> new ApiException(422, "GAME_UNDETECTED",
           "Could not identify one supported game in that share. Use /daily alone to choose a game in private chat."));
-      submitDaily(linked, boardId, gameSlug, argument, chatId);
+      submitDaily(linked, gameSlug, argument, chatId);
       return;
     }
-    if (!privateChat && !command.equals("leaderboard")) { mapped(chatId); beginPrivate(userId, chatId, command); return; }
+    if (!privateChat && !command.equals("leaderboard")) {
+      if (command.equals("add_member")) mapped(chatId);
+      beginPrivate(userId, chatId, command); return;
+    }
     if (command.equals("leaderboard") && !privateChat && argument.isBlank()) {
       postTodayCard(linked, mapped(chatId), chatId);
       return;
@@ -260,9 +262,11 @@ class TelegramService {
     String search = command.equals("leaderboard") ? argument : null;
     if (search != null && search.length() > 80)
       throw new ApiException(400, "QUERY_TOO_LONG", "Search using fewer than 80 characters.");
-    UUID boardId = privateChat ? null : mapped(chatId);
-    Flow flow = new Flow(userId, privateChat ? null : chatId, command, boardId == null ? "board"
-        : command.equals("leaderboard") && search != null && !search.isBlank() ? "game" : nextStep(command),
+    UUID boardId = command.equals("daily") || command.equals("loldle") ? null : privateChat ? null : mapped(chatId);
+    Flow flow = new Flow(userId, privateChat ? null : chatId, command,
+        command.equals("daily") || command.equals("loldle") ? nextStep(command)
+            : boardId == null ? "board" : command.equals("leaderboard") && search != null && !search.isBlank()
+                ? "game" : nextStep(command),
         boardId, null, null, search, randomShort(), clock.instant().plus(FLOW_LIFETIME));
     saveFlow(flow);
     continueFlow(flow);
@@ -298,7 +302,7 @@ class TelegramService {
 
   private void beginPrivate(long userId, long groupId, String command) {
     UUID boardId = command.equals("signup") ? optionalMapped(groupId) :
-        Set.of("daily", "loldle", "add_member").contains(command) ? mapped(groupId) : null;
+        command.equals("add_member") ? mapped(groupId) : null;
     Flow flow = new Flow(userId, groupId, command, "private", boardId, null, null, null,
         randomShort(), clock.instant().plus(FLOW_LIFETIME));
     saveFlow(flow);
@@ -312,7 +316,7 @@ class TelegramService {
     long target = flow.originChatId != null && flow.name.equals("leaderboard") ? flow.originChatId : flow.userId;
     if (flow.step.equals("private")) {
       Flow next = flow.withStep(flow.name.equals("link") ? "code" : nextStep(flow.name));
-      if (flow.originChatId != null && !flow.name.equals("link") && !flow.name.equals("signup"))
+      if (flow.originChatId != null && !Set.of("link", "signup", "daily", "loldle").contains(flow.name))
         currentBoard(flow);
       saveFlow(next);
       continueFlow(next);
@@ -332,9 +336,10 @@ class TelegramService {
       clearFlow(flow.userId);
     } else if (flow.step.equals("game")) {
       UUID user = linkedUser(flow.userId);
-      UUID boardId = currentBoard(flow);
-      List<ApiModels.GameView> choices = games.searchDiscordGames(user, boardId,
-          flow.shareText == null ? "" : flow.shareText, flow.name.equals("daily"));
+      List<ApiModels.GameView> choices = flow.name.equals("daily")
+          ? games.listShareGames(flow.shareText)
+          : games.searchDiscordGames(user, currentBoard(flow),
+              flow.shareText == null ? "" : flow.shareText, false);
       if (choices.isEmpty()) throw new ApiException(404, "NO_GAMES",
           flow.shareText == null || flow.shareText.isBlank() ? "No supported games are available."
               : "No games match that search. Try /leaderboard <game name> again.");
@@ -405,9 +410,10 @@ class TelegramService {
       long choiceChat = callback.path("message").path("chat").path("id").asLong(0);
       flow = flow.withStep(choiceChat == userId ? "search" : "search_private");
     } else if (flow.step.equals("game") && choice.matches("g[0-9]+")) {
-      List<ApiModels.GameView> choices = games.searchDiscordGames(linkedUser(userId), currentBoard(flow),
-          flow.shareText == null ? "" : flow.shareText,
-          flow.name.equals("daily"));
+      List<ApiModels.GameView> choices = flow.name.equals("daily")
+          ? games.listShareGames(flow.shareText)
+          : games.searchDiscordGames(linkedUser(userId), currentBoard(flow),
+              flow.shareText == null ? "" : flow.shareText, false);
       int index = Integer.parseInt(choice.substring(1));
       if (index >= choices.size()) throw new ApiException(400, "INVALID_CHOICE", "That game is unavailable.");
       if (flow.name.equals("leaderboard")) {
@@ -445,7 +451,7 @@ class TelegramService {
     }
     if (flow.step.equals("result")) {
       if (flow.name.equals("daily")) {
-        submitDaily(linkedUser(flow.userId), currentBoard(flow), flow.gameSlug, text,
+        submitDaily(linkedUser(flow.userId), flow.gameSlug, text,
             flow.originChatId == null ? flow.userId : flow.originChatId);
         clearFlow(flow.userId);
       } else {
@@ -460,7 +466,7 @@ class TelegramService {
         if (!text.matches("[0-9]{4}-[0-9]{2}-[0-9]{2}")) throw new IllegalArgumentException();
         date = LocalDate.parse(text);
       } catch (RuntimeException exception) { throw new ApiException(422, "INVALID_DATE", "Enter a date as YYYY-MM-DD."); }
-      var saved = games.submitLoldleFromDiscord(linkedUser(flow.userId), currentBoard(flow), flow.shareText, date);
+      var saved = games.submitLoldleShare(linkedUser(flow.userId), flow.shareText, date);
       String joined = saved.stream().map(item -> item.game().replace("loldle-", "") + " " +
           item.submission().primaryScore().toPlainString()).reduce((a, b) -> a + " · " + b).orElse("");
       bot.send(flow.originChatId == null ? flow.userId : flow.originChatId, "Saved LoLdle for " + date + ": " + joined + ".");
@@ -468,8 +474,8 @@ class TelegramService {
     }
   }
 
-  private void submitDaily(UUID userId, UUID boardId, String gameSlug, String text, long replyChatId) {
-    DailyGamesService.DiscordSubmissionResult saved = games.submitFromDiscord(userId, boardId, gameSlug, text);
+  private void submitDaily(UUID userId, String gameSlug, String text, long replyChatId) {
+    DailyGamesService.DiscordSubmissionResult saved = games.submitShare(userId, gameSlug, text);
     GameAdapter adapter = adapters.require(saved.game().slug);
     String score = formatScore(saved.submission().primaryScore(), adapter.scoreFormat());
     String details = adapter.resultDetails(saved.submission().metrics()).stream().limit(7)

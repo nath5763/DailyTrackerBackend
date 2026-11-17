@@ -195,12 +195,8 @@ class DiscordService {
         case "set-leaderboard" -> setGroupDmLeaderboard(discordUserId, groupDm, guildId, channelId,
             option(payload, "leaderboard", 36), now);
         case "unset-leaderboard" -> unsetGroupDmLeaderboard(discordUserId, groupDm, guildId, channelId);
-        case "daily" -> daily(discordUserId, groupDm, guildId, channelId,
-            option(payload, "result", 6_000),
-            optionalOption(payload, "leaderboard", 36));
-        case "loldle" -> loldle(discordUserId, groupDm, guildId, channelId,
-            option(payload, "result", 6_000), option(payload, "date", 10),
-            optionalOption(payload, "leaderboard", 36));
+        case "daily" -> daily(discordUserId, option(payload, "result", 6_000));
+        case "loldle" -> loldle(discordUserId, option(payload, "result", 6_000), option(payload, "date", 10));
         case "leaderboard" -> leaderboard(discordUserId, groupDm, guildId, channelId,
             optionalOption(payload, "game", 80), optionalOption(payload, "range", 8),
             optionalOption(payload, "leaderboard", 36));
@@ -217,11 +213,11 @@ class DiscordService {
     return ephemeral("**Daily Tracker help**\n"
         + "Run `/signup` to create or connect your account. In a connected server channel, signup can also join that channel's leaderboard.\n"
         + "1. **Link your account:** Sign in at " + publicBaseUrl + "/dashboard, generate a link code in the Discord section, then run `/link` and enter the code. Codes expire after 10 minutes.\n"
-        + "2. **Choose a Group DM leaderboard:** Its owner can run `/set-leaderboard` once. In a one-to-one DM or an unconfigured Group DM, enter the leaderboard UUID on each command.\n"
-        + "3. **Submit a game result:** Run `/daily` and paste the complete game share text into `result`. The bot identifies the game. Discord supports multi-game leaderboards only.\n"
+        + "2. **Choose a Group DM leaderboard for rankings:** Its owner can run `/set-leaderboard` once. In a one-to-one DM or an unconfigured Group DM, enter the leaderboard UUID for `/leaderboard`.\n"
+        + "3. **Submit a game result:** Link your account, then run `/daily` and paste the complete game share text into `result`. The bot identifies the game and saves it to your account in any chat.\n"
         + "For LoLdle, run `/loldle` with its complete five-mode share and the puzzle date (`YYYY-MM-DD`) to save Classic, Quote, Ability, Emoji, and Splash together.\n"
         + "4. **See rankings:** Run `/leaderboard` for today's card, or choose a game and optional range for detailed rankings.\n"
-        + "Each player links their own account and must belong to the selected leaderboard. Server and configured Group DM channels use their saved leaderboard.",
+        + "Viewing rankings requires membership in the selected leaderboard. Server and configured Group DM channels use their saved leaderboard.",
         "SUCCESS", "help");
   }
 
@@ -420,13 +416,9 @@ class DiscordService {
     return ephemeral("This Group DM is no longer connected to a leaderboard.", "SUCCESS", "unset-leaderboard");
   }
 
-  private DiscordInteractionResult daily(String discordUserId, boolean groupDm, String guildId, String channelId,
-                                          String rawText, String rawLeaderboardId) {
+  private DiscordInteractionResult daily(String discordUserId, String rawText) {
     UUID userId = linkedUser(discordUserId);
-    UUID leaderboardId = resolveLeaderboard(groupDm, guildId, channelId, rawLeaderboardId);
-    if (guildId != null) requirePaidOwner(leaderboardId);
-    requireMultiGame(leaderboardId);
-    DailyGamesService.DiscordSubmissionResult saved = dailyGames.submitFromDiscord(userId, leaderboardId, rawText);
+    DailyGamesService.DiscordSubmissionResult saved = dailyGames.submitShare(userId, null, rawText);
     GameAdapter adapter = adapters.require(saved.game().slug);
     String score = formatScore(saved.submission().primaryScore(), adapter.scoreFormat());
     String details = formatResultDetails(adapter.resultDetails(saved.submission().metrics()));
@@ -436,12 +428,8 @@ class DiscordService {
         "SUCCESS", "daily");
   }
 
-  private DiscordInteractionResult loldle(String discordUserId, boolean groupDm, String guildId, String channelId,
-                                           String rawText, String rawDate, String rawLeaderboardId) {
+  private DiscordInteractionResult loldle(String discordUserId, String rawText, String rawDate) {
     UUID userId = linkedUser(discordUserId);
-    UUID leaderboardId = resolveLeaderboard(groupDm, guildId, channelId, rawLeaderboardId);
-    if (guildId != null) requirePaidOwner(leaderboardId);
-    requireMultiGame(leaderboardId);
     LocalDate puzzleDate;
     try {
       if (!rawDate.matches("[0-9]{4}-[0-9]{2}-[0-9]{2}")) throw new IllegalArgumentException();
@@ -449,7 +437,7 @@ class DiscordService {
     } catch (RuntimeException exception) {
       throw new ApiException(422, "INVALID_LOLDLE_DATE", "Enter the LoLdle puzzle date as YYYY-MM-DD.");
     }
-    List<LoldleScoreView> saved = dailyGames.submitLoldleFromDiscord(userId, leaderboardId, rawText, puzzleDate);
+    List<LoldleScoreView> saved = dailyGames.submitLoldleShare(userId, rawText, puzzleDate);
     String scores = saved.stream().map(item -> item.game().substring("loldle-".length()).toUpperCase(Locale.ROOT)
         + " " + item.submission().primaryScore().toPlainString()
         + (Boolean.TRUE.equals(item.submission().metrics().get("clueUsed")) ? " ✓" : ""))

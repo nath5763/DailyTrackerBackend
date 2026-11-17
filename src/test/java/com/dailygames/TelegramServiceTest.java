@@ -6,7 +6,9 @@ import tools.jackson.databind.ObjectMapper;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.sql.Timestamp;
+import java.sql.ResultSet;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
@@ -50,7 +52,7 @@ class TelegramServiceTest {
     game.slug = "wordle";
     game.name = "Wordle";
     var parsed = registry.parseResult("wordle", share);
-    when(games.submitFromDiscord(userId, boardId, "wordle", share)).thenReturn(
+    when(games.submitShare(userId, "wordle", share)).thenReturn(
         new DailyGamesService.DiscordSubmissionResult(UUID.randomUUID(), game, parsed));
     when(jdbc.update(startsWith("insert into processed_telegram_updates"), anyLong(), any(Timestamp.class))).thenReturn(1);
     var json = new ObjectMapper();
@@ -59,9 +61,49 @@ class TelegramServiceTest {
 
     groupService.handle(json.readTree(update));
 
-    verify(games).submitFromDiscord(userId, boardId, "wordle", share);
+    verify(games).submitShare(userId, "wordle", share);
     verify(bot).send(eq(-1001L), startsWith("Saved Wordle #1972 at 2 guesses."));
     verify(bot, never()).send(eq(-1001L), contains("private chat"), anyList());
+  }
+
+  @Test void unconnectedGroupSavesShareAndPrivateFlowListsGamesWithoutBoardSelection() throws Exception {
+    UUID userId = UUID.randomUUID();
+    String share = "Wordle 1,972 2/6\n⬛⬛⬛⬛⬛\n🟩🟩🟩🟩🟩";
+    GameAdapterRegistry registry = new GameAdapterRegistry(List.of(new WordleParser()));
+    DailyGamesService games = mock(DailyGamesService.class);
+    var gameView = new ApiModels.GameView(UUID.randomUUID(), "wordle", "Wordle", "", "lower",
+        new ApiModels.ScoreFormatView("", "", 0, 0), null);
+    when(games.listShareGames(null)).thenReturn(List.of(gameView));
+    when(bot.deepLink(anyString())).thenReturn("https://t.me/dailytrackerbot?start=flow");
+    Game game = new Game(); game.slug = "wordle"; game.name = "Wordle";
+    when(games.submitShare(userId, "wordle", share)).thenReturn(new DailyGamesService.DiscordSubmissionResult(
+        UUID.randomUUID(), game, registry.parseResult("wordle", share)));
+    doReturn(List.of(userId)).when(jdbc).query(eq("select user_id from telegram_account_links where telegram_user_id=?"),
+        any(RowMapper.class), eq(7L));
+    when(jdbc.update(startsWith("insert into processed_telegram_updates"), anyLong(), any(Timestamp.class))).thenReturn(1);
+    TelegramService unconnected = new TelegramService(jdbc, bot, mock(ProfileRepository.class),
+        mock(LeaderboardRepository.class), mock(MembershipRepository.class), mock(BillingService.class),
+        games, registry, Clock.fixed(Instant.parse("2026-11-12T12:00:00Z"), ZoneOffset.UTC),
+        "pepper", "https://dailytracker.cc");
+    ObjectMapper json = new ObjectMapper();
+    unconnected.handle(json.readTree("{\"update_id\":20,\"message\":{\"chat\":{\"id\":-2001,\"type\":\"group\"},"
+        + "\"from\":{\"id\":7},\"text\":" + json.writeValueAsString("/daily " + share) + "}}"));
+    verify(games).submitShare(userId, "wordle", share);
+    verify(bot).send(eq(-2001L), startsWith("Saved Wordle"));
+    unconnected.handle(json.readTree("{\"update_id\":21,\"message\":{\"chat\":{\"id\":7,\"type\":\"private\"},"
+        + "\"from\":{\"id\":7},\"text\":\"/daily\"}}"));
+    verify(games).listShareGames(null);
+    verify(bot).send(eq(7L), eq("Choose a game:"), anyList());
+    unconnected.handle(json.readTree("{\"update_id\":22,\"message\":{\"chat\":{\"id\":7,\"type\":\"private\"},"
+        + "\"from\":{\"id\":7},\"text\":\"/loldle\"}}"));
+    verify(bot).send(7L, "Paste the complete game share text here.");
+    unconnected.handle(json.readTree("{\"update_id\":24,\"message\":{\"chat\":{\"id\":-2001,\"type\":\"group\"},"
+        + "\"from\":{\"id\":7},\"text\":\"/daily\"}}"));
+    unconnected.handle(json.readTree("{\"update_id\":25,\"message\":{\"chat\":{\"id\":-2001,\"type\":\"group\"},"
+        + "\"from\":{\"id\":7},\"text\":\"/loldle\"}}"));
+    verify(bot, times(2)).send(eq(-2001L), contains("Continue /"), anyList());
+    verify(jdbc, never()).query(eq("select leaderboard_id from telegram_group_leaderboards where chat_id=?"),
+        any(RowMapper.class), eq(-2001L));
   }
 
   @Test void leaderboardSearchInGroupShowsMatchingGameAndRangeFlow() throws Exception {
@@ -98,6 +140,46 @@ class TelegramServiceTest {
 
     verify(bot).send(eq(-1001L), contains("Could not identify one supported game"));
     verifyNoInteractions(games);
+  }
+
+  @Test void unlinkedAccountCannotSubmitInUnconnectedGroup() throws Exception {
+    when(jdbc.update(startsWith("insert into processed_telegram_updates"), anyLong(), any(Timestamp.class))).thenReturn(1);
+    service.handle(new ObjectMapper().readTree("{\"update_id\":23,\"message\":{\"chat\":{\"id\":-2001,\"type\":\"group\"},"
+        + "\"from\":{\"id\":7},\"text\":\"/daily Wordle 1972 2/6\"}}"));
+    verify(bot).send(eq(-2001L), contains("Link your account"));
+  }
+
+  @Test void groupStartedLoldleFlowConfirmsInOriginGroupWithoutMapping() throws Exception {
+    UUID userId = UUID.randomUUID();
+    DailyGamesService games = mock(DailyGamesService.class);
+    String share = LoldleParser.example();
+    LocalDate date = LocalDate.of(2026, 6, 1);
+    var scores = LoldleParser.parse(share, date).entrySet().stream()
+        .map(entry -> new ApiModels.LoldleScoreView(entry.getKey(), entry.getValue())).toList();
+    when(games.submitLoldleShare(userId, share, date)).thenReturn(scores);
+    doReturn(List.of(userId)).when(jdbc).query(eq("select user_id from telegram_account_links where telegram_user_id=?"),
+        any(RowMapper.class), eq(7L));
+    when(jdbc.update(startsWith("insert into processed_telegram_updates"), anyLong(), any(Timestamp.class))).thenReturn(1);
+    when(jdbc.query(startsWith("select origin_chat_id,flow,step,leaderboard_id"), any(RowMapper.class), eq(7L)))
+        .thenAnswer(call -> {
+          ResultSet row = mock(ResultSet.class);
+          when(row.getObject(1)).thenReturn(-2001L);
+          when(row.getString(2)).thenReturn("loldle");
+          when(row.getString(3)).thenReturn("date");
+          when(row.getString(7)).thenReturn(share);
+          when(row.getString(8)).thenReturn("token");
+          when(row.getTimestamp(9)).thenReturn(Timestamp.from(Instant.parse("2026-11-12T12:10:00Z")));
+          @SuppressWarnings("unchecked") RowMapper<Object> mapper = call.getArgument(1);
+          return List.of(mapper.mapRow(row, 0));
+        });
+    TelegramService unconnected = new TelegramService(jdbc, bot, mock(ProfileRepository.class),
+        mock(LeaderboardRepository.class), mock(MembershipRepository.class), mock(BillingService.class),
+        games, mock(GameAdapterRegistry.class), Clock.fixed(Instant.parse("2026-11-12T12:00:00Z"), ZoneOffset.UTC),
+        "pepper", "https://dailytracker.cc");
+    unconnected.handle(new ObjectMapper().readTree("{\"update_id\":26,\"message\":{\"chat\":{\"id\":7,\"type\":\"private\"},"
+        + "\"from\":{\"id\":7},\"text\":\"2026-06-01\"}}"));
+    verify(games).submitLoldleShare(userId, share, date);
+    verify(bot).send(eq(-2001L), startsWith("Saved LoLdle for 2026-06-01"));
   }
 
   private TelegramService groupService(UUID userId, UUID boardId, DailyGamesService games,

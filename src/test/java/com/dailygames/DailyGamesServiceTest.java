@@ -153,6 +153,37 @@ class DailyGamesServiceTest {
     assertEquals(existing.id, service.submit(new CurrentUser(userId, ""),
         new ApiModels.CreateSubmissionRequest("wordle", share, confirmed)));
   }
+
+  @Test
+  void chatShareSavesToProfileWithoutAnyBoardAndPreservesDuplicateAndParseErrors() {
+    UUID userId = UUID.randomUUID();
+    String share = "Wordle 1,972 2/6\n⬛⬛⬛⬛⬛\n🟩🟩🟩🟩🟩";
+    Profile profile = new Profile(userId, "Player", "#dfff4f", Instant.now());
+    Game wordle = new Game(); wordle.id = UUID.randomUUID(); wordle.slug = "wordle";
+    wordle.name = "Wordle"; wordle.active = true;
+    ProfileRepository profiles = mock(ProfileRepository.class);
+    GameRepository games = mock(GameRepository.class);
+    LeaderboardRepository boards = mock(LeaderboardRepository.class);
+    MembershipRepository memberships = mock(MembershipRepository.class);
+    SubmissionRepository submissions = mock(SubmissionRepository.class);
+    BillingService billing = mock(BillingService.class);
+    when(profiles.findById(userId)).thenReturn(Optional.of(profile));
+    when(profiles.findByIdForUpdate(userId)).thenReturn(Optional.of(profile));
+    when(games.findBySlugAndActiveTrue("wordle")).thenReturn(Optional.of(wordle));
+    when(submissions.saveAndFlush(any())).thenAnswer(call -> call.getArgument(0));
+    DailyGamesService service = service(profiles, games, boards, memberships, submissions,
+        new GameAdapterRegistry(List.of(new WordleParser())), billing);
+    var saved = service.submitShare(userId, null, share);
+    assertEquals("wordle", saved.game().slug);
+    Submission existing = new Submission(userId, wordle.id, saved.submission(), "different share", Instant.now());
+    when(submissions.findByUserIdAndGameIdAndPuzzleKey(userId, wordle.id, "1972"))
+        .thenReturn(Optional.of(existing));
+    assertEquals("DUPLICATE_SUBMISSION", assertThrows(ApiException.class,
+        () -> service.submitShare(userId, null, share)).code);
+    assertEquals("GAME_UNDETECTED", assertThrows(ApiException.class,
+        () -> service.submitShare(userId, null, "invalid share")).code);
+    verifyNoInteractions(boards, memberships, billing);
+  }
   @Test
   void ranksUnassistedLinkedInResultsBeforeFasterAssistedResults() {
     UUID ownerId = UUID.randomUUID(), twinId = UUID.randomUUID(), friendId = UUID.randomUUID();

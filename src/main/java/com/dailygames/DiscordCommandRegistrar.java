@@ -195,11 +195,11 @@ class DiscordCommandRegistrar {
         List.of(stringOption("leaderboard", "Leaderboard UUID", true, 36, 36)));
     setup.put("default_member_permissions", "32");
     commands.add(setup);
-    commands.add(command("daily", "Submit a daily-game share result to a leaderboard",
-        List.of(stringOption("result", "Complete game share text", true, 1, 6000), leaderboardOption())));
-    commands.add(command("loldle", "Save all five LoLdle scores from one complete share",
+    commands.add(command("daily", "Save a game share result to your linked account",
+        List.of(stringOption("result", "Complete game share text", true, 1, 6000))));
+    commands.add(command("loldle", "Save five LoLdle scores to your linked account",
         List.of(stringOption("result", "Complete five-mode LoLdle share text", true, 1, 6000),
-            stringOption("date", "Puzzle date in YYYY-MM-DD format", true, 10, 10), leaderboardOption())));
+            stringOption("date", "Puzzle date in YYYY-MM-DD format", true, 10, 10))));
     Map<String, Object> leaderboardGame = stringOption("game", "Game to rank", false, 1, 80);
     leaderboardGame.put("autocomplete", true);
     Map<String, Object> range = choiceOption("range", "Period to rank (defaults to today)", false,

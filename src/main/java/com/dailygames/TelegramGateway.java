@@ -95,8 +95,8 @@ class TelegramGateway {
           command("link", "Link your account"), command("unlink", "Unlink your account"),
           command("my_id", "Show your account UUID"), command("add_member", "Add a board member"),
           command("setup", "Connect this group"), command("set_leaderboard", "Choose this group's board"),
-          command("unset_leaderboard", "Disconnect this group"), command("daily", "Submit a game result"),
-          command("loldle", "Submit five LoLdle results"), command("leaderboard", "Show rankings"))));
+          command("unset_leaderboard", "Disconnect this group"), command("daily", "Save a game to your linked account"),
+          command("loldle", "Save LoLdle to your linked account"), command("leaderboard", "Show connected board rankings"))));
       call("setWebhook", Map.of("url", webhookUrl, "secret_token", secret,
           "allowed_updates", List.of("message", "callback_query")));
     } catch (RuntimeException exception) {

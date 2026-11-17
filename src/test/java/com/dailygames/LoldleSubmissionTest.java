@@ -27,6 +27,16 @@ class LoldleSubmissionTest {
     verify(fixture.submissions, times(5)).saveAndFlush(any());
   }
 
+  @Test void chatShareSavesWithoutAnyLeaderboardAndRejectsMalformedOrConflictingShares() {
+    Fixture fixture = new Fixture();
+    assertEquals(5, fixture.service.submitLoldleShare(fixture.userId, SHARE, date).size());
+    assertEquals(5, fixture.service.submitLoldleShare(fixture.userId, SHARE, date).size());
+    verify(fixture.submissions, times(5)).saveAndFlush(any());
+    assertEquals("DUPLICATE_SUBMISSION", assertThrows(ApiException.class,
+        () -> fixture.service.submitLoldleShare(fixture.userId, SHARE.replace("Quote: 1", "Quote: 2"), date)).code);
+    assertThrows(ApiException.class, () -> fixture.service.submitLoldleShare(fixture.userId, "invalid", date));
+  }
+
   @Test void conflictOnOneModePreventsEveryInsert() {
     Fixture fixture = new Fixture();
     Game quote = fixture.games.get("loldle-quote");

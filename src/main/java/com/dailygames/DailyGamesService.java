@@ -86,6 +86,15 @@ class DailyGamesService {
     return games.activeGames().stream().map(this::gameView).toList();
   }
 
+  List<GameView> listShareGames(String query) {
+    String term = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
+    return games.activeGames().stream()
+        .filter(game -> adapters.supportsShareText(game.slug))
+        .filter(game -> game.name.toLowerCase(Locale.ROOT).contains(term)
+            || game.slug.toLowerCase(Locale.ROOT).contains(term))
+        .limit(25).map(this::gameView).toList();
+  }
+
   @Transactional
   UUID createBoard(CurrentUser current, CreateLeaderboardRequest request) {
     BoardType boardType = request.boardType() == null ? BoardType.SINGLE_GAME : request.boardType();
@@ -587,6 +596,14 @@ class DailyGamesService {
     return parsed.entrySet().stream().map(entry -> new LoldleScoreView(entry.getKey(), entry.getValue())).toList();
   }
 
+  @Transactional
+  List<LoldleScoreView> submitLoldleShare(UUID userId, String rawText, LocalDate puzzleDate) {
+    requireProfile(userId);
+    Map<String, ParsedSubmission> parsed = adapters.parseLoldle(rawText, puzzleDate);
+    saveLoldle(userId, rawText, puzzleDate, parsed);
+    return parsed.entrySet().stream().map(entry -> new LoldleScoreView(entry.getKey(), entry.getValue())).toList();
+  }
+
   private List<UUID> saveLoldle(UUID userId, String rawText, LocalDate puzzleDate) {
     return saveLoldle(userId, rawText, puzzleDate, adapters.parseLoldle(rawText, puzzleDate));
   }
@@ -667,6 +684,19 @@ class DailyGamesService {
         : gameSlug;
     List<Game> allowedGames = allowedGames(board);
     Game game = selectGame(board, allowedGames, selectedSlug);
+    ParsedSubmission value = adapters.parseResult(game.slug, rawText);
+    UUID id = persistSubmission(userId, game, value, rawText, SubmissionMethod.SHARE_TEXT);
+    return new DiscordSubmissionResult(id, game, value);
+  }
+
+  @Transactional
+  DiscordSubmissionResult submitShare(UUID userId, String gameSlug, String rawText) {
+    requireProfile(userId);
+    String selectedSlug = gameSlug == null || gameSlug.isBlank()
+        ? adapters.detectGame(rawText).orElseThrow(() -> new ApiException(422, "GAME_UNDETECTED",
+            "Could not identify one supported game. Paste the complete Share result, including its game header."))
+        : gameSlug;
+    Game game = requireGame(selectedSlug);
     ParsedSubmission value = adapters.parseResult(game.slug, rawText);
     UUID id = persistSubmission(userId, game, value, rawText, SubmissionMethod.SHARE_TEXT);
     return new DiscordSubmissionResult(id, game, value);

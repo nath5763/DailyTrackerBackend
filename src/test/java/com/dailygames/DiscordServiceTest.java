@@ -135,9 +135,6 @@ class DiscordServiceTest {
         "444444444444444444", "333333333333333333", boardId, ownerId, "222222222222222222", now)));
     assertPrivateOutcome(service.handle(json.readTree(commandWithPermissions(
         "leaderboard", "0", "game", "fermi"))), "MULTI_GAME_REQUIRED");
-    assertPrivateOutcome(service.handle(json.readTree(command(
-        "daily", "222222222222222222", "111111111111111111", "333333333333333333",
-        "result", "Fermi #92"))), "MULTI_GAME_REQUIRED");
     verifyNoInteractions(dailyGames);
   }
 
@@ -153,12 +150,20 @@ class DiscordServiceTest {
 
     assertEquals("OWNER_SUBSCRIPTION_REQUIRED", service.handle(json.readTree(
         commandWithPermissions("setup", "32", "leaderboard", boardId.toString()))).outcome());
-    assertEquals("OWNER_SUBSCRIPTION_REQUIRED", service.handle(json.readTree(
-        command("daily", "222222222222222222", "111111111111111111", "333333333333333333", "result", "Fermi #92"))).outcome());
+    Game game = new Game(); game.id = UUID.randomUUID(); game.slug = "fermi"; game.name = "Fermi.gg";
+    ParsedSubmission parsed = new ParsedSubmission("92", 92, LocalDate.of(2026, 10, 26),
+        new BigDecimal("1.31"), Map.of(), 1);
+    when(dailyGames.submitShare(ownerId, null, "Fermi #92"))
+        .thenReturn(new DailyGamesService.DiscordSubmissionResult(UUID.randomUUID(), game, parsed));
+    GameAdapter adapter = mock(GameAdapter.class);
+    when(adapter.scoreFormat()).thenReturn(new ApiModels.ScoreFormatView("", "", 2, 2));
+    when(adapters.require("fermi")).thenReturn(adapter);
+    assertPublicOutcome(service.handle(json.readTree(command("daily", "222222222222222222",
+        "111111111111111111", "333333333333333333", "result", "Fermi #92"))), "SUCCESS");
     assertEquals("OWNER_SUBSCRIPTION_REQUIRED", service.handle(json.readTree(
         commandWithPermissions("leaderboard", "0", "game", "fermi"))).outcome());
     verify(channels, never()).save(any());
-    verifyNoInteractions(dailyGames);
+    verify(dailyGames).submitShare(ownerId, null, "Fermi #92");
   }
 
   @Test void freeMemberCanUsePaidOwnersConnectedChannel() throws Exception {
@@ -174,7 +179,7 @@ class DiscordServiceTest {
     Game game = new Game(); game.id = UUID.randomUUID(); game.slug = "fermi"; game.name = "Fermi.gg";
     ParsedSubmission parsed = new ParsedSubmission("92", 92, LocalDate.of(2026, 10, 26),
         new BigDecimal("1.31"), Map.of(), 1);
-    when(dailyGames.submitFromDiscord(memberId, boardId, "Fermi #92"))
+    when(dailyGames.submitShare(memberId, null, "Fermi #92"))
         .thenReturn(new DailyGamesService.DiscordSubmissionResult(UUID.randomUUID(), game, parsed));
     GameAdapter adapter = mock(GameAdapter.class);
     when(adapter.scoreFormat()).thenReturn(new ApiModels.ScoreFormatView("", "", 2, 2));
@@ -182,7 +187,7 @@ class DiscordServiceTest {
 
     assertEquals("SUCCESS", service.handle(json.readTree(
         command("daily", "222222222222222222", "111111111111111111", "333333333333333333", "result", "Fermi #92"))).outcome());
-    verify(billing).allGameLimit(ownerId, now);
+    verifyNoInteractions(billing);
     verify(billing, never()).allGameLimit(eq(memberId), any());
   }
 
@@ -198,7 +203,7 @@ class DiscordServiceTest {
     when(billing.allGameLimit(userId, now)).thenReturn(1);
     Game game = new Game(); game.id = UUID.randomUUID(); game.slug = "fermi"; game.name = "Fermi.gg";
     ParsedSubmission parsed = new ParsedSubmission("92", 92, LocalDate.of(2026, 10, 26), new BigDecimal("1.31"), Map.of(), 1);
-    when(dailyGames.submitFromDiscord(userId, boardId, "Fermi #92\n1.31× score")).thenReturn(
+    when(dailyGames.submitShare(userId, null, "Fermi #92\n1.31× score")).thenReturn(
         new DailyGamesService.DiscordSubmissionResult(UUID.randomUUID(), game, parsed));
     GameAdapter adapter = mock(GameAdapter.class);
     when(adapter.scoreFormat()).thenReturn(new ApiModels.ScoreFormatView("", "×", 2, 2));
@@ -231,7 +236,7 @@ class DiscordServiceTest {
     Game game = new Game(); game.id = UUID.randomUUID(); game.slug = "krillion"; game.name = "Krillion";
     ParsedSubmission parsed = new ParsedSubmission("82", 82, LocalDate.of(2026, 11, 4),
         new BigDecimal("700"), Map.of(), 1);
-    when(dailyGames.submitFromDiscord(userId, boardId, "Krillion share")).thenReturn(
+    when(dailyGames.submitShare(userId, null, "Krillion share")).thenReturn(
         new DailyGamesService.DiscordSubmissionResult(UUID.randomUUID(), game, parsed));
     GameAdapter adapter = mock(GameAdapter.class);
     when(adapter.scoreFormat()).thenReturn(new ApiModels.ScoreFormatView("", "", 0, 0));
@@ -241,7 +246,7 @@ class DiscordServiceTest {
         "111111111111111111", "333333333333333333", "result", "Krillion share", "game", "fermi")));
 
     assertEquals("SUCCESS", result.outcome());
-    verify(dailyGames).submitFromDiscord(userId, boardId, "Krillion share");
+    verify(dailyGames).submitShare(userId, null, "Krillion share");
   }
 
   @Test void loldleSavesFiveScoresInServerChannelsAndDirectMessages() throws Exception {
@@ -258,7 +263,7 @@ class DiscordServiceTest {
     when(billing.allGameLimit(userId, now)).thenReturn(1);
     List<ApiModels.LoldleScoreView> scores = LoldleParser.parse(share, puzzleDate).entrySet().stream()
         .map(entry -> new ApiModels.LoldleScoreView(entry.getKey(), entry.getValue())).toList();
-    when(dailyGames.submitLoldleFromDiscord(userId, boardId, share, puzzleDate)).thenReturn(scores);
+    when(dailyGames.submitLoldleShare(userId, share, puzzleDate)).thenReturn(scores);
 
     DiscordInteractionResult server = service.handle(json.readTree(command("loldle", "222222222222222222",
         "111111111111111111", "333333333333333333", "result", share, "date", puzzleDate.toString())));
@@ -267,10 +272,37 @@ class DiscordServiceTest {
     assertTrue(((String) data.get("content")).contains("ABILITY 1 ✓"));
 
     DiscordInteractionResult dm = service.handle(json.readTree(privateChatCommand(1, "loldle",
-        "result", share, "date", puzzleDate.toString(), "leaderboard", boardId.toString())));
+        "result", share, "date", puzzleDate.toString())));
     assertPublicOutcome(dm, "SUCCESS");
-    verify(dailyGames, times(2)).submitLoldleFromDiscord(userId, boardId, share, puzzleDate);
-    verify(billing, times(1)).allGameLimit(userId, now);
+    assertPublicOutcome(service.handle(json.readTree(groupDmCommand("loldle",
+        "result", share, "date", puzzleDate.toString()))), "SUCCESS");
+    assertPublicOutcome(service.handle(json.readTree(privateChatCommand(0, "loldle",
+        "result", share, "date", puzzleDate.toString()))), "SUCCESS");
+    verify(dailyGames, times(4)).submitLoldleShare(userId, share, puzzleDate);
+    verifyNoInteractions(billing);
+  }
+
+  @Test void linkedAccountSubmitsInUnconnectedAndLockedChatsWithoutBoardAccess() throws Exception {
+    UUID userId = UUID.randomUUID();
+    when(interactions.insertIfAbsent(anyString(), anyString(), eq(2), anyString(), eq(now))).thenReturn(1);
+    when(links.findById("222222222222222222"))
+        .thenReturn(Optional.of(new DiscordAccountLink("222222222222222222", userId, now)));
+    Game game = new Game(); game.id = UUID.randomUUID(); game.slug = "fermi"; game.name = "Fermi.gg";
+    ParsedSubmission parsed = new ParsedSubmission("92", 92, LocalDate.of(2026, 10, 26),
+        new BigDecimal("1.31"), Map.of(), 1);
+    when(dailyGames.submitShare(userId, null, "Fermi #92"))
+        .thenReturn(new DailyGamesService.DiscordSubmissionResult(UUID.randomUUID(), game, parsed));
+    GameAdapter adapter = mock(GameAdapter.class);
+    when(adapter.scoreFormat()).thenReturn(new ApiModels.ScoreFormatView("", "", 2, 2));
+    when(adapters.require("fermi")).thenReturn(adapter);
+
+    assertPublicOutcome(service.handle(json.readTree(command("daily", "222222222222222222",
+        "111111111111111111", "333333333333333333", "result", "Fermi #92"))), "SUCCESS");
+    assertPublicOutcome(service.handle(json.readTree(groupDmCommand("daily", "result", "Fermi #92"))), "SUCCESS");
+    assertPublicOutcome(service.handle(json.readTree(privateChatCommand(1, "daily", "result", "Fermi #92"))), "SUCCESS");
+    assertPublicOutcome(service.handle(json.readTree(privateChatCommand(0, "daily", "result", "Fermi #92"))), "SUCCESS");
+    verify(dailyGames, times(4)).submitShare(userId, null, "Fermi #92");
+    verifyNoInteractions(channels, groupDms, boards, billing);
   }
 
   @Test void duplicateInteractionDoesNotRepeatMutation() throws Exception {
@@ -395,10 +427,6 @@ class DiscordServiceTest {
     @SuppressWarnings("unchecked") Map<String, Object> data = (Map<String, Object>) missing.body().get("data");
     assertTrue(((String) data.get("content")).contains("`leaderboard` option"));
 
-    DiscordInteractionResult failedDaily = service.handle(json.readTree(
-        groupDmCommand("daily", "result", "Fermi #92")));
-    assertPrivateOutcome(failedDaily, "PRIVATE_LEADERBOARD_REQUIRED");
-
     DiscordInteractionResult setup = service.handle(json.readTree(
         groupDmCommand("setup", "leaderboard", boardId.toString())));
     assertPrivateOutcome(setup, "GUILD_REQUIRED");
@@ -431,7 +459,7 @@ class DiscordServiceTest {
     Game game = new Game(); game.id = UUID.randomUUID(); game.slug = "fermi"; game.name = "Fermi.gg";
     ParsedSubmission parsed = new ParsedSubmission("92", 92, LocalDate.of(2026, 10, 26),
         new BigDecimal("1.31"), Map.of(), 1);
-    when(dailyGames.submitFromDiscord(memberId, boardId, "Fermi #92"))
+    when(dailyGames.submitShare(memberId, null, "Fermi #92"))
         .thenReturn(new DailyGamesService.DiscordSubmissionResult(UUID.randomUUID(), game, parsed));
     GameAdapter adapter = mock(GameAdapter.class);
     when(adapter.scoreFormat()).thenReturn(new ApiModels.ScoreFormatView("", "×", 2, 2));
@@ -445,7 +473,7 @@ class DiscordServiceTest {
         groupDmCommand("daily", "result", "Fermi #92")));
 
     assertPublicOutcome(submitted, "SUCCESS");
-    verify(dailyGames).submitFromDiscord(memberId, boardId, "Fermi #92");
+    verify(dailyGames).submitShare(memberId, null, "Fermi #92");
     verifyNoInteractions(channels);
   }
 
@@ -494,7 +522,7 @@ class DiscordServiceTest {
     Game game = new Game(); game.id = UUID.randomUUID(); game.slug = "fermi"; game.name = "Fermi.gg";
     ParsedSubmission parsed = new ParsedSubmission("92", 92, LocalDate.of(2026, 10, 26),
         new BigDecimal("1.31"), Map.of(), 1);
-    when(dailyGames.submitFromDiscord(userId, boardId, "Fermi #92\n1.31× score"))
+    when(dailyGames.submitShare(userId, null, "Fermi #92\n1.31× score"))
         .thenReturn(new DailyGamesService.DiscordSubmissionResult(UUID.randomUUID(), game, parsed));
     GameAdapter adapter = mock(GameAdapter.class);
     when(adapter.scoreFormat()).thenReturn(new ApiModels.ScoreFormatView("", "×", 2, 2));
@@ -512,7 +540,7 @@ class DiscordServiceTest {
       assertEquals("Saved Fermi.gg #92 at 1.31×.\nQ1 1.20× · Q2 1.40× · Q3 2.10×", data.get("content"));
     }
 
-    verify(dailyGames, times(2)).submitFromDiscord(userId, boardId, "Fermi #92\n1.31× score");
+    verify(dailyGames, times(2)).submitShare(userId, null, "Fermi #92\n1.31× score");
     verifyNoInteractions(channels, billing);
   }
 
