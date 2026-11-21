@@ -20,8 +20,9 @@ class LetterBagService {
   record View(LocalDate date, String gameNumber, List<Tile> rack, List<Tile> preview, int bagRemaining,
               List<Word> words, int score, Long startedAt, Long endedAt) {}
 
-  private static final String LETTERS = "AAAAAAAABCDEEEEEEEEEEEFGHIIIIIIJKLMNNOOOOOOOPQRRRRSSSSTTTTTTUUUVWYZ";
-  private static final List<String> ANCHORS = List.of("CAT", "DOG", "SUN", "EAR", "NOTE", "STAR", "RAIN", "FIRE", "GAME", "LAMP");
+  static final String VOWEL_POOL = "AAAAAAAAEEEEEEEEEEEIIIIIIOOOOOOOUUU";
+  static final String CONSONANT_POOL = "BCDFGHJKLMNNPQRRRRSSSSTTTTTTVWYZ";
+  static final List<Integer> RACK_VOWEL_TARGETS = List.of(5, 6, 6, 7);
   private static final UUID GAME_ID = UUID.fromString("b7dbe59a-17c4-4f08-9d2c-756702291ece");
   private static final ObjectMapper JSON = new ObjectMapper();
   private static final Set<String> WORDS = loadWords();
@@ -54,20 +55,28 @@ class LetterBagService {
 
   static List<Tile> puzzle(LocalDate date) {
     var rng = new Randomizer(date.toString());
-    var letters = new ArrayList<String>();
-    for (int i = 0; i < 30; i++) letters.add(String.valueOf(LETTERS.charAt((int) (rng.next() * LETTERS.length()))));
-    var anchors = ANCHORS.stream().filter(word -> WORDS.contains(word.toLowerCase(Locale.ROOT))).toList();
-    String anchor = anchors.isEmpty() ? "CAT" : anchors.get((int) (rng.next() * anchors.size()));
-    for (int i = 0; i < anchor.length(); i++) letters.set(i, String.valueOf(anchor.charAt(i)));
-    int vowels = 0;
-    for (int i = 0; i < 15; i++) if ("AEIOU".contains(letters.get(i))) vowels++;
-    for (int i = anchor.length(); i < 15 && vowels < 3; i++) {
-      if (!"AEIOU".contains(letters.get(i))) { letters.set(i, String.valueOf("AEIOU".charAt((int) (rng.next() * 5)))); vowels++; }
-    }
-    for (int i = 14; i > 0; i--) Collections.swap(letters, i, (int) (rng.next() * (i + 1)));
+    int rackVowels = RACK_VOWEL_TARGETS.get((int) (rng.next() * RACK_VOWEL_TARGETS.size()));
+    int bagVowels = 12 - rackVowels;
+    var rack = drawHalf(rng, rackVowels);
+    var bag = drawHalf(rng, bagVowels);
+    var letters = new ArrayList<String>(30);
+    letters.addAll(rack);
+    letters.addAll(bag);
     var result = new ArrayList<Tile>();
     for (int i = 0; i < 30; i++) result.add(new Tile(i, letters.get(i)));
     return List.copyOf(result);
+  }
+
+  private static List<String> drawHalf(Randomizer rng, int vowelCount) {
+    var letters = new ArrayList<String>(15);
+    for (int i = 0; i < vowelCount; i++) letters.add(draw(rng, VOWEL_POOL));
+    for (int i = vowelCount; i < 15; i++) letters.add(draw(rng, CONSONANT_POOL));
+    for (int i = letters.size() - 1; i > 0; i--) Collections.swap(letters, i, (int) (rng.next() * (i + 1)));
+    return letters;
+  }
+
+  private static String draw(Randomizer rng, String pool) {
+    return String.valueOf(pool.charAt((int) (rng.next() * pool.length())));
   }
 
   private static Round fresh(LocalDate date, Long startedAt) {
