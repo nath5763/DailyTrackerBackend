@@ -91,9 +91,10 @@ final class ApiModels {
   record MemberView(UUID userId, UUID shareId, String displayName, String avatarColor, boolean owner) {}
   record RankingView(int rank, UUID userId, UUID shareId, String displayName, BigDecimal average, int gamesPlayed,
                      int assistedResults, int unknownAssistanceResults, int hints, int mistakes, int beginnerAssists,
-                     String displayScore, BigDecimal leaderboardPoints, int participationPoints, int manualResults) {
+                     String displayScore, BigDecimal leaderboardPoints, int participationPoints, int manualResults,
+                     BigDecimal averagePlacement, BigDecimal averageScore) {
     RankingView(int rank, UUID userId, UUID shareId, String displayName, BigDecimal average, int gamesPlayed) {
-      this(rank, userId, shareId, displayName, average, gamesPlayed, 0, 0, 0, 0, 0, null, null, 0, 0);
+      this(rank, userId, shareId, displayName, average, gamesPlayed, 0, 0, 0, 0, 0, null, null, 0, 0, null, null);
     }
   }
   record ResultDetailView(String label, String value) {}

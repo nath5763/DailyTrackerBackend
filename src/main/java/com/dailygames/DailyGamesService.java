@@ -149,7 +149,8 @@ class DailyGamesService {
     LeaderboardData data = leaderboardData(current, boardId, range, gameSlug);
     Leaderboard board = data.board;
     Game game = data.game;
-    List<RankingView> rankings = rankScores(data.memberProfiles, data.scores, game);
+    List<RankingView> rankings = withAggregateMetrics(
+        rankScores(data.memberProfiles, data.scores, game), data.memberProfiles, data.scores, game);
     List<RankingView> combinedRankings = boardType(board) == BoardType.MULTI_GAME
         ? combinedRankings(data.memberProfiles, data.memberIds, data.allowedGames, range) : List.of();
     Set<UUID> ranked = rankings.stream().map(RankingView::userId).collect(Collectors.toSet());
@@ -200,7 +201,8 @@ class DailyGamesService {
     LeaderboardData data = leaderboardData(current, boardId, range, gameSlug);
     Profile member = data.memberProfiles.stream().filter(profile -> profile.userId.equals(userId)).findFirst()
         .orElseThrow(this::notFound);
-    List<RankingView> rankings = rankScores(data.memberProfiles, data.scores, data.game);
+    List<RankingView> rankings = withAggregateMetrics(
+        rankScores(data.memberProfiles, data.scores, data.game), data.memberProfiles, data.scores, data.game);
     RankingView ranking = rankings.stream().filter(value -> value.userId().equals(userId)).findFirst().orElse(null);
     List<ScoreView> memberScores = data.scores.stream().filter(value -> value.userId.equals(userId))
         .sorted(Comparator.comparing((Submission value) -> value.playedOn).reversed()
@@ -330,7 +332,8 @@ class DailyGamesService {
       if (previous == null || !seed.sameResult(previous)) rank = index + 1;
       rankings.add(new RankingView(rank, seed.profile.userId, seed.profile.shareId, seed.profile.displayName,
           seed.average, seed.gamesPlayed, seed.assistedResults, seed.unknownAssistanceResults,
-          seed.hints, seed.mistakes, seed.beginnerAssists, null, null, seed.gamesPlayed, seed.manualResults));
+          seed.hints, seed.mistakes, seed.beginnerAssists, null, null, seed.gamesPlayed, seed.manualResults,
+          null, null));
       previous = seed;
     }
     return rankings;
@@ -362,7 +365,8 @@ class DailyGamesService {
           score.rankingPrimary() == null ? value.primaryScore : score.rankingPrimary(), 1,
           assisted(value) ? 1 : 0, unknownAssistance(value) ? 1 : 0,
           metricCount(value, "hints"), metricCount(value, "mistakes"), metricCount(value, "beginnerAssists"),
-          score.displayScore(), null, 1, value.submissionMethod == SubmissionMethod.MANUAL ? 1 : 0));
+          score.displayScore(), null, 1, value.submissionMethod == SubmissionMethod.MANUAL ? 1 : 0,
+          null, null));
       previous = value;
     }
     return results;
@@ -413,7 +417,8 @@ class DailyGamesService {
       String display = seed.average.stripTrailingZeros().toPlainString() + " leaderboard pts";
       results.add(new RankingView(rank, seed.profile.userId, seed.profile.shareId, seed.profile.displayName,
           seed.average, seed.gamesPlayed, seed.assistedResults, seed.unknownAssistanceResults, seed.hints,
-          seed.mistakes, seed.beginnerAssists, display, seed.average, seed.gamesPlayed, seed.manualResults));
+          seed.mistakes, seed.beginnerAssists, display, seed.average, seed.gamesPlayed, seed.manualResults,
+          null, null));
       previous = seed;
     }
     return results;
@@ -424,6 +429,44 @@ class DailyGamesService {
     int points = 100;
     for (int place = 1; place < rank && points > 0; place++) points = points * 4 / 5;
     return points;
+  }
+
+  private List<RankingView> withAggregateMetrics(List<RankingView> rankings, List<Profile> memberProfiles,
+                                                  List<Submission> scores, Game game) {
+    if (rankings.isEmpty()) return rankings;
+    Map<UUID, List<Integer>> placementsByUser = new HashMap<>();
+    Map<UUID, List<BigDecimal>> scoresByUser = new HashMap<>();
+    Map<LocalDate, List<Submission>> scoresByDay = scores.stream()
+        .collect(Collectors.groupingBy(score -> score.playedOn));
+    for (List<Submission> dailyScores : scoresByDay.values()) {
+      Set<UUID> rankedUsers = new HashSet<>();
+      for (RankingView daily : rankScores(memberProfiles, dailyScores, game)) {
+        placementsByUser.computeIfAbsent(daily.userId(), ignored -> new ArrayList<>()).add(daily.rank());
+        rankedUsers.add(daily.userId());
+      }
+      for (Submission score : dailyScores) {
+        if (rankedUsers.contains(score.userId)) {
+          scoresByUser.computeIfAbsent(score.userId, ignored -> new ArrayList<>()).add(score.primaryScore);
+        }
+      }
+    }
+    return rankings.stream().map(row -> new RankingView(row.rank(), row.userId(), row.shareId(), row.displayName(),
+        row.average(), row.gamesPlayed(), row.assistedResults(), row.unknownAssistanceResults(), row.hints(),
+        row.mistakes(), row.beginnerAssists(), row.displayScore(), row.leaderboardPoints(),
+        row.participationPoints(), row.manualResults(), averageIntegers(placementsByUser.get(row.userId())),
+        averageDecimals(scoresByUser.get(row.userId())))).toList();
+  }
+
+  private BigDecimal averageIntegers(List<Integer> values) {
+    if (values == null || values.isEmpty()) return null;
+    BigDecimal total = values.stream().map(BigDecimal::valueOf).reduce(BigDecimal.ZERO, BigDecimal::add);
+    return total.divide(BigDecimal.valueOf(values.size()), 10, RoundingMode.HALF_UP).stripTrailingZeros();
+  }
+
+  private BigDecimal averageDecimals(List<BigDecimal> values) {
+    if (values == null || values.isEmpty()) return null;
+    BigDecimal total = values.stream().reduce(BigDecimal.ZERO, BigDecimal::add);
+    return total.divide(BigDecimal.valueOf(values.size()), 10, RoundingMode.HALF_UP).stripTrailingZeros();
   }
 
   private List<RankingView> combinedRankings(List<Profile> memberProfiles, List<UUID> memberIds,

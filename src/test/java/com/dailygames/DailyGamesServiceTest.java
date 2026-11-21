@@ -320,11 +320,29 @@ class DailyGamesServiceTest {
         BigDecimal.valueOf(10), Map.of(), 1), "share", Instant.now());
     Submission twinNew = new Submission(twinId, game.id, new ParsedSubmission("new", 2, today,
         BigDecimal.valueOf(10), Map.of(), 1), "share", Instant.now());
+    List<Submission> history = List.of(ownerOld, ownerNew, friendYesterday, friendNew, twinNew);
     when(submissions.findByUserIdInAndGameIdAndPlayedOnBetween(any(), eq(game.id), any(), any()))
-        .thenReturn(List.of(ownerOld, ownerNew, friendYesterday, friendNew, twinNew));
+        .thenAnswer(invocation -> {
+          LocalDate from = invocation.getArgument(2), to = invocation.getArgument(3);
+          return history.stream().filter(score -> !score.playedOn.isBefore(from) && !score.playedOn.isAfter(to)).toList();
+        });
     DailyGamesService service = service(profiles, games, boards, memberships, submissions, adapters, billing);
+    var weekly = service.board(new CurrentUser(ownerId, ""), board.id, "7d").rankings();
+    var monthly = service.board(new CurrentUser(ownerId, ""), board.id, "30d").rankings();
+    var weeklyOwner = weekly.stream().filter(row -> row.userId().equals(ownerId)).findFirst().orElseThrow();
+    var monthlyOwner = monthly.stream().filter(row -> row.userId().equals(ownerId)).findFirst().orElseThrow();
+    var monthlyFriend = monthly.stream().filter(row -> row.userId().equals(friendId)).findFirst().orElseThrow();
+    var monthlyTwin = monthly.stream().filter(row -> row.userId().equals(twinId)).findFirst().orElseThrow();
+    assertEquals(0, new BigDecimal("3").compareTo(weeklyOwner.averagePlacement()));
+    assertEquals(0, new BigDecimal("2").compareTo(monthlyOwner.averagePlacement()));
+    assertEquals(0, new BigDecimal("80").compareTo(monthlyOwner.averageScore()));
+    assertEquals(0, new BigDecimal("505").compareTo(monthlyFriend.averageScore()));
+    assertEquals(0, monthlyFriend.averagePlacement().compareTo(monthlyTwin.averagePlacement()));
+    assertEquals(2, monthlyOwner.gamesPlayed());
+    assertEquals(1, monthlyTwin.gamesPlayed());
+    assertEquals(List.of(twinId, ownerId, friendId), monthly.stream().map(ApiModels.RankingView::userId).toList());
     var insights = service.insights(new CurrentUser(ownerId, ""), board.id, "queens");
-    verify(profiles).findAllById(any());
+    verify(profiles, times(3)).findAllById(any());
     assertEquals(30, insights.ranks().getFirst().points().size());
     assertEquals(1, insights.ranks().getFirst().points().getFirst().rank());
     assertNull(insights.ranks().getFirst().points().get(28).rank());
@@ -332,7 +350,8 @@ class DailyGamesServiceTest {
     assertEquals(1, insights.ranks().get(1).points().get(28).rank());
     assertEquals(1, insights.ranks().get(1).points().getLast().rank());
     assertEquals(1, insights.ranks().get(2).points().getLast().rank());
-    verify(submissions).findByUserIdInAndGameIdAndPlayedOnBetween(any(), eq(game.id), eq(today.minusDays(29)), eq(today));
+    verify(submissions, times(2)).findByUserIdInAndGameIdAndPlayedOnBetween(
+        any(), eq(game.id), eq(today.minusDays(29)), eq(today));
     assertEquals(2, insights.personalScores().size());
     assertTrue(insights.personalScores().stream().allMatch(score -> score.score().compareTo(BigDecimal.valueOf(80)) == 0));
     when(memberships.existsByIdLeaderboardIdAndIdUserId(board.id, ownerId)).thenReturn(false);
