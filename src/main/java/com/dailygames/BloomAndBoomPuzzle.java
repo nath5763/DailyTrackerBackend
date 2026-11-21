@@ -23,10 +23,9 @@ final class BloomAndBoomPuzzle {
     SplittableRandom random = new SplittableRandom(seed(date));
     int base = switch (size) { case 4 -> 4; case 5 -> 6; default -> 9; };
     int hazards = base + random.nextInt(size == 4 ? 2 : 3);
-    int allowedGuesses = date.getDayOfWeek() == DayOfWeek.FRIDAY ? 1 : 0;
     for (int attempt = 0; attempt < 200_000; attempt++) {
       boolean[][] board = candidate(size, hazards, random);
-      if (requiredGuesses(board, allowedGuesses) <= allowedGuesses) return puzzle(date, board);
+      if (validLineCounts(board)) return puzzle(date, board);
     }
     throw new IllegalStateException("Could not generate Bloom & Boom puzzle for " + date);
   }
@@ -62,62 +61,21 @@ final class BloomAndBoomPuzzle {
     return result;
   }
 
-  static int requiredGuesses(boolean[][] hazards, int limit) {
+  private static boolean validLineCounts(boolean[][] hazards) {
     int size = hazards.length;
-    int[][] known = new int[size][size];
-    for (int[] row : known) Arrays.fill(row, -1);
-    return solve(hazards, known, limit);
-  }
-
-  private static int solve(boolean[][] hazards, int[][] known, int limit) {
-    deduce(hazards, known);
-    if (complete(known)) return 0;
-    if (limit == 0) return Integer.MAX_VALUE;
-    int best = Integer.MAX_VALUE;
-    for (int row = 0; row < hazards.length; row++) for (int column = 0; column < hazards.length; column++) {
-      if (known[row][column] != -1 || hazards[row][column]) continue;
-      int[][] branch = copy(known); branch[row][column] = 0;
-      int remaining = solve(hazards, branch, limit - 1);
-      if (remaining != Integer.MAX_VALUE) best = Math.min(best, 1 + remaining);
-    }
-    return best;
-  }
-
-  private static void deduce(boolean[][] hazards, int[][] known) {
-    int size = hazards.length;
-    boolean changed;
-    do {
-      changed = false;
-      for (int axis = 0; axis < 2; axis++) for (int line = 0; line < size; line++) {
-        int total = 0, knownHazards = 0;
-        List<Position> unknown = new ArrayList<>();
-        for (int offset = 0; offset < size; offset++) {
-          int row = axis == 0 ? line : offset, column = axis == 0 ? offset : line;
-          if (hazards[row][column]) total++;
-          if (known[row][column] == 1) knownHazards++;
-          else if (known[row][column] == -1) unknown.add(new Position(row, column));
-        }
-        int remaining = total - knownHazards;
-        if (remaining == 0 || remaining == unknown.size()) for (Position position : unknown) {
-          known[position.row()][position.column()] = remaining == 0 ? 0 : 1;
-          changed = true;
-        }
+    for (int line = 0; line < size; line++) {
+      int row = 0, column = 0;
+      for (int offset = 0; offset < size; offset++) {
+        if (hazards[line][offset]) row++;
+        if (hazards[offset][line]) column++;
       }
-    } while (changed);
-  }
-
-  private static boolean complete(int[][] known) {
-    for (int[] row : known) for (int value : row) if (value == -1) return false;
+      if (row == 0 || row == size || column == 0 || column == size) return false;
+    }
     return true;
   }
 
   private static boolean[][] copy(boolean[][] source) {
     boolean[][] result = new boolean[source.length][];
-    for (int row = 0; row < source.length; row++) result[row] = source[row].clone();
-    return result;
-  }
-  private static int[][] copy(int[][] source) {
-    int[][] result = new int[source.length][];
     for (int row = 0; row < source.length; row++) result[row] = source[row].clone();
     return result;
   }
