@@ -424,8 +424,7 @@ class DiscordServiceTest {
 
     DiscordInteractionResult missing = service.handle(json.readTree(groupDmCommand("leaderboard", "game", "fermi")));
     assertPrivateOutcome(missing, "PRIVATE_LEADERBOARD_REQUIRED");
-    @SuppressWarnings("unchecked") Map<String, Object> data = (Map<String, Object>) missing.body().get("data");
-    assertTrue(((String) data.get("content")).contains("`leaderboard` option"));
+    assertTrue(json.writeValueAsString(missing.body()).contains("leaderboard"));
 
     DiscordInteractionResult setup = service.handle(json.readTree(
         groupDmCommand("setup", "leaderboard", boardId.toString())));
@@ -554,6 +553,7 @@ class DiscordServiceTest {
         new DiscordGroupDmLeaderboard("333333333333333333", boardId, userId, "222222222222222222", now)));
     when(boards.findById(boardId)).thenReturn(Optional.of(
         new Leaderboard(userId, "Friends", null, BoardType.MULTI_GAME, BoardCreationBasis.SUBSCRIPTION, now)));
+    when(dailyGames.discordLeaderboardGames(userId, boardId)).thenReturn(List.of(game));
     when(dailyGames.board(any(), eq(boardId), eq("7d"), eq("fermi")))
         .thenReturn(board(boardId, "Private Friends", game, "7d", List.of()));
 
@@ -561,9 +561,8 @@ class DiscordServiceTest {
         "game", "fermi", "range", "7d")));
 
     assertEquals("SUCCESS", result.outcome());
-    @SuppressWarnings("unchecked") Map<String, Object> data = (Map<String, Object>) result.body().get("data");
-    assertFalse(data.containsKey("flags"));
-    assertTrue(((String) data.get("content")).contains("Private Friends"));
+    assertV2Payload(result, 4, false);
+    assertTrue(json.writeValueAsString(result.body()).contains("Private Friends"));
     verify(dailyGames).board(argThat(user -> user.id().equals(userId)), eq(boardId), eq("7d"), eq("fermi"));
     verifyNoInteractions(channels, billing);
   }
@@ -629,56 +628,62 @@ class DiscordServiceTest {
     verifyNoInteractions(links);
   }
 
-  @Test void leaderboardDefaultsToTodayAndPostsTenFormattedRanksWithoutMentions() throws Exception {
+  @Test void gameLeaderboardUsesComponentsV2AndFormatsScoresAndDetails() throws Exception {
     UUID userId = UUID.randomUUID(), boardId = UUID.randomUUID();
     setupLeaderboardMocks(userId, boardId);
     ApiModels.GameView game = game("fermi", "Fermi.gg");
     List<ApiModels.RankingView> ranks = new ArrayList<>();
-    for (int index = 1; index <= 11; index++) {
-      ranks.add(new ApiModels.RankingView(index, UUID.randomUUID(), UUID.randomUUID(),
+    for (int index = 1; index <= 6; index++) {
+      ranks.add(new ApiModels.RankingView(index == 2 ? 1 : index, UUID.randomUUID(), UUID.randomUUID(),
           index == 1 ? "@everyone *winner*" : "Player " + index,
-          index == 1 ? new BigDecimal("1.3150") : new BigDecimal("1.3100"), 2));
+          index <= 2 ? new BigDecimal("1.3150") : new BigDecimal("1.3100"), 2));
     }
     ApiModels.DailyResultDetailsView firstDetails = new ApiModels.DailyResultDetailsView(ranks.getFirst().userId(), "92",
         List.of(new ApiModels.ResultDetailView("Q1", "1.20×"),
             new ApiModels.ResultDetailView("Q2", "1.40×"),
             new ApiModels.ResultDetailView("Q3", "2.10×")));
+    when(dailyGames.discordLeaderboardGames(userId, boardId)).thenReturn(List.of(game));
     when(dailyGames.board(any(), eq(boardId), eq("today"), eq("fermi")))
         .thenReturn(new ApiModels.LeaderboardResponse(boardId, "Friday [friends]", UUID.randomUUID(), game,
-            BoardType.SINGLE_GAME, List.of(game), "today", false, List.of(), ranks, List.of(), List.of(),
+            BoardType.MULTI_GAME, List.of(game), "today", false, List.of(), ranks, List.of(), List.of(),
             List.of(firstDetails)));
 
     DiscordInteractionResult result = service.handle(json.readTree(commandWithPermissions("leaderboard", "0", "game", "fermi")));
 
     assertEquals("SUCCESS", result.outcome());
     @SuppressWarnings("unchecked") Map<String, Object> data = (Map<String, Object>) result.body().get("data");
-    String content = (String) data.get("content");
-    assertTrue(content.contains("Friday \\[friends\\]"));
-    assertTrue(content.contains("Fermi.gg · Today"));
-    assertTrue(content.contains("1.31× (2 scores)"));
-    assertTrue(content.contains("1.32× (2 scores)"));
-    assertTrue(content.contains("Q1 1.20× · Q2 1.40× · Q3 2.10×"));
-    assertTrue(content.contains("10. Player 10"));
-    assertFalse(content.contains("11. Player 11"));
-    assertTrue(content.contains("https://dailytracker.cc/leaderboards/" + boardId + "?game=fermi&range=today"));
-    assertTrue(content.length() <= 2_000);
-    assertFalse(data.containsKey("flags"));
-    assertEquals(Map.of("parse", List.of()), data.get("allowed_mentions"));
+    assertV2Payload(result, 4, false);
+    String components = json.writeValueAsString(data.get("components"));
+    assertTrue(components.contains("Friday \\\\[friends\\\\]"));
+    assertTrue(components.contains("Fermi.gg"));
+    assertTrue(components.contains("🥇"));
+    assertEquals(2, components.split("🥇", -1).length - 1);
+    assertTrue(components.contains("1.32×"));
+    assertTrue(components.contains("Q1 1.20× · Q2 1.40× · Q3 2.10×"));
+    assertTrue(components.contains("Player 5"));
+    assertFalse(components.contains("Player 6"));
+    assertTrue(components.contains("game=fermi&range=today"));
+    assertTrue(components.contains("Select a game"));
+    assertTrue(components.contains("Next"));
   }
 
   @Test void leaderboardSupportsEveryRangeAndEmptyMultiGameResults() throws Exception {
     UUID userId = UUID.randomUUID(), boardId = UUID.randomUUID();
     setupLeaderboardMocks(userId, boardId);
+    ApiModels.GameView krillion = game("krillion", "Krillion");
+    when(dailyGames.discordLeaderboardGames(userId, boardId)).thenReturn(List.of(krillion));
     for (String range : List.of("7d", "30d", "all")) {
       when(dailyGames.board(any(), eq(boardId), eq(range), eq("krillion")))
-          .thenReturn(board(boardId, "Mixed board", game("krillion", "Krillion"), range, List.of(),
+          .thenReturn(board(boardId, "Mixed board", krillion, range, List.of(),
               BoardType.MULTI_GAME));
       DiscordInteractionResult result = service.handle(json.readTree(command("leaderboard", "222222222222222222",
           "111111111111111111", "333333333333333333", "range", range, "game", "krillion")));
       assertEquals("SUCCESS", result.outcome());
+      assertV2Payload(result, 4, false);
       @SuppressWarnings("unchecked") Map<String, Object> data = (Map<String, Object>) result.body().get("data");
-      assertTrue(((String) data.get("content")).contains("Nobody has posted a score for this range yet."));
-      assertTrue(((String) data.get("content")).contains("&range=" + range));
+      String components = json.writeValueAsString(data.get("components"));
+      assertTrue(components.contains("Nobody has posted a score for this range yet."));
+      assertTrue(components.contains("&range=" + range));
     }
     verify(dailyGames, times(3)).board(argThat(user -> user.id().equals(userId)), eq(boardId), anyString(), eq("krillion"));
   }
@@ -687,27 +692,29 @@ class DiscordServiceTest {
     UUID userId = UUID.randomUUID(), boardId = UUID.randomUUID();
     when(interactions.insertIfAbsent(anyString(), anyString(), eq(2), eq("leaderboard"), eq(now))).thenReturn(1);
     String payload = commandWithPermissions("leaderboard", "0", "game", "fermi");
-    assertPrivateOutcome(service.handle(json.readTree(payload)), "NOT_LINKED");
+    assertPrivateLeaderboardOutcome(service.handle(json.readTree(payload)), "NOT_LINKED");
     when(links.findById("222222222222222222"))
         .thenReturn(Optional.of(new DiscordAccountLink("222222222222222222", userId, now)));
-    assertPrivateOutcome(service.handle(json.readTree(payload)), "CHANNEL_NOT_CONFIGURED");
+    assertPrivateLeaderboardOutcome(service.handle(json.readTree(payload)), "CHANNEL_NOT_CONFIGURED");
     when(channels.findById(any())).thenReturn(Optional.of(new DiscordChannelLeaderboard(
         "444444444444444444", "333333333333333333", boardId, userId, "222222222222222222", now)));
     Leaderboard board = new Leaderboard(userId, "Friends", null, BoardType.MULTI_GAME, BoardCreationBasis.SUBSCRIPTION, now);
     when(boards.findById(boardId)).thenReturn(Optional.of(board));
     when(billing.allGameLimit(userId, now)).thenReturn(1);
+    when(dailyGames.discordLeaderboardGames(userId, boardId))
+        .thenReturn(List.of(game("fermi", "Fermi.gg"), game("unknown", "Unknown")));
     when(dailyGames.board(any(), eq(boardId), eq("today"), eq("fermi")))
         .thenThrow(new ApiException(404, "NOT_FOUND", "Resource not found."),
             new ApiException(402, "OWNER_SUBSCRIPTION_REQUIRED", "Locked"),
             new ApiException(400, "GAME_NOT_ALLOWED", "That game is not available on this leaderboard."));
-    assertPrivateOutcome(service.handle(json.readTree(payload)), "NOT_FOUND");
-    assertPrivateOutcome(service.handle(json.readTree(payload)), "OWNER_SUBSCRIPTION_REQUIRED");
-    assertPrivateOutcome(service.handle(json.readTree(payload)), "GAME_NOT_ALLOWED");
+    assertPrivateLeaderboardOutcome(service.handle(json.readTree(payload)), "NOT_FOUND");
+    assertPrivateLeaderboardOutcome(service.handle(json.readTree(payload)), "OWNER_SUBSCRIPTION_REQUIRED");
+    assertPrivateLeaderboardOutcome(service.handle(json.readTree(payload)), "GAME_NOT_ALLOWED");
     when(dailyGames.board(any(), eq(boardId), eq("today"), eq("unknown")))
         .thenThrow(new ApiException(400, "GAME_NOT_ALLOWED", "That game is not available on this leaderboard."));
-    assertPrivateOutcome(service.handle(json.readTree(commandWithPermissions("leaderboard", "0", "game", "unknown"))),
+    assertPrivateLeaderboardOutcome(service.handle(json.readTree(commandWithPermissions("leaderboard", "0", "game", "unknown"))),
         "GAME_NOT_ALLOWED");
-    assertPrivateOutcome(service.handle(json.readTree(command("leaderboard", "222222222222222222",
+    assertPrivateLeaderboardOutcome(service.handle(json.readTree(command("leaderboard", "222222222222222222",
         "111111111111111111", "333333333333333333", "game", "fermi", "range", "bad"))), "INVALID_RANGE");
   }
 
@@ -741,8 +748,36 @@ class DiscordServiceTest {
   private void assertPrivateOutcome(DiscordInteractionResult result, String outcome) {
     assertEquals(outcome, result.outcome());
     @SuppressWarnings("unchecked") Map<String, Object> data = (Map<String, Object>) result.body().get("data");
-    assertEquals(64, data.get("flags"));
+    assertEquals("leaderboard".equals(result.command()) ? 32_832 : 64, data.get("flags"));
     assertEquals(Map.of("parse", List.of()), data.get("allowed_mentions"));
+  }
+
+  private void assertPrivateLeaderboardOutcome(DiscordInteractionResult result, String outcome) {
+    assertEquals(outcome, result.outcome());
+    assertV2Payload(result, 4, true);
+  }
+
+  private void assertV2Payload(DiscordInteractionResult result, int responseType, boolean ephemeral) {
+    assertEquals(responseType, result.body().get("type"));
+    @SuppressWarnings("unchecked") Map<String, Object> data = (Map<String, Object>) result.body().get("data");
+    assertEquals(ephemeral ? 32_832 : 32_768, data.get("flags"));
+    assertFalse(data.containsKey("content"));
+    assertFalse(data.containsKey("embeds"));
+    assertEquals(Map.of("parse", List.of()), data.get("allowed_mentions"));
+    @SuppressWarnings("unchecked") List<Map<String, Object>> components =
+        (List<Map<String, Object>>) data.get("components");
+    assertEquals(1, components.size());
+    assertEquals(17, components.getFirst().get("type"));
+    assertCustomIdsWithinLimit(components);
+  }
+
+  private void assertCustomIdsWithinLimit(Object value) {
+    if (value instanceof Map<?, ?> map) {
+      if (map.get("custom_id") instanceof String customId) assertTrue(customId.length() <= 100);
+      map.values().forEach(this::assertCustomIdsWithinLimit);
+    } else if (value instanceof Iterable<?> values) {
+      values.forEach(this::assertCustomIdsWithinLimit);
+    }
   }
 
   private void assertPublicOutcome(DiscordInteractionResult result, String outcome) {
@@ -795,56 +830,176 @@ class DiscordServiceTest {
         + "\"data\":{\"name\":\"" + name + "\",\"options\":" + options + "]}}";
   }
 
+  private String componentCallback(UUID boardId, String state, int componentType, String interactionId,
+                                   String selectedValue) {
+    String values = selectedValue == null ? "" : ",\"values\":[\"" + selectedValue + "\"]";
+    return "{\"type\":3,\"id\":\"" + interactionId + "\",\"guild_id\":\"444444444444444444\","
+        + "\"channel_id\":\"333333333333333333\",\"member\":{\"user\":{\"id\":\"222222222222222222\"}},"
+        + "\"data\":{\"component_type\":" + componentType + ",\"custom_id\":\"lb:" + boardId + ":"
+        + state + "\"" + values + "}}";
+  }
+
   private String escape(String value) { return value.replace("\\", "\\\\").replace("\n", "\\n").replace("\"", "\\\""); }
 
-  @Test void allGamesCardExpandsPrivatelyAndChecksMappingAgain() throws Exception {
+  @Test void overviewSelectUpdatesMessageAndRevalidatesMapping() throws Exception {
     UUID userId = UUID.randomUUID(), boardId = UUID.randomUUID();
     setupLeaderboardMocks(userId, boardId);
     when(interactions.insertIfAbsent(anyString(), anyString(), eq(3), eq("leaderboard"), eq(now))).thenReturn(1);
     var game = game("fermi", "Fermi");
     var winner = new ApiModels.RankingView(1, userId, UUID.randomUUID(), "Winner",
         new BigDecimal("1.25"), 1);
+    when(dailyGames.discordLeaderboardGames(userId, boardId)).thenReturn(List.of(game));
     when(dailyGames.todaySummary(any(), eq(boardId))).thenReturn(new DailyGamesService.TodaySummary(boardId,
         "Friends", List.of(winner), List.of(new DailyGamesService.TodayGameLeaders(game, List.of(winner)))));
+    when(dailyGames.board(any(), eq(boardId), eq("today"), eq("fermi")))
+        .thenReturn(board(boardId, "Friends", game, "today", List.of(winner)));
     DiscordInteractionResult card = service.handle(json.readTree(commandWithPermissions("leaderboard", "0", null, null)));
-    assertPublicOutcome(card, "SUCCESS");
+    assertV2Payload(card, 4, false);
     @SuppressWarnings("unchecked") Map<String, Object> cardData = (Map<String, Object>) card.body().get("data");
-    assertTrue(cardData.containsKey("embeds"));
-    assertTrue(cardData.containsKey("components"));
+    String cardComponents = json.writeValueAsString(cardData.get("components"));
+    assertTrue(cardComponents.contains("Daily Leaderboards · Today"));
+    assertTrue(cardComponents.contains("Winner"));
+    assertTrue(cardComponents.contains("1.25×"));
+    assertTrue(cardComponents.contains("Select a game"));
     String callback = "{\"type\":3,\"id\":\"111111111111111112\",\"guild_id\":\"444444444444444444\","
         + "\"channel_id\":\"333333333333333333\",\"member\":{\"user\":{\"id\":\"222222222222222222\"}},"
-        + "\"data\":{\"custom_id\":\"lb:" + boardId + ":0\"}}";
+        + "\"data\":{\"component_type\":3,\"custom_id\":\"lb:" + boardId
+        + ":o:x:t:0:0:s\",\"values\":[\"g:0\"]}}";
     DiscordInteractionResult detail = service.handle(json.readTree(callback));
-    assertPrivateOutcome(detail, "SUCCESS");
+    assertV2Payload(detail, 7, false);
     @SuppressWarnings("unchecked") Map<String, Object> detailData = (Map<String, Object>) detail.body().get("data");
-    assertTrue(detailData.get("embeds").toString().contains("Winner"));
+    assertTrue(json.writeValueAsString(detailData.get("components")).contains("Winner"));
     when(channels.findById(any())).thenReturn(Optional.of(new DiscordChannelLeaderboard(
         "444444444444444444", "333333333333333333", UUID.randomUUID(), userId,
         "222222222222222222", now)));
-    assertPrivateOutcome(service.handle(json.readTree(callback)), "MAPPING_CHANGED");
+    assertPrivateLeaderboardOutcome(service.handle(json.readTree(callback)), "MAPPING_CHANGED");
   }
 
 
-  @Test void allGamesExpansionPagesTenGames() throws Exception {
+  @Test void overviewAndGameMenuPaginationUpdateTheOriginalMessage() throws Exception {
     UUID userId = UUID.randomUUID(), boardId = UUID.randomUUID();
     setupLeaderboardMocks(userId, boardId);
     when(interactions.insertIfAbsent(anyString(), anyString(), eq(3), eq("leaderboard"), eq(now))).thenReturn(1);
     var winner = new ApiModels.RankingView(1, userId, UUID.randomUUID(), "Winner",
         new BigDecimal("1.25"), 1);
+    List<ApiModels.GameView> allGames = new ArrayList<>();
+    for (int i = 0; i < 26; i++) allGames.add(game("game-" + i, "Game " + i));
+    when(dailyGames.discordLeaderboardGames(userId, boardId)).thenReturn(allGames);
     List<DailyGamesService.TodayGameLeaders> games = new ArrayList<>();
-    for (int i = 0; i < 11; i++)
-      games.add(new DailyGamesService.TodayGameLeaders(game("game-" + i, "Game " + i), List.of(winner)));
+    for (int i = 0; i < 6; i++) games.add(new DailyGamesService.TodayGameLeaders(allGames.get(i), List.of(winner)));
     when(dailyGames.todaySummary(any(), eq(boardId))).thenReturn(
         new DailyGamesService.TodaySummary(boardId, "Friends", List.of(winner), games));
     String payload = "{\"type\":3,\"id\":\"111111111111111112\",\"guild_id\":\"444444444444444444\","
         + "\"channel_id\":\"333333333333333333\",\"member\":{\"user\":{\"id\":\"222222222222222222\"}},"
-        + "\"data\":{\"custom_id\":\"lb:" + boardId + ":1\"}}";
+        + "\"data\":{\"component_type\":2,\"custom_id\":\"lb:" + boardId + ":o:x:t:0:0:n\"}}";
     var result = service.handle(json.readTree(payload));
-    assertPrivateOutcome(result, "SUCCESS");
+    assertV2Payload(result, 7, false);
     @SuppressWarnings("unchecked") Map<String, Object> data = (Map<String, Object>) result.body().get("data");
-    assertTrue(data.get("embeds").toString().contains("page 2 of 2"));
-    assertTrue(data.get("embeds").toString().contains("Game 10"));
-    assertTrue(data.get("components").toString().contains("Previous"));
+    String components = json.writeValueAsString(data.get("components"));
+    assertTrue(components.contains("Page 2 of 2"));
+    assertTrue(components.contains("Game 5"));
+    assertTrue(components.contains("Previous"));
+
+    String menuPayload = "{\"type\":3,\"id\":\"111111111111111113\",\"guild_id\":\"444444444444444444\","
+        + "\"channel_id\":\"333333333333333333\",\"member\":{\"user\":{\"id\":\"222222222222222222\"}},"
+        + "\"data\":{\"component_type\":2,\"custom_id\":\"lb:" + boardId + ":o:x:t:0:0:mn\"}}";
+    DiscordInteractionResult menuPage = service.handle(json.readTree(menuPayload));
+    assertV2Payload(menuPage, 7, false);
+    @SuppressWarnings("unchecked") Map<String, Object> menuData = (Map<String, Object>) menuPage.body().get("data");
+    String menuComponents = json.writeValueAsString(menuData.get("components"));
+    assertTrue(menuComponents.contains("Game 25"));
+    assertFalse(menuComponents.contains("Game 24"));
+    assertTrue(menuComponents.contains("Previous Games"));
+  }
+
+  @Test void todayOverallBackAndCombinedNavigationUseBackendRankings() throws Exception {
+    UUID userId = UUID.randomUUID(), boardId = UUID.randomUUID();
+    setupLeaderboardMocks(userId, boardId);
+    when(interactions.insertIfAbsent(anyString(), anyString(), eq(3), eq("leaderboard"), eq(now))).thenReturn(1);
+    ApiModels.GameView fermi = game("fermi", "Fermi.gg");
+    when(dailyGames.discordLeaderboardGames(userId, boardId)).thenReturn(List.of(fermi));
+    ApiModels.RankingView daily = new ApiModels.RankingView(1, userId, UUID.randomUUID(), "Daily Winner",
+        new BigDecimal("1.25"), 1);
+    ApiModels.RankingView overall = new ApiModels.RankingView(1, userId, UUID.randomUUID(), "Overall Winner",
+        new BigDecimal("91.5"), 9, 0, 0, 0, 0, 0, "91.5 leaderboard pts",
+        new BigDecimal("91.5"), 9, 0, null, null);
+    when(dailyGames.board(any(), eq(boardId), eq("today"), eq("fermi")))
+        .thenReturn(board(boardId, "Friends", fermi, "today", List.of(daily)));
+    when(dailyGames.board(any(), eq(boardId), eq("all"), eq("fermi")))
+        .thenReturn(new ApiModels.LeaderboardResponse(boardId, "Friends", UUID.randomUUID(), fermi,
+            BoardType.MULTI_GAME, List.of(fermi), "all", false, List.of(), List.of(overall), List.of(),
+            List.of(overall), List.of()));
+    when(dailyGames.todaySummary(any(), eq(boardId))).thenReturn(new DailyGamesService.TodaySummary(boardId,
+        "Friends", List.of(daily), List.of(new DailyGamesService.TodayGameLeaders(fermi, List.of(daily)))));
+
+    DiscordInteractionResult gameOverall = service.handle(json.readTree(componentCallback(boardId,
+        "g:0:t:0:0:a", 2, "111111111111111120", null)));
+    assertV2Payload(gameOverall, 7, false);
+    assertTrue(json.writeValueAsString(gameOverall.body()).contains("Overall Winner"));
+
+    DiscordInteractionResult today = service.handle(json.readTree(componentCallback(boardId,
+        "g:0:a:0:0:t", 2, "111111111111111121", null)));
+    assertV2Payload(today, 7, false);
+    assertTrue(json.writeValueAsString(today.body()).contains("Daily Winner"));
+
+    DiscordInteractionResult back = service.handle(json.readTree(componentCallback(boardId,
+        "g:0:t:0:0:b", 2, "111111111111111122", null)));
+    assertV2Payload(back, 7, false);
+    assertTrue(json.writeValueAsString(back.body()).contains("Daily Leaderboards · Today"));
+
+    DiscordInteractionResult combined = service.handle(json.readTree(componentCallback(boardId,
+        "o:x:t:0:0:a", 2, "111111111111111123", null)));
+    assertV2Payload(combined, 7, false);
+    String combinedJson = json.writeValueAsString(combined.body());
+    assertTrue(combinedJson.contains("Overall Standings"));
+    assertTrue(combinedJson.contains("91.5 leaderboard pts"));
+  }
+
+  @Test void gamePaginationAndInvalidStateAreValidatedServerSide() throws Exception {
+    UUID userId = UUID.randomUUID(), boardId = UUID.randomUUID();
+    setupLeaderboardMocks(userId, boardId);
+    when(interactions.insertIfAbsent(anyString(), anyString(), eq(3), eq("leaderboard"), eq(now))).thenReturn(1);
+    ApiModels.GameView fermi = game("fermi", "Fermi.gg");
+    when(dailyGames.discordLeaderboardGames(userId, boardId)).thenReturn(List.of(fermi));
+    List<ApiModels.RankingView> rankings = new ArrayList<>();
+    for (int rank = 1; rank <= 6; rank++) rankings.add(new ApiModels.RankingView(rank, UUID.randomUUID(),
+        UUID.randomUUID(), "Player " + rank, BigDecimal.valueOf(rank), 1));
+    when(dailyGames.board(any(), eq(boardId), eq("today"), eq("fermi")))
+        .thenReturn(board(boardId, "Friends", fermi, "today", rankings));
+
+    DiscordInteractionResult next = service.handle(json.readTree(componentCallback(boardId,
+        "g:0:t:0:0:n", 2, "111111111111111130", null)));
+    assertV2Payload(next, 7, false);
+    String nextJson = json.writeValueAsString(next.body());
+    assertTrue(nextJson.contains("Player 6"));
+    assertFalse(nextJson.contains("Player 5"));
+    assertTrue(nextJson.contains("Page 2 of 2"));
+
+    DiscordInteractionResult invalid = service.handle(json.readTree(componentCallback(boardId,
+        "g:0:t:1:0:n", 2, "111111111111111131", null)));
+    assertPrivateLeaderboardOutcome(invalid, "INVALID_CHOICE");
+
+    DiscordInteractionResult forgedGame = service.handle(json.readTree(componentCallback(boardId,
+        "g:9:t:0:0:t", 2, "111111111111111132", null)));
+    assertPrivateLeaderboardOutcome(forgedGame, "INVALID_CHOICE");
+  }
+
+  @Test void emptyOverviewStillProducesAValidComponentsV2Message() throws Exception {
+    UUID userId = UUID.randomUUID(), boardId = UUID.randomUUID();
+    setupLeaderboardMocks(userId, boardId);
+    ApiModels.GameView fermi = game("fermi", "Fermi.gg");
+    when(dailyGames.discordLeaderboardGames(userId, boardId)).thenReturn(List.of(fermi));
+    when(dailyGames.todaySummary(any(), eq(boardId))).thenReturn(
+        new DailyGamesService.TodaySummary(boardId, "Quiet Board", List.of(), List.of()));
+
+    DiscordInteractionResult result = service.handle(
+        json.readTree(commandWithPermissions("leaderboard", "0", null, null)));
+
+    assertV2Payload(result, 4, false);
+    String payload = json.writeValueAsString(result.body());
+    assertTrue(payload.contains("Nobody has posted a score today."));
+    assertTrue(payload.contains("Select a game"));
+    assertFalse(payload.contains("embeds"));
   }
 
 }

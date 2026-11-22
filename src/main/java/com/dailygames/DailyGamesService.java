@@ -594,6 +594,16 @@ class DailyGamesService {
     return searchDiscordGames(boardId, query, shareTextOnly);
   }
 
+  List<GameView> discordLeaderboardGames(UUID userId, UUID boardId) {
+    requireMembership(boardId, userId);
+    Leaderboard board = boards.findById(boardId)
+        .orElseThrow(() -> new ApiException(404, "LEADERBOARD_NOT_FOUND", "That leaderboard no longer exists."));
+    if (boardType(board) != BoardType.MULTI_GAME)
+      throw new ApiException(400, "MULTI_GAME_REQUIRED", "Discord supports multi-game leaderboards only.");
+    requireUnlocked(board);
+    return allowedGames(board).stream().map(this::gameView).toList();
+  }
+
   @Transactional
   void removeMember(CurrentUser current, UUID boardId, UUID userId) {
     Leaderboard board = requireOwnedBoard(boardId, current.id());

@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.*;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
+import java.net.URLEncoder;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
@@ -88,6 +89,11 @@ class DiscordService {
   private static final char[] CODE_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ".toCharArray();
   private static final Pattern CODE_PATTERN = Pattern.compile("[0-9A-HJKMNP-TV-Z]{12}");
   private static final Pattern SNOWFLAKE = Pattern.compile("[0-9]{1,20}");
+  private static final int IS_COMPONENTS_V2 = 32_768;
+  private static final int EPHEMERAL = 64;
+  private static final int OVERVIEW_GAMES_PER_PAGE = 5;
+  private static final int PLAYERS_PER_PAGE = 5;
+  private static final int SELECT_OPTIONS_PER_PAGE = 25;
   private static final BigInteger ADMINISTRATOR = BigInteger.valueOf(8);
   private static final BigInteger MANAGE_GUILD = BigInteger.valueOf(32);
   private static final Duration CODE_LIFETIME = Duration.ofMinutes(10);
@@ -173,7 +179,9 @@ class DiscordService {
     String command = type == 3 ? "leaderboard" : requiredText(payload.path("data"), "name", 32).toLowerCase(Locale.ROOT);
     Instant now = clock.instant();
     if (interactions.insertIfAbsent(interactionId, discordUserId, type, command, now) == 0) {
-      return ephemeral("This interaction was already handled.", "DUPLICATE_INTERACTION", command);
+      return "leaderboard".equals(command)
+          ? leaderboardError("This interaction was already handled.", "DUPLICATE_INTERACTION")
+          : ephemeral("This interaction was already handled.", "DUPLICATE_INTERACTION", command);
     }
 
     DiscordInteractionResult result;
@@ -181,8 +189,8 @@ class DiscordService {
       String guildId = optionalSnowflake(payload, "guild_id");
       String channelId = optionalSnowflake(payload, "channel_id");
       boolean groupDm = isGroupDm(payload);
-      result = type == 3 ? expandLeaderboard(discordUserId, groupDm, guildId, channelId,
-          requiredText(payload.path("data"), "custom_id", 100)) : switch (command) {
+      result = type == 3 ? leaderboardComponent(discordUserId, groupDm, guildId, channelId,
+          payload.path("data")) : switch (command) {
         case "help" -> help();
         case "signup" -> signup(discordUserId, guildId, channelId);
         case "my-id" -> myId(discordUserId);
@@ -203,7 +211,9 @@ class DiscordService {
         default -> throw new ApiException(400, "UNKNOWN_COMMAND", "That command is not supported.");
       };
     } catch (ApiException exception) {
-      result = ephemeral(discordMessage(exception), exception.code, command);
+      result = "leaderboard".equals(command)
+          ? leaderboardError(discordMessage(exception), exception.code)
+          : ephemeral(discordMessage(exception), exception.code, command);
     }
     interactions.updateOutcome(interactionId, result.outcome());
     return result;
@@ -451,114 +461,408 @@ class DiscordService {
     UUID leaderboardId = resolveLeaderboard(groupDm, guildId, channelId, rawLeaderboardId);
     if (guildId != null) requirePaidOwner(leaderboardId);
     requireMultiGame(leaderboardId);
-    if (gameSlug == null) return todayCard(userId, leaderboardId);
     String range = requestedRange == null ? "today" : requestedRange;
     if (!Set.of("today", "7d", "30d", "all").contains(range)) {
       throw new ApiException(400, "INVALID_RANGE", "Range must be today, 7d, 30d, or all.");
     }
-    ApiModels.LeaderboardResponse board = dailyGames.board(new CurrentUser(userId, ""), leaderboardId,
-        range, gameSlug);
-    String url = publicBaseUrl + "/leaderboards/" + board.id() + "?game=" + gameSlug + "&range=" + range;
-    String label = switch (range) {
+    List<ApiModels.GameView> games = dailyGames.discordLeaderboardGames(userId, leaderboardId);
+    if (gameSlug == null) {
+      return renderOverview(userId, games,
+          new LeaderboardUiState(leaderboardId, 'o', -1, "t", 0, 0), 4);
+    }
+    int gameIndex = gameIndex(games, gameSlug);
+    return renderGame(userId, games,
+        new LeaderboardUiState(leaderboardId, 'g', gameIndex, rangeCode(range), 0,
+            gameIndex / SELECT_OPTIONS_PER_PAGE), 4);
+  }
+
+  private DiscordInteractionResult leaderboardComponent(String discordUserId, boolean groupDm, String guildId,
+      String channelId, JsonNode data) {
+    int componentType = requiredInt(data, "component_type");
+    if (componentType != 2 && componentType != 3) throw invalidLeaderboardChoice();
+    ParsedLeaderboardCustomId parsed = parseLeaderboardCustomId(requiredText(data, "custom_id", 100));
+    LeaderboardUiState state = parsed.state();
+    UUID current = resolveLeaderboard(groupDm, guildId, channelId,
+        guildId == null ? state.boardId().toString() : null);
+    if (!current.equals(state.boardId()))
+      throw new ApiException(409, "MAPPING_CHANGED", "The connected leaderboard changed.");
+    if (guildId != null) requirePaidOwner(state.boardId());
+    requireMultiGame(state.boardId());
+    UUID userId = linkedUser(discordUserId);
+    List<ApiModels.GameView> games = dailyGames.discordLeaderboardGames(userId, state.boardId());
+
+    if (parsed.action().equals("s")) {
+      if (componentType != 3 || !data.path("values").isArray() || data.path("values").size() != 1)
+        throw new ApiException(400, "INVALID_CHOICE", "Choose one game from the menu.");
+      String value = data.path("values").get(0).asText("");
+      if (!value.matches("g:[0-9]{1,4}")) throw invalidLeaderboardChoice();
+      int gameIndex = Integer.parseInt(value.substring(2));
+      requireGameIndex(games, gameIndex);
+      state = new LeaderboardUiState(state.boardId(), 'g', gameIndex, state.range(), 0,
+          gameIndex / SELECT_OPTIONS_PER_PAGE);
+    } else {
+      if (componentType != 2) throw invalidLeaderboardChoice();
+      state = switch (parsed.action()) {
+        case "p" -> new LeaderboardUiState(state.boardId(), state.view(), state.gameIndex(), state.range(),
+            state.page() - 1, state.menuPage());
+        case "n" -> new LeaderboardUiState(state.boardId(), state.view(), state.gameIndex(), state.range(),
+            state.page() + 1, state.menuPage());
+        case "b" -> new LeaderboardUiState(state.boardId(), 'o', -1, "t", 0, state.menuPage());
+        case "t" -> {
+          if (state.view() != 'g') throw invalidLeaderboardChoice();
+          yield new LeaderboardUiState(state.boardId(), 'g', state.gameIndex(), "t", 0, state.menuPage());
+        }
+        case "a" -> {
+          if (state.view() == 'o')
+            yield new LeaderboardUiState(state.boardId(), 'c', -1, "a", 0, state.menuPage());
+          if (state.view() == 'g')
+            yield new LeaderboardUiState(state.boardId(), 'g', state.gameIndex(), "a", 0, state.menuPage());
+          throw invalidLeaderboardChoice();
+        }
+        case "mp" -> new LeaderboardUiState(state.boardId(), state.view(), state.gameIndex(), state.range(),
+            state.page(), state.menuPage() - 1);
+        case "mn" -> new LeaderboardUiState(state.boardId(), state.view(), state.gameIndex(), state.range(),
+            state.page(), state.menuPage() + 1);
+        default -> throw invalidLeaderboardChoice();
+      };
+    }
+    return renderLeaderboardState(userId, games, state, 7);
+  }
+
+  private DiscordInteractionResult renderLeaderboardState(UUID userId, List<ApiModels.GameView> games,
+      LeaderboardUiState state, int responseType) {
+    return switch (state.view()) {
+      case 'o' -> renderOverview(userId, games, state, responseType);
+      case 'g' -> renderGame(userId, games, state, responseType);
+      case 'c' -> renderCombined(userId, games, state, responseType);
+      default -> throw invalidLeaderboardChoice();
+    };
+  }
+
+  private DiscordInteractionResult renderOverview(UUID userId, List<ApiModels.GameView> games,
+      LeaderboardUiState state, int responseType) {
+    validateMenuPage(games, state.menuPage());
+    DailyGamesService.TodaySummary summary = dailyGames.todaySummary(new CurrentUser(userId, ""), state.boardId());
+    int pages = pageCount(summary.games().size(), OVERVIEW_GAMES_PER_PAGE);
+    validatePage(state.page(), pages);
+    int from = state.page() * OVERVIEW_GAMES_PER_PAGE;
+    int to = Math.min(from + OVERVIEW_GAMES_PER_PAGE, summary.games().size());
+
+    List<Map<String, Object>> children = new ArrayList<>();
+    children.add(textDisplay("## " + discordText(summary.boardName(), 100) + "\nDaily Leaderboards · Today"));
+    children.add(separator());
+    StringBuilder body = new StringBuilder();
+    if (summary.games().isEmpty()) {
+      body.append("Nobody has posted a score today.");
+    } else {
+      for (DailyGamesService.TodayGameLeaders game : summary.games().subList(from, to)) {
+        if (!body.isEmpty()) body.append("\n\n");
+        body.append("### ").append(discordText(game.game().name(), 80)).append('\n');
+        if (game.leaders().isEmpty()) body.append("No ranked results");
+        else for (ApiModels.RankingView leader : game.leaders()) {
+          body.append("**").append(discordText(leader.displayName(), 60)).append("** — **")
+              .append(discordText(gameScore(leader, game.game()), 50)).append("**\n");
+        }
+        if (!game.leaders().isEmpty()) body.setLength(body.length() - 1);
+      }
+      if (pages > 1) body.append("\n\n-# Page ").append(state.page() + 1).append(" of ").append(pages);
+    }
+    children.add(textDisplay(body.toString()));
+    children.add(separator());
+    addGameSelector(children, games, state);
+    if (pages > 1) children.add(actionRow(List.of(
+        button("Previous", customId(state, "p"), 2, state.page() == 0),
+        button("Next", customId(state, "n"), 2, state.page() + 1 == pages))));
+    children.add(actionRow(List.of(
+        button("View Overall", customId(state, "a"), 1, games.isEmpty()),
+        linkButton("Open Full Leaderboard ↗", fullLeaderboardUrl(state.boardId(), null, "today")))));
+    return leaderboardResponse(responseType, children);
+  }
+
+  private DiscordInteractionResult renderGame(UUID userId, List<ApiModels.GameView> games,
+      LeaderboardUiState state, int responseType) {
+    requireGameIndex(games, state.gameIndex());
+    validateMenuPage(games, state.menuPage());
+    ApiModels.GameView game = games.get(state.gameIndex());
+    String range = rangeValue(state.range());
+    ApiModels.LeaderboardResponse board = dailyGames.board(new CurrentUser(userId, ""), state.boardId(), range,
+        game.slug());
+    int pages = pageCount(board.rankings().size(), PLAYERS_PER_PAGE);
+    validatePage(state.page(), pages);
+    int from = state.page() * PLAYERS_PER_PAGE;
+    int to = Math.min(from + PLAYERS_PER_PAGE, board.rankings().size());
+
+    List<Map<String, Object>> children = new ArrayList<>();
+    children.add(textDisplay("## " + discordText(game.name(), 100) + "\n"
+        + discordText(board.name(), 100) + " · " + rangeLabel(range)));
+    children.add(separator());
+    StringBuilder body = new StringBuilder();
+    if (board.rankings().isEmpty()) {
+      body.append("Nobody has posted a score for this range yet.");
+    } else {
+      for (ApiModels.RankingView row : board.rankings().subList(from, to)) {
+        if (!body.isEmpty()) body.append("\n\n");
+        body.append(rankLabel(row.rank())).append(" **").append(discordText(row.displayName(), 60))
+            .append("** — **").append(discordText(gameScore(row, game), 50)).append("**");
+        String details = range.equals("today") ? dailyDetails(board, row.userId()) : resultCount(row.gamesPlayed());
+        if (!details.isEmpty()) body.append("\n-# ").append(details);
+      }
+      if (pages > 1) body.append("\n\n-# Page ").append(state.page() + 1).append(" of ").append(pages);
+    }
+    children.add(textDisplay(body.toString()));
+    children.add(separator());
+    addGameSelector(children, games, state);
+    children.add(actionRow(List.of(
+        button("Today", customId(state, "t"), state.range().equals("t") ? 1 : 2, false),
+        button("Overall", customId(state, "a"), state.range().equals("a") ? 1 : 2, false))));
+    List<Map<String, Object>> navigation = new ArrayList<>();
+    if (pages > 1) {
+      navigation.add(button("Previous", customId(state, "p"), 2, state.page() == 0));
+      navigation.add(button("Next", customId(state, "n"), 2, state.page() + 1 == pages));
+    }
+    navigation.add(button("Back", customId(state, "b"), 2, false));
+    navigation.add(linkButton("Full Leaderboard ↗", fullLeaderboardUrl(state.boardId(), game.slug(), range)));
+    children.add(actionRow(navigation));
+    return leaderboardResponse(responseType, children);
+  }
+
+  private DiscordInteractionResult renderCombined(UUID userId, List<ApiModels.GameView> games,
+      LeaderboardUiState state, int responseType) {
+    if (games.isEmpty()) throw new ApiException(400, "INVALID_CHOICE", "This leaderboard has no games.");
+    validateMenuPage(games, state.menuPage());
+    ApiModels.LeaderboardResponse board = dailyGames.board(new CurrentUser(userId, ""), state.boardId(), "all",
+        games.getFirst().slug());
+    int pages = pageCount(board.combinedRankings().size(), PLAYERS_PER_PAGE);
+    validatePage(state.page(), pages);
+    int from = state.page() * PLAYERS_PER_PAGE;
+    int to = Math.min(from + PLAYERS_PER_PAGE, board.combinedRankings().size());
+
+    List<Map<String, Object>> children = new ArrayList<>();
+    children.add(textDisplay("## Overall Standings\n" + discordText(board.name(), 100) + " · All time"));
+    children.add(separator());
+    StringBuilder body = new StringBuilder();
+    if (board.combinedRankings().isEmpty()) {
+      body.append("Nobody has an overall ranking yet.");
+    } else {
+      for (ApiModels.RankingView row : board.combinedRankings().subList(from, to)) {
+        if (!body.isEmpty()) body.append("\n\n");
+        String score = row.displayScore() == null || row.displayScore().isBlank()
+            ? row.leaderboardPoints().stripTrailingZeros().toPlainString() + " leaderboard pts"
+            : row.displayScore();
+        body.append(rankLabel(row.rank())).append(" **").append(discordText(row.displayName(), 60))
+            .append("** — **").append(discordText(score, 60)).append("**")
+            .append("\n-# ").append(resultCount(row.gamesPlayed()));
+      }
+      if (pages > 1) body.append("\n\n-# Page ").append(state.page() + 1).append(" of ").append(pages);
+    }
+    children.add(textDisplay(body.toString()));
+    children.add(separator());
+    addGameSelector(children, games, state);
+    List<Map<String, Object>> navigation = new ArrayList<>();
+    if (pages > 1) {
+      navigation.add(button("Previous", customId(state, "p"), 2, state.page() == 0));
+      navigation.add(button("Next", customId(state, "n"), 2, state.page() + 1 == pages));
+    }
+    navigation.add(button("Back", customId(state, "b"), 2, false));
+    navigation.add(linkButton("Full Leaderboard ↗", fullLeaderboardUrl(state.boardId(), null, "all")));
+    children.add(actionRow(navigation));
+    return leaderboardResponse(responseType, children);
+  }
+
+  private void addGameSelector(List<Map<String, Object>> children, List<ApiModels.GameView> games,
+      LeaderboardUiState state) {
+    if (games.isEmpty()) return;
+    validateMenuPage(games, state.menuPage());
+    int from = state.menuPage() * SELECT_OPTIONS_PER_PAGE;
+    int to = Math.min(from + SELECT_OPTIONS_PER_PAGE, games.size());
+    List<Map<String, Object>> options = new ArrayList<>();
+    for (int index = from; index < to; index++) {
+      Map<String, Object> option = new LinkedHashMap<>();
+      option.put("label", componentText(games.get(index).name(), 100));
+      option.put("value", "g:" + index);
+      if (state.view() == 'g' && state.gameIndex() == index) option.put("default", true);
+      options.add(option);
+    }
+    Map<String, Object> select = new LinkedHashMap<>();
+    select.put("type", 3);
+    select.put("custom_id", customId(state, "s"));
+    select.put("placeholder", "Select a game");
+    select.put("min_values", 1);
+    select.put("max_values", 1);
+    select.put("options", options);
+    children.add(actionRow(List.of(select)));
+    int menuPages = pageCount(games.size(), SELECT_OPTIONS_PER_PAGE);
+    if (menuPages > 1) children.add(actionRow(List.of(
+        button("Previous Games", customId(state, "mp"), 2, state.menuPage() == 0),
+        button("Next Games", customId(state, "mn"), 2, state.menuPage() + 1 == menuPages))));
+  }
+
+  private DiscordInteractionResult leaderboardResponse(int responseType, List<Map<String, Object>> children) {
+    Map<String, Object> container = new LinkedHashMap<>();
+    container.put("type", 17);
+    container.put("accent_color", 0xDFFF4F);
+    container.put("components", children);
+    Map<String, Object> data = new LinkedHashMap<>();
+    data.put("flags", IS_COMPONENTS_V2);
+    data.put("components", List.of(container));
+    data.put("allowed_mentions", Map.of("parse", List.of()));
+    return new DiscordInteractionResult(Map.of("type", responseType, "data", data), "leaderboard", "SUCCESS");
+  }
+
+  private DiscordInteractionResult leaderboardError(String message, String outcome) {
+    Map<String, Object> container = Map.of("type", 17, "components",
+        List.of(textDisplay("## Leaderboard unavailable\n" + discordText(message, 500))));
+    Map<String, Object> data = new LinkedHashMap<>();
+    data.put("flags", IS_COMPONENTS_V2 | EPHEMERAL);
+    data.put("components", List.of(container));
+    data.put("allowed_mentions", Map.of("parse", List.of()));
+    return new DiscordInteractionResult(Map.of("type", 4, "data", data), "leaderboard", outcome);
+  }
+
+  private Map<String, Object> textDisplay(String content) {
+    return Map.of("type", 10, "content", content);
+  }
+
+  private Map<String, Object> separator() {
+    return Map.of("type", 14, "divider", true, "spacing", 1);
+  }
+
+  private Map<String, Object> actionRow(List<Map<String, Object>> components) {
+    return Map.of("type", 1, "components", components);
+  }
+
+  private Map<String, Object> button(String label, String customId, int style, boolean disabled) {
+    Map<String, Object> button = new LinkedHashMap<>();
+    button.put("type", 2);
+    button.put("style", style);
+    button.put("label", label);
+    button.put("custom_id", customId);
+    button.put("disabled", disabled);
+    return button;
+  }
+
+  private Map<String, Object> linkButton(String label, String url) {
+    return Map.of("type", 2, "style", 5, "label", label, "url", url);
+  }
+
+  private String dailyDetails(ApiModels.LeaderboardResponse board, UUID userId) {
+    return board.dailyResults().stream().filter(result -> result.userId().equals(userId))
+        .map(ApiModels.DailyResultDetailsView::details).map(this::formatResultDetails)
+        .filter(value -> !value.isEmpty()).findFirst().orElse("");
+  }
+
+  private String gameScore(ApiModels.RankingView row, ApiModels.GameView game) {
+    return row.displayScore() == null || row.displayScore().isBlank()
+        ? formatScore(row.average(), game.scoreFormat()) : row.displayScore();
+  }
+
+  private String rankLabel(int rank) {
+    return switch (rank) {
+      case 1 -> "🥇";
+      case 2 -> "🥈";
+      case 3 -> "🥉";
+      default -> "**" + rank + ".**";
+    };
+  }
+
+  private String resultCount(int count) {
+    return count + (count == 1 ? " result" : " results");
+  }
+
+  private String fullLeaderboardUrl(UUID boardId, String gameSlug, String range) {
+    String url = publicBaseUrl + "/leaderboards/" + boardId;
+    if (gameSlug == null) return range.equals("all") ? url + "?range=all" : url;
+    return url + "?game=" + URLEncoder.encode(gameSlug, StandardCharsets.UTF_8)
+        + "&range=" + URLEncoder.encode(range, StandardCharsets.UTF_8);
+  }
+
+  private int gameIndex(List<ApiModels.GameView> games, String slug) {
+    for (int index = 0; index < games.size(); index++) if (games.get(index).slug().equals(slug)) return index;
+    throw new ApiException(400, "GAME_NOT_ALLOWED", "That game is not available on this leaderboard.");
+  }
+
+  private void requireGameIndex(List<ApiModels.GameView> games, int index) {
+    if (index < 0 || index >= games.size()) throw invalidLeaderboardChoice();
+  }
+
+  private void validatePage(int page, int pages) {
+    if (page < 0 || page >= pages) throw invalidLeaderboardChoice();
+  }
+
+  private void validateMenuPage(List<ApiModels.GameView> games, int page) {
+    if (page < 0 || page >= pageCount(games.size(), SELECT_OPTIONS_PER_PAGE)) throw invalidLeaderboardChoice();
+  }
+
+  private int pageCount(int size, int pageSize) {
+    return Math.max(1, (size + pageSize - 1) / pageSize);
+  }
+
+  private String rangeLabel(String range) {
+    return switch (range) {
       case "7d" -> "Last 7 days";
       case "30d" -> "Last 30 days";
-      case "all" -> "All time";
+      case "all" -> "Overall";
       default -> "Today";
     };
-    String footer = "[View the full leaderboard](<" + url + ">)";
-    if (footer.length() > 1_500) {
-      throw new ApiException(500, "DISCORD_MESSAGE_TOO_LONG", "The leaderboard link is too long to post in Discord.");
-    }
-    StringBuilder content = new StringBuilder("**").append(discordText(board.name(), 60)).append("** · ")
-        .append(discordText(board.game().name(), 40)).append(" · ").append(label).append('\n');
-    if (board.rankings().isEmpty()) {
-      content.append("Nobody has posted a score for this range yet.\n");
-    } else {
-      for (ApiModels.RankingView row : board.rankings().stream().limit(10).toList()) {
-        String score = formatScore(row.average(), board.game().scoreFormat());
-        String line = row.rank() + ". " + discordText(row.displayName(), 60) + " — " + discordText(score, 40)
-            + " (" + row.gamesPlayed() + (row.gamesPlayed() == 1 ? " score)\n" : " scores)\n");
-        if (range.equals("today")) {
-          String details = board.dailyResults().stream()
-              .filter(result -> result.userId().equals(row.userId()))
-              .map(ApiModels.DailyResultDetailsView::details)
-              .map(this::formatResultDetails)
-              .filter(value -> !value.isEmpty())
-              .findFirst().orElse("");
-          if (!details.isEmpty()) line += "   " + details + "\n";
-        }
-        if (content.length() + line.length() + footer.length() > 2_000) break;
-        content.append(line);
-      }
-    }
-    content.append(footer);
-    Map<String, Object> data = new LinkedHashMap<>();
-    data.put("content", content.toString());
-    data.put("allowed_mentions", Map.of("parse", List.of()));
-    return new DiscordInteractionResult(Map.of("type", 4, "data", data), "leaderboard", "SUCCESS");
   }
 
-  private DiscordInteractionResult todayCard(UUID userId, UUID boardId) {
-    DailyGamesService.TodaySummary summary = dailyGames.todaySummary(new CurrentUser(userId, ""), boardId);
-    String leader = summary.leaders().isEmpty() ? "Nobody has posted a score today."
-        : "First place: " + summary.leaders().stream().map(row -> discordText(row.displayName(), 60))
-            .collect(java.util.stream.Collectors.joining(", "));
-    Map<String, Object> embed = Map.of("title", discordText(summary.boardName(), 100) + " · Today",
-        "description", leader + "\n" + summary.games().size() + " games with results today");
-    Map<String, Object> data = new LinkedHashMap<>();
-    data.put("embeds", List.of(embed));
-    data.put("components", List.of(Map.of("type", 1, "components", List.of(
-        Map.of("type", 2, "style", 1, "label", "Expand", "custom_id", "lb:" + boardId + ":0"),
-        Map.of("type", 2, "style", 5, "label", "Open full leaderboard",
-            "url", publicBaseUrl + "/leaderboards/" + boardId)))));
-    data.put("allowed_mentions", Map.of("parse", List.of()));
-    return new DiscordInteractionResult(Map.of("type", 4, "data", data), "leaderboard", "SUCCESS");
+  private String rangeCode(String range) {
+    return switch (range) {
+      case "today" -> "t";
+      case "7d" -> "7";
+      case "30d" -> "30";
+      case "all" -> "a";
+      default -> throw invalidLeaderboardChoice();
+    };
   }
 
-  private DiscordInteractionResult expandLeaderboard(String discordUserId, boolean groupDm, String guildId,
-      String channelId, String customId) {
-    String[] parts = customId.split(":", 3);
-    if (parts.length != 3 || !parts[0].equals("lb") || !parts[2].matches("[0-9]{1,3}"))
-      throw new ApiException(400, "INVALID_CHOICE", "This leaderboard button is invalid.");
+  private String rangeValue(String code) {
+    return switch (code) {
+      case "t" -> "today";
+      case "7" -> "7d";
+      case "30" -> "30d";
+      case "a" -> "all";
+      default -> throw invalidLeaderboardChoice();
+    };
+  }
+
+  private String customId(LeaderboardUiState state, String action) {
+    String game = state.gameIndex() < 0 ? "x" : Integer.toString(state.gameIndex());
+    String value = "lb:" + state.boardId() + ":" + state.view() + ":" + game + ":" + state.range()
+        + ":" + state.page() + ":" + state.menuPage() + ":" + action;
+    if (value.length() > 100) throw new IllegalStateException("Leaderboard custom ID exceeds Discord's limit.");
+    return value;
+  }
+
+  private ParsedLeaderboardCustomId parseLeaderboardCustomId(String customId) {
+    String[] parts = customId.split(":", -1);
+    if (parts.length != 8 || !parts[0].equals("lb") || !parts[2].matches("[ogc]")
+        || !parts[3].matches("x|[0-9]{1,4}") || !parts[4].matches("t|7|30|a")
+        || !parts[5].matches("[0-9]{1,4}") || !parts[6].matches("[0-9]{1,4}")
+        || !parts[7].matches("s|p|n|b|t|a|mp|mn")) throw invalidLeaderboardChoice();
     UUID boardId = parseLeaderboardId(parts[1]);
-    int page = Integer.parseInt(parts[2]);
-    UUID current = resolveLeaderboard(groupDm, guildId, channelId, guildId == null ? parts[1] : null);
-    if (!current.equals(boardId)) throw new ApiException(409, "MAPPING_CHANGED", "The connected leaderboard changed.");
-    if (guildId != null) requirePaidOwner(boardId);
-    requireMultiGame(boardId);
-    DailyGamesService.TodaySummary summary = dailyGames.todaySummary(new CurrentUser(linkedUser(discordUserId), ""), boardId);
-    int pages = Math.max(1, (summary.games().size() + 9) / 10);
-    if (page >= pages) throw new ApiException(400, "INVALID_CHOICE", "That page is unavailable.");
-    List<Map<String, Object>> fields = new ArrayList<>();
-    for (var game : summary.games().subList(page * 10, Math.min((page + 1) * 10, summary.games().size()))) {
-      String leaders = game.leaders().stream().map(row -> discordText(row.displayName(), 60) + " — " +
-          discordText(row.displayScore() == null ? formatScore(row.average(), game.game().scoreFormat())
-              : row.displayScore(), 60)).collect(java.util.stream.Collectors.joining("\n"));
-      fields.add(Map.of("name", discordText(game.game().name(), 100), "value", leaders.isBlank() ? "No results" : leaders));
-    }
-    Map<String, Object> embed = new LinkedHashMap<>();
-    embed.put("title", discordText(summary.boardName(), 100) + " · Today");
-    embed.put("description", summary.games().isEmpty() ? "Nobody has posted a score today."
-        : "Game leaders · page " + (page + 1) + " of " + pages);
-    if (!fields.isEmpty()) embed.put("fields", fields);
-    List<Map<String, Object>> buttons = new ArrayList<>();
-    if (page > 0) buttons.add(Map.of("type", 2, "style", 1, "label", "Previous",
-        "custom_id", "lb:" + boardId + ":" + (page - 1)));
-    if (page + 1 < pages) buttons.add(Map.of("type", 2, "style", 1, "label", "Next",
-        "custom_id", "lb:" + boardId + ":" + (page + 1)));
-    buttons.add(Map.of("type", 2, "style", 5, "label", "Open full leaderboard",
-        "url", publicBaseUrl + "/leaderboards/" + boardId));
-    Map<String, Object> data = new LinkedHashMap<>();
-    data.put("embeds", List.of(embed));
-    data.put("components", List.of(Map.of("type", 1, "components", buttons)));
-    data.put("flags", 64);
-    data.put("allowed_mentions", Map.of("parse", List.of()));
-    return new DiscordInteractionResult(Map.of("type", 4, "data", data), "leaderboard", "SUCCESS");
+    char view = parts[2].charAt(0);
+    int gameIndex = parts[3].equals("x") ? -1 : Integer.parseInt(parts[3]);
+    if ((view == 'g') != (gameIndex >= 0)) throw invalidLeaderboardChoice();
+    return new ParsedLeaderboardCustomId(new LeaderboardUiState(boardId, view, gameIndex, parts[4],
+        Integer.parseInt(parts[5]), Integer.parseInt(parts[6])), parts[7]);
   }
+
+  private ApiException invalidLeaderboardChoice() {
+    return new ApiException(400, "INVALID_CHOICE", "This leaderboard control is invalid or expired.");
+  }
+
+  private String componentText(String value, int maxLength) {
+    String clean = value.replaceAll("[\\p{Cntrl}]", " ").trim();
+    return clean.length() <= maxLength ? clean : clean.substring(0, maxLength - 1) + "…";
+  }
+
+  private record LeaderboardUiState(UUID boardId, char view, int gameIndex, String range, int page, int menuPage) {}
+  private record ParsedLeaderboardCustomId(LeaderboardUiState state, String action) {}
 
   private String formatResultDetails(List<ApiModels.ResultDetailView> details) {
     if (details == null || details.isEmpty()) return "";
-    return details.stream().limit(7)
+    return details.stream().limit(4)
         .map(detail -> discordText(detail.label(), 12) + " " + discordText(detail.value(), 24))
         .collect(java.util.stream.Collectors.joining(" · "));
   }
