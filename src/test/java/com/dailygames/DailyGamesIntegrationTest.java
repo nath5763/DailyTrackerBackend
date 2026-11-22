@@ -567,6 +567,15 @@ class DailyGamesIntegrationTest {
         UUID.randomUUID(), owner.id, "Bad Multi Basis"));
   }
 
+  @Test void migrationExposesTravleAsAnActiveTrackedCatalogGame() {
+    Game travle = games.findBySlugAndActiveTrue("travle").orElseThrow();
+    assertEquals("https://travle.earth/", travle.sourceUrl);
+    assertEquals("UTC", travle.releaseTimezone);
+    assertEquals("lower", travle.rankingDirection);
+    assertEquals("travle", jdbc.queryForObject(
+        "select tracked_game_slug from game_catalog where slug = 'travle'", String.class));
+  }
+
   private ConfirmedSubmission confirmed(ParsedSubmission parsed) {
     return new ConfirmedSubmission(parsed.puzzleKey(), parsed.puzzleNumber(), parsed.playedOn(), parsed.primaryScore(),
         parsed.metrics(), parsed.parserVersion());

@@ -45,7 +45,7 @@ class ScoreQuantizerRegistry {
       spec("kakuro", "lowest completion time within size and difficulty", "completionTimeSeconds", ASC, null, null, List.of("puzzleSize", "difficulty"), false),
       spec("nonograms-picross", "lowest completion time, then fewest mistakes", "completionTimeSeconds", ASC, "mistakes", ASC, List.of("puzzleSize", "difficulty"), false),
       spec("geoguessr-daily-challenge", "highest native points out of 25,000", "nativeScore", DESC, null, null, List.of("gameMode"), false),
-      spec("travle", "fewest verified extra guesses, with assistance separate", "extraGuesses", ASC, null, null, List.of("gameMode"), false),
+      spec("travle", "fewest verified extra guesses, then fewest hints", "extraGuesses", ASC, "hints", ASC, List.of("gameMode"), false),
       spec("flagle", "fewest guesses", "attemptsUsed", ASC, null, null, List.of(), false),
       spec("statele", "fewest guesses", "attemptsUsed", ASC, null, null, List.of(), false),
       spec("timeguessr", "highest native point total", "nativeScore", DESC, null, null, List.of("gameMode"), false),

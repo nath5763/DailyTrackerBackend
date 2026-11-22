@@ -19,6 +19,7 @@ final class ResultDetailFormatter {
       case "contexto" -> combine(contexto(metrics), assistance(metrics));
       case "globle" -> single("Path", metrics.get("proximityGrid"));
       case "strands" -> single("Path", metrics.get("resultSequence"));
+      case "travle" -> combine(single("Path", metrics.get("resultSequence")), assistance(metrics));
       case "redactle" -> redactle(metrics);
       case "semantle" -> semantle(metrics);
       case "pinpoint" -> combine(indexed("G", values(metrics.get("matchPercentages")), value -> number(value) + "%"),

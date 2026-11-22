@@ -33,6 +33,23 @@ class ScoreQuantizerRegistryTest {
     assertTrue(registry.sameRank(win, tied));
   }
 
+  @Test void comparesTravleByExtraGuessesThenHints() {
+    NormalizedScore plusOne = score("travle", 1, Map.of("completionStatus", "WIN", "extraGuesses", 1,
+        "hints", 3, "gameMode", "Daily"));
+    NormalizedScore plusTwo = score("travle", 2, Map.of("completionStatus", "WIN", "extraGuesses", 2,
+        "hints", 0, "gameMode", "Daily"));
+    NormalizedScore fewerHints = score("travle", 1, Map.of("completionStatus", "WIN", "extraGuesses", 1,
+        "hints", 0, "gameMode", "Daily"));
+    NormalizedScore same = score("travle", 1, Map.of("completionStatus", "WIN", "extraGuesses", 1,
+        "hints", 0, "gameMode", "Daily"));
+    assertTrue(registry.compare(plusOne, plusTwo) < 0);
+    assertTrue(registry.compare(fewerHints, plusOne) < 0);
+    assertTrue(registry.sameRank(fewerHints, same));
+    var strategy = registry.strategy("travle").orElseThrow();
+    assertEquals("extraGuesses", strategy.primaryMetric());
+    assertEquals("hints", strategy.secondaryMetric());
+  }
+
   @Test void missingImmaculateGridRarityRemainsNullInsteadOfBecomingZero() {
     NormalizedScore missing = score("immaculate-grid", 8,
         Map.of("completionStatus", "WIN", "correctCells", 8, "sport", "baseball"));
