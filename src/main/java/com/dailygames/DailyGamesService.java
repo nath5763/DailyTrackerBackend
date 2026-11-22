@@ -586,7 +586,19 @@ class DailyGamesService {
     return allowedGames(board).stream()
         .filter(game -> !shareTextOnly || adapters.supportsShareText(game.slug))
         .filter(game -> game.name.toLowerCase(Locale.ROOT).contains(term) || game.slug.toLowerCase(Locale.ROOT).contains(term))
+        .sorted(Comparator.comparingInt((Game game) -> discordSearchRank(game, term))
+            .thenComparing(game -> game.name, String.CASE_INSENSITIVE_ORDER)
+            .thenComparing(game -> game.slug))
         .limit(25).map(this::gameView).toList();
+  }
+
+  private int discordSearchRank(Game game, String term) {
+    if (term.isEmpty()) return 0;
+    String name = game.name.toLowerCase(Locale.ROOT);
+    String slug = game.slug.toLowerCase(Locale.ROOT);
+    if (name.equals(term) || slug.equals(term)) return 0;
+    if (name.startsWith(term) || slug.startsWith(term)) return 1;
+    return 2;
   }
 
   List<GameView> searchDiscordGames(UUID userId, UUID boardId, String query, boolean shareTextOnly) {

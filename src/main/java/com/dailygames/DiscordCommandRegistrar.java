@@ -200,12 +200,12 @@ class DiscordCommandRegistrar {
     commands.add(command("loldle", "Save five LoLdle scores to your linked account",
         List.of(stringOption("result", "Complete five-mode LoLdle share text", true, 1, 6000),
             stringOption("date", "Puzzle date in YYYY-MM-DD format", true, 10, 10))));
-    Map<String, Object> leaderboardGame = stringOption("game", "Game to rank", false, 1, 80);
+    Map<String, Object> leaderboardGame = stringOption("game", "Game to rank", true, 1, 80);
     leaderboardGame.put("autocomplete", true);
     Map<String, Object> range = choiceOption("range", "Period to rank (defaults to today)", false,
         List.of(Map.of("name", "Today", "value", "today"), Map.of("name", "Last 7 days", "value", "7d"),
             Map.of("name", "Last 30 days", "value", "30d"), Map.of("name", "All time", "value", "all")));
-    commands.add(command("leaderboard", "Show today's card or a game's rankings",
+    commands.add(command("leaderboard", "Show a game's rankings",
         List.of(leaderboardGame, range, leaderboardOption())));
     if (global) {
       commands.forEach(command -> {

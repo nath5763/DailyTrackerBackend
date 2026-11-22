@@ -79,8 +79,11 @@ class DiscordCommandRegistrarTest {
     assertTrue(bodies.get(8).path("options").get(1).path("required").asBoolean());
     assertEquals(2, bodies.get(8).path("options").size());
     assertEquals("game", bodies.get(9).path("options").get(0).path("name").asText());
-    assertFalse(bodies.get(9).path("options").get(0).path("required").asBoolean());
+    assertTrue(bodies.get(9).path("options").get(0).path("required").asBoolean());
     assertTrue(bodies.get(9).path("options").get(0).path("autocomplete").asBoolean());
+    assertTrue(bodies.get(9).path("options").get(0).path("choices").isMissingNode());
+    assertEquals("range", bodies.get(9).path("options").get(1).path("name").asText());
+    assertEquals("leaderboard", bodies.get(9).path("options").get(2).path("name").asText());
     assertTrue(bodies.subList(0, 10).stream().allMatch(body ->
         "[0,1,2]".equals(body.path("contexts").toString())
             && "[0,1]".equals(body.path("integration_types").toString())));

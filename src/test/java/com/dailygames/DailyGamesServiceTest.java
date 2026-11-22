@@ -68,7 +68,7 @@ class DailyGamesServiceTest {
   }
 
   @Test
-  void discordGameSearchUsesLiveBoardGamesAndLimitsChoices() {
+  void discordGameSearchRanksMatchesAndLimitsLargeCatalogs() {
     UUID ownerId = UUID.randomUUID();
     Leaderboard board = new Leaderboard(ownerId, "All games", null, BoardType.MULTI_GAME,
         BoardCreationBasis.SUBSCRIPTION, Instant.now());
@@ -79,7 +79,7 @@ class DailyGamesServiceTest {
     when(boards.findById(board.id)).thenReturn(Optional.of(board));
     when(billing.isBoardAccessible(eq(board), any())).thenReturn(true);
     List<Game> active = new ArrayList<>();
-    for (int i = 0; i < 30; i++) {
+    for (int i = 0; i < 130; i++) {
       Game game = new Game(); game.id = UUID.randomUUID(); game.slug = "new-game-" + i;
       game.name = "New Game " + i; game.active = true;
       active.add(game);
@@ -87,12 +87,24 @@ class DailyGamesServiceTest {
       when(adapters.require(game.slug)).thenReturn(adapter);
       when(adapters.supportsShareText(game.slug)).thenReturn(i % 2 == 0);
     }
+    Game partial = game("a-fermi-game", "A Fermi Game", "higher");
+    Game prefix = game("fermi-clone", "Fermi Clone", "higher");
+    Game exact = game("fermi", "Zed Exact", "higher");
+    active.addAll(List.of(partial, prefix, exact));
+    for (Game game : List.of(partial, prefix, exact)) {
+      when(adapters.require(game.slug)).thenReturn(mock(GameAdapter.class));
+      when(adapters.supportsShareText(game.slug)).thenReturn(true);
+    }
     when(games.findByActiveTrueOrderByNameAsc()).thenReturn(active);
     DailyGamesService service = service(mock(ProfileRepository.class), games, boards,
         mock(MembershipRepository.class), mock(SubmissionRepository.class), adapters, billing);
-    assertEquals(25, service.searchDiscordGames(board.id, "new").size());
-    assertEquals(15, service.searchDiscordGames(board.id, "new", true).size());
-    assertEquals("new-game-29", service.searchDiscordGames(board.id, "29").getFirst().slug());
+    List<ApiModels.GameView> emptySuggestions = service.searchDiscordGames(board.id, "");
+    assertEquals(25, emptySuggestions.size());
+    assertEquals("a-fermi-game", emptySuggestions.getFirst().slug());
+    assertEquals(25, service.searchDiscordGames(board.id, "new", true).size());
+    assertEquals("new-game-129", service.searchDiscordGames(board.id, "NEW-GAME-129").getFirst().slug());
+    assertEquals(List.of("fermi", "fermi-clone", "a-fermi-game"),
+        service.searchDiscordGames(board.id, "FERMI").stream().map(ApiModels.GameView::slug).toList());
     when(billing.isBoardAccessible(eq(board), any())).thenReturn(false);
     assertEquals("OWNER_SUBSCRIPTION_REQUIRED", assertThrows(ApiException.class,
         () -> service.searchDiscordGames(board.id, "new")).code);
