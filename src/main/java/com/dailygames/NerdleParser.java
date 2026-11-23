@@ -28,11 +28,14 @@ class NerdleParser implements GameAdapter {
     if (!header.matches()) throw invalid();
     int puzzle = ShareTextParserSupport.number(header.group(1));
     int attempts = header.group(2).equalsIgnoreCase("X") ? 7 : Integer.parseInt(header.group(2));
-    List<String> rows = new ArrayList<>();
-    for (int i = 1; i < lines.length && ROW.matcher(lines[i]).matches(); i++) rows.add(lines[i]);
-    if (rows.size() != Math.min(attempts, 6)) throw invalid();
-    boolean won = rows.getLast().equals("🟩🟩🟩🟩🟩🟩🟩🟩");
-    if (won != (attempts != 7) || rows.subList(0, rows.size() - 1).stream().anyMatch(row -> row.equals("🟩🟩🟩🟩🟩🟩🟩🟩"))) throw invalid();
+    int expectedRows = Math.min(attempts, 6);
+    if (lines.length != expectedRows + 1) throw invalid();
+    List<String> rows = Arrays.asList(Arrays.copyOfRange(lines, 1, lines.length));
+    List<String> normalizedRows = rows.stream().map(row -> row.replace("\uFE0F", "")).toList();
+    if (normalizedRows.stream().anyMatch(row -> !ROW.matcher(row).matches())) throw invalid();
+    String solved = "🟩".repeat(8);
+    boolean won = normalizedRows.getLast().equals(solved);
+    if (won != (attempts != 7) || normalizedRows.subList(0, normalizedRows.size() - 1).contains(solved)) throw invalid();
     LocalDate date = ANCHOR_DATE.plusDays(puzzle - ANCHOR_PUZZLE);
     if (date.isAfter(LocalDate.now().plusDays(1))) throw invalid();
     return new ParsedSubmission(String.valueOf(puzzle), puzzle, date, BigDecimal.valueOf(attempts),

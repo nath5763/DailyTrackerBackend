@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
@@ -13,13 +14,47 @@ class ScoreQuantizerRegistryTest {
   private final ScoreQuantizerRegistry registry = new ScoreQuantizerRegistry();
 
   @Test void definesASeparateStrategyForEveryRequestedGame() {
-    assertEquals(76, registry.strategies().size());
-    assertEquals(76, registry.strategies().stream().map(ScoreStrategySpec::gameId).distinct().count());
+    assertEquals(79, registry.strategies().size());
+    assertEquals(79, registry.strategies().stream().map(ScoreStrategySpec::gameId).distinct().count());
     for (String mode : LoldleParser.MODES) {
       var strategy = registry.strategy("loldle-" + mode).orElseThrow();
       assertEquals("attemptsUsed", strategy.primaryMetric());
       assertEquals(MetricDirection.ASCENDING, strategy.primaryDirection());
     }
+  }
+
+  @Test void comparesDailySetOnlyWithinModeByLowestTime() {
+    NormalizedScore fast = score("daily-set", 45, Map.of(
+        "completionStatus", "WIN", "elapsedSeconds", 45, "gameMode", "Regular"));
+    NormalizedScore slow = score("daily-set", 75, Map.of(
+        "completionStatus", "WIN", "elapsedSeconds", 75, "gameMode", "Regular"));
+    NormalizedScore diablo = score("daily-set", 45, Map.of(
+        "completionStatus", "WIN", "elapsedSeconds", 45, "gameMode", "Diablo"));
+    assertTrue(registry.compare(fast, slow) < 0);
+    assertEquals("gameMode=Regular", fast.compatibilityKey());
+    assertNotEquals(fast.compatibilityKey(), diablo.compatibilityKey());
+    assertEquals(List.of("gameMode"), registry.strategy("daily-set").orElseThrow().compatibilityFields());
+  }
+
+  @Test void comparesDailyOrbsByOrbsAloneAndMinuteCrypticByHintsAlone() {
+    NormalizedScore tenOrbs = score("daily-orbs", 10, Map.of(
+        "completionStatus", "WIN", "orbTotal", 10, "heartLosses", 5));
+    NormalizedScore eightOrbs = score("daily-orbs", 8, Map.of(
+        "completionStatus", "WIN", "orbTotal", 8, "heartLosses", 0));
+    NormalizedScore tiedOrbs = score("daily-orbs", 10, Map.of(
+        "completionStatus", "WIN", "orbTotal", 10));
+    assertTrue(registry.compare(tenOrbs, eightOrbs) < 0);
+    assertTrue(registry.sameRank(tenOrbs, tiedOrbs));
+
+    NormalizedScore zeroHints = score("minute-cryptic", 0, Map.of(
+        "completionStatus", "WIN", "hints", 0, "completionTimeSeconds", 600));
+    NormalizedScore oneHint = score("minute-cryptic", 1, Map.of(
+        "completionStatus", "WIN", "hints", 1, "completionTimeSeconds", 10));
+    NormalizedScore tiedHints = score("minute-cryptic", 0, Map.of(
+        "completionStatus", "WIN", "hints", 0, "completionTimeSeconds", 5));
+    assertTrue(registry.compare(zeroHints, oneHint) < 0);
+    assertTrue(registry.sameRank(zeroHints, tiedHints));
+    assertNull(registry.strategy("minute-cryptic").orElseThrow().secondaryMetric());
   }
 
   @Test void comparesGazillionByHighestTotalScoreAndProducesTies() {

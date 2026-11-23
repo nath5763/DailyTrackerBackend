@@ -22,5 +22,15 @@ class NerdleParserTest {
   @Test void rejectsContradictoryAndWrongWidthGrids() {
     assertThrows(ApiException.class, () -> parser.parse("Nerdle 1622 2/6\n🟩🟩🟩🟩🟩🟩🟩🟩"));
     assertThrows(ApiException.class, () -> parser.parse("Nerdle 1622 1/6\n🟩🟩🟩🟩🟩"));
+    assertThrows(ApiException.class, () -> parser.parse("Nerdle 1622 1/6\n🟩🟩🟩🟩🟩🟩🟩🟩\nWordle 1 1/6"));
+  }
+
+  @Test void parsesACompleteLossAndRejectsAnEarlySolvedRow() {
+    String loss = "Nerdle 1622 X/6\n" + "⬛".repeat(8) + "\n" + "🟪".repeat(8) + "\n" +
+        "⬛".repeat(8) + "\n" + "🟪".repeat(8) + "\n" + "⬛".repeat(8) + "\n" + "🟪".repeat(8);
+    ParsedSubmission parsed = parser.parse(loss);
+    assertEquals(BigDecimal.valueOf(7), parsed.primaryScore());
+    assertEquals("LOSS", parsed.metrics().get("completionStatus"));
+    assertThrows(ApiException.class, () -> parser.parse(loss.replace("⬛".repeat(8), "🟩".repeat(8))));
   }
 }

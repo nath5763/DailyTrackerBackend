@@ -17,12 +17,13 @@ import static org.junit.jupiter.api.Assertions.*;
 class GameAdapterRegistryTest {
   private static final Set<String> PARTIAL = Set.of("strands", "nyt-mini-crossword", "semantle", "contexto",
       "redactle", "nerdle", "worldle", "globle", "murdle", "quordle", "timeguessr", "travle", "farflung", "foximax",
-      "perceptle", "gazillion",
+      "perceptle", "gazillion", "daily-set", "daily-orbs", "minute-cryptic",
       "loldle-classic", "loldle-quote", "loldle-ability", "loldle-emoji", "loldle-splash");
   private final GameAdapterRegistry registry = new GameAdapterRegistry(List.of(new ConnectionsParser(), new WordleParser(),
       new StrandsParser(), new NytMiniParser(), new SemantleParser(), new ContextoParser(), new RedactleParser(),
       new NerdleParser(), new WorldleParser(), new GlobleParser(), new MurdleParser(), new QuordleParser(),
-      new TimeGuessrParser(), new TravleParser(), new FarflungParser(), new PerceptleParser(), new GazillionParser(), new FoxiMaxParser(), new LoldleClassicAdapter(), new LoldleQuoteAdapter(),
+      new TimeGuessrParser(), new TravleParser(), new FarflungParser(), new PerceptleParser(), new GazillionParser(),
+      new DailySetParser(), new DailyOrbsParser(), new MinuteCrypticParser(), new FoxiMaxParser(), new LoldleClassicAdapter(), new LoldleQuoteAdapter(),
       new LoldleAbilityAdapter(), new LoldleEmojiAdapter(), new LoldleSplashAdapter()));
 
   @Test void detectsOnlyNamedGames() {
@@ -36,13 +37,16 @@ class GameAdapterRegistryTest {
     assertEquals("farflung", registry.detectGame("Farflung #50 · 195/500 km").orElseThrow());
     assertEquals("perceptle", registry.detectGame("Perceptle #129 - C (62)").orElseThrow());
     assertEquals("gazillion", registry.detectGame("Gazillion #32 · 2,037/5,000").orElseThrow());
+    assertEquals("daily-set", registry.detectGame("The Daily Set 🎯 Nov 23\nhttps://setpuzzle.com/share/2026-11-23/1-23/regular").orElseThrow());
+    assertEquals("daily-orbs", registry.detectGame("DailyOrbs November 23 2026\nhttps://DailyOrbs.com/2026-11-23?utm_source=share\n🟠🟠🟠🟢🟢🟢🏆").orElseThrow());
+    assertEquals("minute-cryptic", registry.detectGame("Minute Cryptic - 23 November, 2026\nhttps://www.minutecryptic.com/").orElseThrow());
     assertTrue(registry.detectGame("Squirdle #100 3/8").isEmpty());
   }
 
   @Test void reportsEveryRequestedGameWithoutPretendingUnsupportedFormatsWork() {
     var all = registry.capabilities();
-    assertEquals(85, all.size());
-    assertEquals(85, all.stream().map(ApiModels.ParserCapabilityView::gameId).distinct().count());
+    assertEquals(88, all.size());
+    assertEquals(88, all.stream().map(ApiModels.ParserCapabilityView::gameId).distinct().count());
     assertEquals("PARTIAL", all.stream().filter(value -> value.gameId().equals("worldle"))
         .findFirst().orElseThrow().status());
     var unsupported = all.stream().filter(value -> value.gameId().equals("waffle")).findFirst().orElseThrow();
@@ -55,6 +59,9 @@ class GameAdapterRegistryTest {
     assertEquals(Set.of("share-text"), formats.get("farflung"));
     assertEquals(Set.of("share-text"), formats.get("perceptle"));
     assertEquals(Set.of("share-text"), formats.get("gazillion"));
+    assertEquals(Set.of("share-text"), formats.get("daily-set"));
+    assertEquals(Set.of("share-text"), formats.get("daily-orbs"));
+    assertEquals(Set.of("share-text"), formats.get("minute-cryptic"));
     assertEquals(Set.of(), formats.get("waffle"));
     assertEquals(Set.of("share-text"), formats.get("connections"));
     assertEquals(Set.of("batch-share-text"), formats.get("loldle-classic"));

@@ -607,6 +607,27 @@ class DailyGamesIntegrationTest {
         "select category from game_catalog where slug = 'gazillion'", String.class));
   }
 
+  @Test void migrationsExposeDailySetDailyOrbsAndMinuteCryptic() {
+    Game dailySet = games.findBySlugAndActiveTrue("daily-set").orElseThrow();
+    assertEquals("https://setpuzzle.com/", dailySet.sourceUrl);
+    assertEquals("America/Los_Angeles", dailySet.releaseTimezone);
+    assertEquals("lower", dailySet.rankingDirection);
+
+    Game dailyOrbs = games.findBySlugAndActiveTrue("daily-orbs").orElseThrow();
+    assertEquals("https://dailyorbs.com/", dailyOrbs.sourceUrl);
+    assertEquals("America/Toronto", dailyOrbs.releaseTimezone);
+    assertEquals("higher", dailyOrbs.rankingDirection);
+
+    Game minuteCryptic = games.findBySlugAndActiveTrue("minute-cryptic").orElseThrow();
+    assertEquals("https://www.minutecryptic.com/", minuteCryptic.sourceUrl);
+    assertEquals("UTC", minuteCryptic.releaseTimezone);
+    assertEquals("lower", minuteCryptic.rankingDirection);
+
+    assertEquals(List.of("daily-set", "daily-orbs", "minute-cryptic"), jdbc.queryForList(
+        "select tracked_game_slug from game_catalog where display_order between 55 and 57 order by display_order",
+        String.class));
+  }
+
   private ConfirmedSubmission confirmed(ParsedSubmission parsed) {
     return new ConfirmedSubmission(parsed.puzzleKey(), parsed.puzzleNumber(), parsed.playedOn(), parsed.primaryScore(),
         parsed.metrics(), parsed.parserVersion());

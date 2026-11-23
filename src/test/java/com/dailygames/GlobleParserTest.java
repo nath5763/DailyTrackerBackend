@@ -21,6 +21,8 @@ class GlobleParserTest {
 
   @Test void rejectsGridScoreContradictionAndEmojiOnlyText() {
     assertThrows(ApiException.class, () -> parser.parse("🌎 Aug 21, 2026 🌍\n🟨🟥🟩 = 7\n#globle"));
+    assertThrows(ApiException.class, () -> parser.parse("🌎 Aug 21, 2026 🌍\n🔥 5 | Avg. Guesses: 7.4\n🟨🟥🟩 = 3\nhttps://example.com/\n#globle"));
+    assertThrows(ApiException.class, () -> parser.parse("🌎 Aug 21, 2026 🌍\n🔥 5 | Avg. Guesses: 7.4\n🟨🟥🟩 = 3\n#globle\nWordle 1 1/6"));
     assertFalse(parser.matches("🟨🟥🟩"));
   }
 }

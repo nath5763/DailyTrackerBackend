@@ -19,6 +19,9 @@ final class ResultDetailFormatter {
       case "farflung" -> indexed("P", values(metrics.get("rarities")), ResultDetailFormatter::text);
       case "perceptle" -> perceptle(metrics);
       case "gazillion" -> indexed("M", values(metrics.get("resultTiers")), ResultDetailFormatter::text);
+      case "daily-set" -> dailySet(metrics);
+      case "daily-orbs" -> dailyOrbs(metrics);
+      case "minute-cryptic" -> minuteCryptic(metrics);
       case "contexto" -> combine(contexto(metrics), assistance(metrics));
       case "globle" -> single("Path", metrics.get("proximityGrid"));
       case "strands" -> single("Path", metrics.get("resultSequence"));
@@ -44,6 +47,56 @@ final class ResultDetailFormatter {
     add(details, "Tempo", metrics.get("tempoScore"), "");
     add(details, "Split", metrics.get("splitScore"), "");
     return List.copyOf(details);
+  }
+
+  private static List<ResultDetailView> dailySet(Map<String, Object> metrics) {
+    List<ResultDetailView> details = new ArrayList<>();
+    String mode = text(metrics.get("gameMode"));
+    if (!mode.isEmpty()) details.add(new ResultDetailView("Mode", mode));
+    details.addAll(indexed("Set ", values(metrics.get("setTimesSeconds")), value -> number(value) + "s"));
+    return List.copyOf(details);
+  }
+
+  private static List<ResultDetailView> dailyOrbs(Map<String, Object> metrics) {
+    List<ResultDetailView> details = new ArrayList<>();
+    for (String color : List.of("orange", "green", "blue", "purple")) {
+      Object orbs = metrics.get(color + "Orbs");
+      if (orbs == null) continue;
+      String value = number(orbs) + " orbs";
+      if (Boolean.TRUE.equals(metrics.get("heartsDisclosed"))) {
+        Object lost = metrics.get(color + "HeartsLost");
+        int count = lost instanceof Number number ? number.intValue() : 0;
+        value += " · " + count + (count == 1 ? " heart lost" : " hearts lost");
+      }
+      details.add(new ResultDetailView(capitalize(color), value));
+    }
+    return List.copyOf(details);
+  }
+
+  private static List<ResultDetailView> minuteCryptic(Map<String, Object> metrics) {
+    List<ResultDetailView> details = new ArrayList<>();
+    String clue = text(metrics.get("clue"));
+    if (!clue.isEmpty()) details.add(new ResultDetailView("Clue", clue));
+    String symbols = text(metrics.get("symbolRow"));
+    if (!symbols.isEmpty()) details.add(new ResultDetailView("Symbols", symbols));
+    Object delta = metrics.get("communityParDelta");
+    if (delta instanceof Number number) {
+      int value = number.intValue();
+      details.add(new ResultDetailView("Community par", value < 0 ? -value + " under" : value > 0 ? value + " over" : "matched"));
+    }
+    add(details, "Solvers", metrics.get("solverCount"), "");
+    Object seconds = metrics.get("completionTimeSeconds");
+    if (seconds instanceof Number number) details.add(new ResultDetailView("Time", duration(number.intValue())));
+    return List.copyOf(details);
+  }
+
+  private static String duration(int seconds) {
+    if (seconds >= 3600) return String.format(Locale.ROOT, "%dh %dm %ds", seconds / 3600, seconds / 60 % 60, seconds % 60);
+    return String.format(Locale.ROOT, "%d:%02d", seconds / 60, seconds % 60);
+  }
+
+  private static String capitalize(String value) {
+    return value.substring(0, 1).toUpperCase(Locale.ROOT) + value.substring(1);
   }
 
   private static List<ResultDetailView> contexto(Map<String, Object> metrics) {
