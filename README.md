@@ -2,7 +2,7 @@
 
 WeChat Mini Program and optional Chat Tool setup and manual developer-console steps are documented in the frontend repository's `wechat-mini-program/README.md`. Both integrations are disabled by default. Migrations `V44__wechat_mini_program.sql` and `V45__wechat_chat_tool.sql` add their isolated storage.
 
-Spring Boot API for Daily Club. It provides verified email/password authentication, game-specific private leaderboards, Stripe subscription entitlements, Discord HTTP interactions, interchangeable score parsers, and PostgreSQL persistence. Website score adapters cover tracked share-text games including Farflung, Perceptle, and FoxiMax. The public `GET /api/v1/catalog/games` directory is separate from the authenticated tracked-game API. See [catalog_audit.md](catalog_audit.md) for launch link decisions and share fixture sources.
+Spring Boot API for Daily Club. It provides verified email/password authentication, game-specific private leaderboards, Stripe subscription entitlements, Discord HTTP interactions, interchangeable score parsers, and PostgreSQL persistence. Website score adapters cover tracked share-text games including Farflung, Perceptle, Gazillion, and FoxiMax. The public `GET /api/v1/catalog/games` directory is separate from the authenticated tracked-game API. See [catalog_audit.md](catalog_audit.md) for launch link decisions and share fixture sources.
 
 ## Local development
 

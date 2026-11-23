@@ -18,6 +18,7 @@ final class ResultDetailFormatter {
       case "timeguessr" -> indexed("R", values(metrics.get("roundScores")), value -> number(value) + " pts");
       case "farflung" -> indexed("P", values(metrics.get("rarities")), ResultDetailFormatter::text);
       case "perceptle" -> perceptle(metrics);
+      case "gazillion" -> indexed("M", values(metrics.get("resultTiers")), ResultDetailFormatter::text);
       case "contexto" -> combine(contexto(metrics), assistance(metrics));
       case "globle" -> single("Path", metrics.get("proximityGrid"));
       case "strands" -> single("Path", metrics.get("resultSequence"));

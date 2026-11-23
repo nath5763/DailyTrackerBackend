@@ -34,6 +34,8 @@ class ResultDetailFormatterTest {
             new ResultDetailView("Split", "98")),
         ResultDetailFormatter.fromMetrics("perceptle", Map.of("countScore", 13, "trackScore", 93,
             "angleScore", 93, "tempoScore", 11, "splitScore", 98)));
+    assertEquals(List.of(new ResultDetailView("M1", "gold"), new ResultDetailView("M2", "miss")),
+        ResultDetailFormatter.fromMetrics("gazillion", Map.of("resultTiers", List.of("gold", "miss"))));
   }
 
   @Test void formatsVerifiedSecondaryDetailsAndOmitsUnavailableOnes() {

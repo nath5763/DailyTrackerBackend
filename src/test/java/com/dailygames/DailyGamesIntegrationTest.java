@@ -596,6 +596,17 @@ class DailyGamesIntegrationTest {
         "select category from game_catalog where slug = 'perceptle'", String.class));
   }
 
+  @Test void migrationExposesGazillionAsAnActiveTrackedCatalogGame() {
+    Game gazillion = games.findBySlugAndActiveTrue("gazillion").orElseThrow();
+    assertEquals("https://gazillion.world/", gazillion.sourceUrl);
+    assertEquals("UTC", gazillion.releaseTimezone);
+    assertEquals("higher", gazillion.rankingDirection);
+    assertEquals("gazillion", jdbc.queryForObject(
+        "select tracked_game_slug from game_catalog where slug = 'gazillion'", String.class));
+    assertEquals("Trivia and Knowledge", jdbc.queryForObject(
+        "select category from game_catalog where slug = 'gazillion'", String.class));
+  }
+
   private ConfirmedSubmission confirmed(ParsedSubmission parsed) {
     return new ConfirmedSubmission(parsed.puzzleKey(), parsed.puzzleNumber(), parsed.playedOn(), parsed.primaryScore(),
         parsed.metrics(), parsed.parserVersion());

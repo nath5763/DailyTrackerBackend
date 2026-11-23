@@ -13,13 +13,27 @@ class ScoreQuantizerRegistryTest {
   private final ScoreQuantizerRegistry registry = new ScoreQuantizerRegistry();
 
   @Test void definesASeparateStrategyForEveryRequestedGame() {
-    assertEquals(75, registry.strategies().size());
-    assertEquals(75, registry.strategies().stream().map(ScoreStrategySpec::gameId).distinct().count());
+    assertEquals(76, registry.strategies().size());
+    assertEquals(76, registry.strategies().stream().map(ScoreStrategySpec::gameId).distinct().count());
     for (String mode : LoldleParser.MODES) {
       var strategy = registry.strategy("loldle-" + mode).orElseThrow();
       assertEquals("attemptsUsed", strategy.primaryMetric());
       assertEquals(MetricDirection.ASCENDING, strategy.primaryDirection());
     }
+  }
+
+  @Test void comparesGazillionByHighestTotalScoreAndProducesTies() {
+    NormalizedScore lower = score("gazillion", 2037, Map.of(
+        "completionStatus", "WIN", "totalScore", 2037, "gameMode", "Daily"));
+    NormalizedScore higher = score("gazillion", 5000, Map.of(
+        "completionStatus", "WIN", "totalScore", 5000, "gameMode", "Daily"));
+    NormalizedScore tied = score("gazillion", 5000, Map.of(
+        "completionStatus", "WIN", "totalScore", 5000, "gameMode", "Daily"));
+    assertTrue(registry.compare(higher, lower) < 0);
+    assertTrue(registry.sameRank(higher, tied));
+    var strategy = registry.strategy("gazillion").orElseThrow();
+    assertEquals("totalScore", strategy.primaryMetric());
+    assertEquals(MetricDirection.DESCENDING, strategy.primaryDirection());
   }
 
   @Test void comparesPerceptleByHighestOverallScoreAndProducesTies() {
