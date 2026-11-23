@@ -56,6 +56,59 @@ class DailyGamesServiceTest {
   }
 
   @Test
+  void dashboardLeaderboardSummariesReuseSevenDayRanksAndCountOnlyRankedPlayers() {
+    UUID userId = UUID.randomUUID(), rivalId = UUID.randomUUID();
+    Profile user = new Profile(userId, "Player", "#dfff4f", Instant.now());
+    Profile rival = new Profile(rivalId, "Rival", "#ff8db6", Instant.now());
+    Game rankedGame = game("wordle", "Wordle", "lower");
+    Game emptyGame = game("globle", "Globle", "lower");
+    Leaderboard rankedBoard = new Leaderboard(userId, "Word club", rankedGame.id,
+        BoardCreationBasis.FREE, Instant.now());
+    Leaderboard emptyBoard = new Leaderboard(userId, "Globe club", emptyGame.id,
+        BoardCreationBasis.FREE, Instant.now());
+    ProfileRepository profiles = mock(ProfileRepository.class);
+    GameRepository games = mock(GameRepository.class);
+    LeaderboardRepository boards = mock(LeaderboardRepository.class);
+    MembershipRepository memberships = mock(MembershipRepository.class);
+    SubmissionRepository submissions = mock(SubmissionRepository.class);
+    BillingService billing = mock(BillingService.class);
+    GameAdapterRegistry adapters = new GameAdapterRegistry(List.of(new WordleParser(), new GlobleParser()));
+    when(profiles.findById(userId)).thenReturn(Optional.of(user));
+    when(profiles.findById(rivalId)).thenReturn(Optional.of(rival));
+    when(boards.findForUser(userId)).thenReturn(List.of(rankedBoard, emptyBoard));
+    when(games.findById(rankedGame.id)).thenReturn(Optional.of(rankedGame));
+    when(games.findById(emptyGame.id)).thenReturn(Optional.of(emptyGame));
+    when(billing.isBoardAccessible(any(), any())).thenReturn(true);
+    List<Membership> boardMembers = List.of(
+        new Membership(rankedBoard.id, userId, userId, Instant.now()),
+        new Membership(rankedBoard.id, rivalId, userId, Instant.now()));
+    List<Membership> emptyMembers = List.of(
+        new Membership(emptyBoard.id, userId, userId, Instant.now()),
+        new Membership(emptyBoard.id, rivalId, userId, Instant.now()));
+    when(memberships.findByIdLeaderboardId(rankedBoard.id)).thenReturn(boardMembers);
+    when(memberships.findByIdLeaderboardId(emptyBoard.id)).thenReturn(emptyMembers);
+    LocalDate today = LocalDate.now(ZoneOffset.UTC);
+    Submission userScore = new Submission(userId, rankedGame.id,
+        new ParsedSubmission("2000", 2000, today, new BigDecimal("2"), Map.of(), 1),
+        "Wordle share", Instant.now());
+    Submission rivalScore = new Submission(rivalId, rankedGame.id,
+        new ParsedSubmission("2000", 2000, today, new BigDecimal("4"), Map.of(), 1),
+        "Wordle share", Instant.now());
+    when(submissions.findByUserIdInAndGameIdAndPlayedOnBetween(any(), eq(rankedGame.id), any(), any()))
+        .thenReturn(List.of(userScore, rivalScore));
+    when(submissions.findByUserIdInAndGameIdAndPlayedOnBetween(any(), eq(emptyGame.id), any(), any()))
+        .thenReturn(List.of());
+
+    var summaries = service(profiles, games, boards, memberships, submissions, adapters, billing)
+        .dashboard(new CurrentUser(userId, "")).leaderboards();
+
+    assertEquals(1, summaries.getFirst().sevenDayRank());
+    assertEquals(2, summaries.getFirst().sevenDayRankedPlayers());
+    assertNull(summaries.get(1).sevenDayRank());
+    assertEquals(0, summaries.get(1).sevenDayRankedPlayers());
+  }
+
+  @Test
   void privateHistoryIsPaginatedAndSubmissionDetailPreservesRawText() {
     UUID userId = UUID.randomUUID();
     Profile profile = new Profile(userId, "Player", "#dfff4f", Instant.now());

@@ -81,13 +81,16 @@ final class ApiModels {
                            boolean completionOnlyAllowed, String completionPolicy) {}
   record BoardSummary(UUID id, String name, UUID ownerId, boolean owner, GameView game, BoardType boardType,
                       List<GameView> games, boolean locked, Instant createdAt) {}
+  record DashboardBoardSummary(UUID id, String name, UUID ownerId, boolean owner, GameView game,
+                               BoardType boardType, List<GameView> games, boolean locked, Instant createdAt,
+                               Integer sevenDayRank, int sevenDayRankedPlayers) {}
   record ScoreView(UUID id, String puzzleKey, LocalDate playedOn, BigDecimal primaryScore, String gameName, String gameSlug,
                    GameView game, Map<String, Object> metrics, String submissionMethod) {}
   record StatsView(BigDecimal average, BigDecimal best, int currentStreak, int results) {}
   record GameStatsView(GameView game, BigDecimal average, BigDecimal best, int currentStreak, int results,
                        LocalDate lastPlayedOn, Instant lastSubmittedAt) {}
   record DashboardResponse(ProfileView profile, StatsView stats, List<GameStatsView> statsByGame,
-                           List<ScoreView> recentScores, List<BoardSummary> leaderboards) {}
+                           List<ScoreView> recentScores, List<DashboardBoardSummary> leaderboards) {}
   record SubmissionSummaryView(UUID id, String puzzleKey, LocalDate playedOn, Instant submittedAt,
                                BigDecimal primaryScore, Map<String, Object> metrics, String submissionMethod,
                                List<ResultDetailView> details) {}

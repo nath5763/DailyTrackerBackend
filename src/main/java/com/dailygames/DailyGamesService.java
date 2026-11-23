@@ -76,7 +76,30 @@ class DailyGamesService {
     List<Submission> values = submissions.findByUserIdOrderByPlayedOnDescCreatedAtDesc(current.id());
     List<GameStatsView> gameStats = statsByGame(values, true);
     return new DashboardResponse(profileView(profile), legacyStats(gameStats), gameStats,
-        values.stream().limit(7).map(this::scoreView).toList(), listBoards(current));
+        values.stream().limit(7).map(this::scoreView).toList(), dashboardBoards(current));
+  }
+
+  private List<DashboardBoardSummary> dashboardBoards(CurrentUser current) {
+    return boards.findForUser(current.id()).stream().map(board -> dashboardBoard(board, current.id())).toList();
+  }
+
+  private DashboardBoardSummary dashboardBoard(Leaderboard board, UUID viewer) {
+    BoardSummary summary = boardSummary(board, viewer);
+    if (summary.locked()) return dashboardBoardSummary(summary, null, 0);
+    List<Profile> memberProfiles = memberProfiles(board.id);
+    List<UUID> memberIds = memberProfiles.stream().map(profile -> profile.userId).toList();
+    List<Game> allowed = allowedGames(board);
+    List<RankingView> rankings = boardType(board) == BoardType.MULTI_GAME
+        ? combinedRankings(memberProfiles, memberIds, allowed, "7d")
+        : rankScores(memberProfiles, periodScores(memberIds, allowed.getFirst(), "7d"), allowed.getFirst());
+    Integer rank = rankings.stream().filter(value -> value.userId().equals(viewer))
+        .map(RankingView::rank).findFirst().orElse(null);
+    return dashboardBoardSummary(summary, rank, rankings.size());
+  }
+
+  private DashboardBoardSummary dashboardBoardSummary(BoardSummary summary, Integer rank, int rankedPlayers) {
+    return new DashboardBoardSummary(summary.id(), summary.name(), summary.ownerId(), summary.owner(), summary.game(),
+        summary.boardType(), summary.games(), summary.locked(), summary.createdAt(), rank, rankedPlayers);
   }
 
   SubmissionHistoryResponse submissionHistory(CurrentUser current, String gameSlug, int page, int size) {
