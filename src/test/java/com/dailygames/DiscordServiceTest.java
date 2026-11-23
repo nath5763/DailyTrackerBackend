@@ -675,6 +675,8 @@ class DiscordServiceTest {
     assertEquals(2, components.split("🥇", -1).length - 1);
     assertTrue(components.contains("1.32×"));
     assertTrue(components.contains("Q1 1.20× · Q2 1.40× · Q3 2.10×"));
+    assertFalse(components.contains("Avg. placement"));
+    assertFalse(components.contains("Avg. score"));
     assertTrue(components.contains("Player 5"));
     assertFalse(components.contains("Player 6"));
     assertTrue(components.contains("game=fermi&range=today"));
@@ -705,6 +707,34 @@ class DiscordServiceTest {
       assertTrue(components.contains("&range=" + range));
     }
     verify(dailyGames, times(3)).board(argThat(user -> user.id().equals(userId)), eq(boardId), anyString(), eq("krillion"));
+  }
+
+  @Test void aggregateRangesDisplayWebsiteAveragesWithoutLeaderboardPoints() throws Exception {
+    UUID userId = UUID.randomUUID(), boardId = UUID.randomUUID();
+    setupLeaderboardMocks(userId, boardId);
+    ApiModels.GameView fermi = game("fermi", "Fermi.gg");
+    when(dailyGames.discordLeaderboardGames(userId, boardId)).thenReturn(List.of(fermi));
+    ApiModels.RankingView brian = new ApiModels.RankingView(1, UUID.randomUUID(), UUID.randomUUID(), "Brian",
+        new BigDecimal("91.5"), 4, 0, 0, 0, 0, 0, "91.5 leaderboard pts",
+        new BigDecimal("91.5"), 4, 0, new BigDecimal("1.34"), new BigDecimal("382.46"));
+    ApiModels.RankingView shrinath = new ApiModels.RankingView(2, userId, UUID.randomUUID(), "Shrinath",
+        new BigDecimal("82.0"), 7, 0, 0, 0, 0, 0, "82 leaderboard pts",
+        new BigDecimal("82.0"), 7, 0, new BigDecimal("1.56"), new BigDecimal("345.04"));
+    for (String range : List.of("7d", "30d", "all")) {
+      when(dailyGames.board(any(), eq(boardId), eq(range), eq("fermi")))
+          .thenReturn(board(boardId, "Friends", fermi, range, List.of(brian, shrinath)));
+      DiscordInteractionResult result = service.handle(json.readTree(command("leaderboard", "222222222222222222",
+          "111111111111111111", "333333333333333333", "game", "fermi", "range", range)));
+      assertV2Payload(result, 4, false);
+      String components = json.writeValueAsString(result.body().get("data"));
+      assertTrue(components.contains("Brian"));
+      assertTrue(components.indexOf("Brian") < components.indexOf("Shrinath"));
+      assertTrue(components.contains("#1.3 Avg. placement · 382.5 Avg. score"));
+      assertTrue(components.contains("4 results"));
+      assertTrue(components.contains("#1.6 Avg. placement · 345.0 Avg. score"));
+      assertTrue(components.contains("7 results"));
+      assertFalse(components.contains("leaderboard pts"));
+    }
   }
 
   @Test void leaderboardFailuresArePrivateAndNeverPublishRankings() throws Exception {

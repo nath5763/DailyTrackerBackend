@@ -522,10 +522,15 @@ class DiscordService {
     } else {
       for (ApiModels.RankingView row : board.rankings().subList(from, to)) {
         if (!body.isEmpty()) body.append("\n\n");
-        body.append(rankLabel(row.rank())).append(" **").append(discordText(row.displayName(), 60))
-            .append("** — **").append(discordText(gameScore(row, game), 50)).append("**");
-        String details = range.equals("today") ? dailyDetails(board, row.userId()) : resultCount(row.gamesPlayed());
-        if (!details.isEmpty()) body.append("\n-# ").append(details);
+        body.append(rankLabel(row.rank())).append(" **").append(discordText(row.displayName(), 60)).append("**");
+        if (range.equals("today")) {
+          body.append(" — **").append(discordText(gameScore(row, game), 50)).append("**");
+          String details = dailyDetails(board, row.userId());
+          if (!details.isEmpty()) body.append("\n-# ").append(details);
+        } else {
+          body.append("\n-# ").append(aggregateMetrics(row));
+          body.append("\n-# ").append(resultCount(row.gamesPlayed()));
+        }
       }
       if (pages > 1) body.append("\n\n-# Page ").append(state.page() + 1).append(" of ").append(pages);
     }
@@ -615,6 +620,19 @@ class DiscordService {
 
   private String resultCount(int count) {
     return count + (count == 1 ? " result" : " results");
+  }
+
+  private String aggregateMetrics(ApiModels.RankingView row) {
+    return formatAveragePlacement(row.averagePlacement()) + " Avg. placement · "
+        + formatAverage(row.averageScore()) + " Avg. score";
+  }
+
+  private String formatAveragePlacement(BigDecimal value) {
+    return value == null || value.compareTo(BigDecimal.ONE) < 0 ? "—" : "#" + formatAverage(value);
+  }
+
+  private String formatAverage(BigDecimal value) {
+    return value == null ? "—" : value.setScale(1, RoundingMode.HALF_UP).toPlainString();
   }
 
   private String fullLeaderboardUrl(UUID boardId, String gameSlug, String range) {
