@@ -16,12 +16,12 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class GameAdapterRegistryTest {
   private static final Set<String> PARTIAL = Set.of("strands", "nyt-mini-crossword", "semantle", "contexto",
-      "redactle", "nerdle", "worldle", "globle", "murdle", "quordle", "timeguessr", "travle",
+      "redactle", "nerdle", "worldle", "globle", "murdle", "quordle", "timeguessr", "travle", "foximax",
       "loldle-classic", "loldle-quote", "loldle-ability", "loldle-emoji", "loldle-splash");
   private final GameAdapterRegistry registry = new GameAdapterRegistry(List.of(new ConnectionsParser(), new WordleParser(),
       new StrandsParser(), new NytMiniParser(), new SemantleParser(), new ContextoParser(), new RedactleParser(),
       new NerdleParser(), new WorldleParser(), new GlobleParser(), new MurdleParser(), new QuordleParser(),
-      new TimeGuessrParser(), new TravleParser(), new LoldleClassicAdapter(), new LoldleQuoteAdapter(),
+      new TimeGuessrParser(), new TravleParser(), new FoxiMaxParser(), new LoldleClassicAdapter(), new LoldleQuoteAdapter(),
       new LoldleAbilityAdapter(), new LoldleEmojiAdapter(), new LoldleSplashAdapter()));
 
   @Test void detectsOnlyNamedGames() {
@@ -29,6 +29,7 @@ class GameAdapterRegistryTest {
     assertEquals("worldle", registry.detectGame("#Worldle #1103 (28.01.2025) 1/6 (100%)").orElseThrow());
     assertEquals("quordle", registry.detectGame("Daily Quordle 1746\n5️⃣9️⃣").orElseThrow());
     assertEquals("travle", registry.detectGame("#travle_challenge #38 +0\n✅✅").orElseThrow());
+    assertEquals("foximax", registry.detectGame("🦊#FoxiMax #1549 6/8 (19 letters)").orElseThrow());
     assertTrue(registry.detectGame("🟩🟩🟩🟩🟩").isEmpty());
     assertTrue(registry.detectGame("Wordle 1961 4/6\n#Worldle #1103 (28.01.2025) 1/6 (100%)").isEmpty());
     assertTrue(registry.detectGame("Squirdle #100 3/8").isEmpty());
@@ -36,8 +37,8 @@ class GameAdapterRegistryTest {
 
   @Test void reportsEveryRequestedGameWithoutPretendingUnsupportedFormatsWork() {
     var all = registry.capabilities();
-    assertEquals(81, all.size());
-    assertEquals(81, all.stream().map(ApiModels.ParserCapabilityView::gameId).distinct().count());
+    assertEquals(82, all.size());
+    assertEquals(82, all.stream().map(ApiModels.ParserCapabilityView::gameId).distinct().count());
     assertEquals("PARTIAL", all.stream().filter(value -> value.gameId().equals("worldle"))
         .findFirst().orElseThrow().status());
     var unsupported = all.stream().filter(value -> value.gameId().equals("waffle")).findFirst().orElseThrow();

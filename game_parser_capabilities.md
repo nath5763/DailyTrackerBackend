@@ -4,15 +4,15 @@
 
 ## Integration points
 
-- `GameAdapterRegistry` owns strict detection, parsing, confirmation validation, ranking-metric access, supported formats, and the 37-game capability list. It adds standard result metadata without replacing native metrics.
+- `GameAdapterRegistry` owns strict detection, parsing, confirmation validation, ranking-metric access, supported formats, and the 38-game capability list. It adds standard result metadata without replacing native metrics.
 - `DailyGamesService` always uses the authenticated account and selected leaderboard/game. The share text cannot supply either identity.
 - The existing `submissions` row remains the audit record: canonical puzzle key, native primary score, JSON metrics, original raw text, and parser version. The existing unique player/game/puzzle constraint is retained; an exact retry returns the original submission ID.
 - Leaderboards ask the selected game adapter for its configured native metrics and use explicit competition ties. Completion-first is the default; PokeDoku's documented metrics-first exception compares completion only after uniqueness and correct cells. No cross-game conversion formula is introduced.
-- `GET /api/v1/catalog/games/parser-capabilities` reports all 37 requested game IDs. Unsupported entries expose no accepted format.
+- `GET /api/v1/catalog/games/parser-capabilities` reports all 38 requested game IDs. Unsupported entries expose no accepted format.
 - `GET /api/v1/catalog/games/score-strategies` reports the primary/secondary metrics, directions, compatibility fields, completion-only support, and completion policy for every strategy contract. Strategies default to `COMPLETION_FIRST`; PokeDoku explicitly uses `METRICS_FIRST`.
 - The frontend previews through the backend parser endpoint, so Discord and web submissions use the same parser and validation rules.
 
-There are currently **12 PARTIAL** integrations backed by real fixtures, **25 UNSUPPORTED** core entries awaiting genuine copied results, and **39 MANUAL_ONLY** fandom games. None is labeled VERIFIED because the accepted variants are intentionally narrower than every format the publishers may emit. Manual-only games are active leaderboard games but are excluded from Discord `/daily` until a strict clipboard parser is backed by real fixtures. See `fandom_game_capabilities.md` for their metrics and evidence requirements.
+There are currently **13 PARTIAL** integrations backed by real fixtures, **25 UNSUPPORTED** core entries awaiting genuine copied results, and **39 MANUAL_ONLY** fandom games. None is labeled VERIFIED because the accepted variants are intentionally narrower than every format the publishers may emit. Manual-only games are active leaderboard games but are excluded from Discord `/daily` until a strict clipboard parser is backed by real fixtures. See `fandom_game_capabilities.md` for their metrics and evidence requirements.
 
 For every unsupported parser, implementation requires the unedited clipboard text for at least a win and loss/incomplete result, the game URL, and any mode/difficulty variants. Timed games additionally need a share that actually contains the elapsed time; percentage games need both earned and maximum values; puzzle-number-only games need a publisher-verifiable date mapping if they are to appear in date-range leaderboards. Screenshots without clipboard text are insufficient for a strict text parser.
 
@@ -46,6 +46,7 @@ For every unsupported parser, implementation requires the unedited clipboard tex
 | Flagle | UNSUPPORTED | — | — | — | All | — |
 | Statele | UNSUPPORTED | — | — | — | All | — |
 | TimeGuessr | PARTIAL | [Detailed and emoji-grid daily shares](https://www.reddit.com/r/timeguessr/comments/1msu06e); [official final-score page](https://timeguessr.com/finalscoredaily) | Puzzle, derived date, native total, optional five round scores | Native points descending | Image-only app shares and non-daily modes | `TimeGuessrParserTest`, `ScoreQuantizerRegistryTest` |
+| FoxiMax | PARTIAL | User-provided Daily #1549 result; [official rules](https://foximax.com/about.html) | Puzzle, derived date, words, letters, result rows | Words ascending; letters are display-only | Game-over results, FoxiMax 6/7, training, and nonstandard color schemes | `FoxiMaxParserTest` |
 | Murdle | PARTIAL | [Dated timed solve](https://rx-sns.jp/bsky/did%3Aplc%3Aoqiphqj7uiyb5nqeotsjvtsl) | Explicit date, win, elapsed seconds | Seconds, lower | Losses and results without a keycap time | `MurdleParserTest` |
 | Framed | UNSUPPORTED | — | — | — | All | — |
 | Moviedle | UNSUPPORTED | — | — | — | All | — |
@@ -56,4 +57,4 @@ For every unsupported parser, implementation requires the unedited clipboard tex
 | Weddle | UNSUPPORTED | — | — | — | All | — |
 | Poeltl | UNSUPPORTED | — | — | — | All | — |
 
-Connections was added before this 37-game request. Its [real shared result](https://www.reddit.com/r/NYTConnections/comments/1xkzbnv/monday_november_2_2026/) is covered by `ConnectionsParserTest`; it ranks fewer incorrect groups ahead of more, with losses after wins.
+Connections was added before this 38-game request. Its [real shared result](https://www.reddit.com/r/NYTConnections/comments/1xkzbnv/monday_november_2_2026/) is covered by `ConnectionsParserTest`; it ranks fewer incorrect groups ahead of more, with losses after wins.

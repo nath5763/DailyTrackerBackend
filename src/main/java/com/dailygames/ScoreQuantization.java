@@ -49,6 +49,7 @@ class ScoreQuantizerRegistry {
       spec("flagle", "fewest guesses", "attemptsUsed", ASC, null, null, List.of(), false),
       spec("statele", "fewest guesses", "attemptsUsed", ASC, null, null, List.of(), false),
       spec("timeguessr", "highest native point total", "nativeScore", DESC, null, null, List.of("gameMode"), false),
+      spec("foximax", "fewest words", "wordsUsed", ASC, null, null, List.of(), false),
       spec("framed", "fewest frames revealed", "framesRevealed", ASC, null, null, List.of(), false),
       spec("moviedle", "fewest verified guesses or clues", "attemptsUsed", ASC, null, null, List.of("gameMode"), false),
       spec("costcodle", "fewest guesses; price accuracy retained separately", "attemptsUsed", ASC, "priceError", ASC, List.of(), false),

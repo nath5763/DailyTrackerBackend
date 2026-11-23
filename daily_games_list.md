@@ -22,6 +22,7 @@ A categorized collection of daily puzzle and casual browser games for research a
 | Redactle | Reveal a hidden article by guessing its words. | https://redactle.net/ |
 | Letter Boxed | Connect letters around a square to form words. | https://www.nytimes.com/puzzles/letter-boxed |
 | The Guardian Quick Crossword | Daily classic crossword clues. | https://www.theguardian.com/crosswords/series/quick |
+| FoxiMax | Reveal hidden words by guessing letters; each miss adds another word. | https://foximax.com/ |
 
 ## Logic, Grid, and Number Puzzles
 
