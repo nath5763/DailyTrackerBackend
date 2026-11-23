@@ -19,7 +19,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.math.RoundingMode;
 import java.net.URLEncoder;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -606,7 +605,7 @@ class DiscordService {
 
   private String gameScore(ApiModels.RankingView row, ApiModels.GameView game) {
     return row.displayScore() == null || row.displayScore().isBlank()
-        ? formatScore(row.average(), game.scoreFormat()) : row.displayScore();
+        ? formatScore(row.average(), game.scoreFormat()) : DecimalPresentation.formatDisplay(row.displayScore());
   }
 
   private String rankLabel(int rank) {
@@ -632,7 +631,7 @@ class DiscordService {
   }
 
   private String formatAverage(BigDecimal value) {
-    return value == null ? "—" : value.setScale(1, RoundingMode.HALF_UP).toPlainString();
+    return value == null ? "—" : DecimalPresentation.format(value);
   }
 
   private String fullLeaderboardUrl(UUID boardId, String gameSlug, String range) {
@@ -831,9 +830,7 @@ class DiscordService {
   }
 
   private String formatScore(BigDecimal score, ApiModels.ScoreFormatView format) {
-    BigDecimal display = score.setScale(format.maximumDecimalPlaces(), RoundingMode.HALF_UP).stripTrailingZeros();
-    if (display.scale() < format.minimumDecimalPlaces()) display = display.setScale(format.minimumDecimalPlaces());
-    return format.prefix() + display.toPlainString() + format.suffix();
+    return format.prefix() + DecimalPresentation.format(score, format.maximumDecimalPlaces()) + format.suffix();
   }
 
   private void requirePaidOwner(UUID leaderboardId) {

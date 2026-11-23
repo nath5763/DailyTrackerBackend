@@ -105,7 +105,7 @@ final class ManualScoreRegistry {
     BigDecimal score = decimal(raw, "score", true, new BigDecimal("0.01"), null);
     BigDecimal percentile = decimal(raw, "percentile", false, BigDecimal.ZERO, BigDecimal.valueOf(100));
     if (percentile != null) metrics.put("percentile", percentile);
-    metrics.put("scoreUnit", "multiplier"); metrics.put("displayScore", score.stripTrailingZeros().toPlainString() + "×");
+    metrics.put("scoreUnit", "multiplier"); metrics.put("displayScore", DecimalPresentation.format(score) + "×");
     return score;
   }
 
@@ -212,7 +212,7 @@ final class ManualScoreRegistry {
           metrics.put("rankingSecondaryDirection", "ASCENDING");
         }
         metrics.put("scoreUnit", "completed-cells");
-        metrics.put("displayScore", correct + "/9" + (rarity == null ? "" : " · rarity " + rarity.stripTrailingZeros().toPlainString()));
+        metrics.put("displayScore", correct + "/9" + (rarity == null ? "" : " · rarity " + DecimalPresentation.format(rarity)));
         yield BigDecimal.valueOf(correct);
       }
       case POKEDOKU_UNIQUENESS -> {
@@ -228,7 +228,7 @@ final class ManualScoreRegistry {
         metrics.put("rankingPrimaryDirection", "ASCENDING");
         metrics.put("rankingSecondaryDirection", "DESCENDING");
         metrics.put("scoreUnit", "uniqueness");
-        metrics.put("displayScore", "UNIQ " + uniqueness.stripTrailingZeros().toPlainString() + " · " + correct + "/9");
+        metrics.put("displayScore", "UNIQ " + DecimalPresentation.format(uniqueness) + " · " + correct + "/9");
         yield uniqueness;
       }
     };

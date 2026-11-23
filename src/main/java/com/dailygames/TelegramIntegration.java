@@ -17,7 +17,6 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
@@ -519,7 +518,7 @@ class TelegramService {
       text.append("\n").append(clean(game.game().name(), 60)).append(": ");
       text.append(game.leaders().stream().map(row -> clean(row.displayName(), 50) + " — " +
           clean(row.displayScore() == null ? formatScore(row.average(), game.game().scoreFormat())
-              : row.displayScore(), 50)).reduce((a, b) -> a + ", " + b).orElse("No results"));
+              : DecimalPresentation.formatDisplay(row.displayScore()), 50)).reduce((a, b) -> a + ", " + b).orElse("No results"));
     }
     List<List<Map<String, String>>> buttons = new ArrayList<>();
     List<Map<String, String>> paging = new ArrayList<>();
@@ -549,7 +548,8 @@ class TelegramService {
     if (board.rankings().isEmpty()) text.append("Nobody has posted a score for this range yet.\n");
     else for (var row : board.rankings().stream().limit(10).toList()) {
       String line = row.rank() + ". " + clean(row.displayName(), 60) + " — " +
-          clean(row.displayScore() == null ? formatScore(row.average(), board.game().scoreFormat()) : row.displayScore(), 50) +
+          clean(row.displayScore() == null ? formatScore(row.average(), board.game().scoreFormat())
+              : DecimalPresentation.formatDisplay(row.displayScore()), 50) +
           " (" + row.gamesPlayed() + (row.gamesPlayed() == 1 ? " score)" : " scores)") + "\n";
       if (text.length() + line.length() > 3700) break;
       text.append(line);
@@ -733,9 +733,7 @@ class TelegramService {
     return value.longValue();
   }
   private String formatScore(BigDecimal score, ApiModels.ScoreFormatView format) {
-    BigDecimal display = score.setScale(format.maximumDecimalPlaces(), RoundingMode.HALF_UP).stripTrailingZeros();
-    if (display.scale() < format.minimumDecimalPlaces()) display = display.setScale(format.minimumDecimalPlaces());
-    return format.prefix() + display.toPlainString() + format.suffix();
+    return format.prefix() + DecimalPresentation.format(score, format.maximumDecimalPlaces()) + format.suffix();
   }
   private String clean(String value, int max) {
     String result = value.replaceAll("[\\p{Cntrl}]", " ");

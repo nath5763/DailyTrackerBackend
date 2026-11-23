@@ -3,8 +3,6 @@ package com.dailygames;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
-import java.text.DecimalFormat;
-import java.text.DecimalFormatSymbols;
 import java.time.LocalDate;
 import java.util.*;
 import java.util.regex.*;
@@ -23,7 +21,7 @@ class FermiParser implements GameAdapter {
 
   @Override public String slug() { return "fermi"; }
   @Override public String scoreDirection() { return "LOWER_IS_BETTER"; }
-  @Override public ScoreFormatView scoreFormat() { return new ScoreFormatView("", "×", 2, 4); }
+  @Override public ScoreFormatView scoreFormat() { return new ScoreFormatView("", "×", 0, 2); }
   @Override public SubmissionConfigView submissionConfig() {
     return new SubmissionConfigView("Fermi #92\n1.31× score\ntop 8%", "Puzzle number", "Final score",
         BigDecimal.ONE, null, new BigDecimal("0.01"), Set.of("puzzleKey", "playedOn", "primaryScore"));
@@ -48,7 +46,7 @@ class FermiParser implements GameAdapter {
       try {
         BigDecimal percentile = rawPercentile instanceof BigDecimal decimal ? decimal
             : new BigDecimal(rawPercentile.toString());
-        details.add(new ResultDetailView("Top", percentile.stripTrailingZeros().toPlainString() + "%"));
+        details.add(new ResultDetailView("Top", DecimalPresentation.format(percentile) + "%"));
       } catch (RuntimeException ignored) {
         // Ignore malformed historical presentation-only metrics without affecting the saved result.
       }
@@ -129,10 +127,6 @@ class FermiParser implements GameAdapter {
   }
 
   private String displayMultiplier(BigDecimal value) {
-    int decimals = Math.max(0, Math.min(4, value.scale()));
-    DecimalFormat format = new DecimalFormat("#,##0", DecimalFormatSymbols.getInstance(Locale.US));
-    format.setMinimumFractionDigits(decimals);
-    format.setMaximumFractionDigits(decimals);
-    return format.format(value) + "×";
+    return DecimalPresentation.format(value) + "×";
   }
 }

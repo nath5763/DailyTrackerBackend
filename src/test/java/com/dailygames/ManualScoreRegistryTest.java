@@ -49,6 +49,13 @@ class ManualScoreRegistryTest {
     assertEquals("3/4 · 32", result.metrics().get("displayScore"));
   }
 
+  @Test void limitsGeneratedDecimalLabelsWithoutChangingStoredScores() {
+    ParsedSubmission result = registry.normalize("fermi",
+        request("fermi", "8", "WIN", Map.of("score", "4.067")));
+    assertEquals(new BigDecimal("4.067"), result.primaryScore());
+    assertEquals("4.07×", result.metrics().get("displayScore"));
+  }
+
   @Test void rejectsContradictoryAndMissingValues() {
     ApiException wordle = assertThrows(ApiException.class, () -> registry.normalize("wordle",
         request("wordle", null, "WIN", Map.of())));

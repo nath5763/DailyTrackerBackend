@@ -31,9 +31,18 @@ class FermiParserTest {
     assertEquals(new BigDecimal("1.50"), parsed.primaryScore());
     assertEquals(3, ((java.util.List<?>) parsed.metrics().get("components")).size());
     assertEquals(java.util.List.of(
-        new ApiModels.ResultDetailView("Q1", "1.50×"),
-        new ApiModels.ResultDetailView("Q2", "1.40×"),
-        new ApiModels.ResultDetailView("Q3", "2.10×")), parser.resultDetails(parsed.metrics()));
+        new ApiModels.ResultDetailView("Q1", "1.5×"),
+        new ApiModels.ResultDetailView("Q2", "1.4×"),
+        new ApiModels.ResultDetailView("Q3", "2.1×")), parser.resultDetails(parsed.metrics()));
+  }
+
+  @Test void roundsPresentationWithoutChangingParsedScores() {
+    ParsedSubmission parsed = parser.parse("Fermi #8\n1.235x score\ntop 8.678%\nQ1 2.345x");
+    assertEquals(new BigDecimal("1.235"), parsed.primaryScore());
+    assertEquals("1.24×", parsed.metrics().get("displayScore"));
+    assertEquals(java.util.List.of(
+        new ApiModels.ResultDetailView("Q1", "2.35×"),
+        new ApiModels.ResultDetailView("Top", "8.68%")), parser.resultDetails(parsed.metrics()));
   }
 
   @Test void treatsGroupedLargeMultipliersAsThousandsNotDecimalFractions() {
@@ -41,13 +50,13 @@ class FermiParserTest {
         "Fermi #103\n1,960x score\nQ1 1,200x\nQ2 2.50x\nQ3 4,000x");
 
     assertEquals(new BigDecimal("1960"), parsed.primaryScore());
-    assertEquals("1,960×", parsed.metrics().get("displayScore"));
+    assertEquals("1960×", parsed.metrics().get("displayScore"));
     assertEquals(java.util.List.of(new BigDecimal("1200"), new BigDecimal("2.50"), new BigDecimal("4000")),
         parsed.metrics().get("components"));
     assertEquals(java.util.List.of(
-        new ApiModels.ResultDetailView("Q1", "1,200×"),
-        new ApiModels.ResultDetailView("Q2", "2.50×"),
-        new ApiModels.ResultDetailView("Q3", "4,000×")), parser.resultDetails(parsed.metrics()));
+        new ApiModels.ResultDetailView("Q1", "1200×"),
+        new ApiModels.ResultDetailView("Q2", "2.5×"),
+        new ApiModels.ResultDetailView("Q3", "4000×")), parser.resultDetails(parsed.metrics()));
   }
 
   @Test void confirmedShareCannotChangeItsCompletionStatus() {

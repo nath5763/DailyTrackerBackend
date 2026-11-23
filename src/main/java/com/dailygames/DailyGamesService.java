@@ -464,7 +464,7 @@ class DailyGamesService {
     for (int index = 0; index < seeds.size(); index++) {
       RankingSeed seed = seeds.get(index);
       if (previous == null || seed.average.compareTo(previous.average) != 0 || !seed.gamesPlayed.equals(previous.gamesPlayed)) rank = index + 1;
-      String display = seed.average.stripTrailingZeros().toPlainString() + " leaderboard pts";
+      String display = DecimalPresentation.format(seed.average) + " leaderboard pts";
       results.add(new RankingView(rank, seed.profile.userId, seed.profile.shareId, seed.profile.displayName,
           seed.average, seed.gamesPlayed, seed.assistedResults, seed.unknownAssistanceResults, seed.hints,
           seed.mistakes, seed.beginnerAssists, display, seed.average, seed.gamesPlayed, seed.manualResults,

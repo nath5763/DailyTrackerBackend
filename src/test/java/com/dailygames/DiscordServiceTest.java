@@ -729,9 +729,9 @@ class DiscordServiceTest {
       String components = json.writeValueAsString(result.body().get("data"));
       assertTrue(components.contains("Brian"));
       assertTrue(components.indexOf("Brian") < components.indexOf("Shrinath"));
-      assertTrue(components.contains("#1.3 Avg. placement · 382.5 Avg. score"));
+      assertTrue(components.contains("#1.34 Avg. placement · 382.46 Avg. score"));
       assertTrue(components.contains("4 results"));
-      assertTrue(components.contains("#1.6 Avg. placement · 345.0 Avg. score"));
+      assertTrue(components.contains("#1.56 Avg. placement · 345.04 Avg. score"));
       assertTrue(components.contains("7 results"));
       assertFalse(components.contains("leaderboard pts"));
     }

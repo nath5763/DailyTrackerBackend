@@ -809,9 +809,9 @@ class DailyGamesServiceTest {
 
     ApiModels.LeaderboardResponse todayBoard = service.board(current, board.id, "today", "fermi");
     assertEquals(List.of(new ApiModels.DailyResultDetailsView(userId, "7", List.of(
-        new ApiModels.ResultDetailView("Q1", "1.20×"),
-        new ApiModels.ResultDetailView("Q2", "1.40×"),
-        new ApiModels.ResultDetailView("Q3", "2.10×")))), todayBoard.dailyResults());
+        new ApiModels.ResultDetailView("Q1", "1.2×"),
+        new ApiModels.ResultDetailView("Q2", "1.4×"),
+        new ApiModels.ResultDetailView("Q3", "2.1×")))), todayBoard.dailyResults());
     assertTrue(service.board(current, board.id, "7d", "fermi").dailyResults().isEmpty());
   }
 
