@@ -1,6 +1,8 @@
 package com.dailygames;
 
 import jakarta.persistence.LockModeType;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.*;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -56,6 +58,9 @@ import java.util.*;
   boolean existsByUserIdAndGameIdAndPuzzleKey(UUID userId, UUID gameId, String puzzleKey);
   Optional<Submission> findByUserIdAndGameIdAndPuzzleKey(UUID userId, UUID gameId, String puzzleKey);
   Optional<Submission> findByUserIdAndGameIdAndPlayedOn(UUID userId, UUID gameId, LocalDate playedOn);
+  Page<Submission> findByUserIdAndGameIdOrderByPlayedOnDescCreatedAtDescIdDesc(UUID userId, UUID gameId,
+                                                                               Pageable pageable);
+  Optional<Submission> findByIdAndUserId(UUID id, UUID userId);
 }
 @Repository interface AuthActionTokenRepository extends JpaRepository<AuthActionToken, UUID> {
   long countByUserIdAndPurposeAndCreatedAtAfter(UUID userId, AuthTokenPurpose purpose, Instant after);

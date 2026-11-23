@@ -1,6 +1,8 @@
 package com.dailygames;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 
 import java.math.BigDecimal;
 import java.time.*;
@@ -13,6 +15,107 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 class DailyGamesServiceTest {
+  @Test
+  void dashboardGameCardsUseExistingStatsAndOrderByMostRecentPlay() {
+    UUID userId = UUID.randomUUID();
+    Profile profile = new Profile(userId, "Player", "#dfff4f", Instant.now());
+    Game older = game("wordle", "Wordle", "lower");
+    Game newer = game("timeguessr", "TimeGuessr", "higher");
+    ProfileRepository profiles = mock(ProfileRepository.class);
+    GameRepository games = mock(GameRepository.class);
+    LeaderboardRepository boards = mock(LeaderboardRepository.class);
+    SubmissionRepository submissions = mock(SubmissionRepository.class);
+    GameAdapterRegistry adapters = new GameAdapterRegistry(List.of(new WordleParser(), new TimeGuessrParser()));
+    when(profiles.findById(userId)).thenReturn(Optional.of(profile));
+    when(boards.findForUser(userId)).thenReturn(List.of());
+    when(games.findById(older.id)).thenReturn(Optional.of(older));
+    when(games.findById(newer.id)).thenReturn(Optional.of(newer));
+    Submission olderResult = new Submission(userId, older.id,
+        new ParsedSubmission("100", 100, LocalDate.of(2026, 11, 20), new BigDecimal("4"), Map.of(), 1),
+        "Wordle share", Instant.parse("2026-11-20T12:00:00Z"));
+    Submission newestResult = new Submission(userId, newer.id,
+        new ParsedSubmission("200", 200, LocalDate.of(2026, 11, 22), new BigDecimal("400"), Map.of(), 1),
+        "TimeGuessr share", Instant.parse("2026-11-22T12:00:00Z"));
+    Submission secondNewerResult = new Submission(userId, newer.id,
+        new ParsedSubmission("199", 199, LocalDate.of(2026, 11, 21), new BigDecimal("200"), Map.of(), 1),
+        "TimeGuessr share", Instant.parse("2026-11-21T12:00:00Z"));
+    when(submissions.findByUserIdOrderByPlayedOnDescCreatedAtDesc(userId))
+        .thenReturn(List.of(newestResult, secondNewerResult, olderResult));
+
+    var response = service(profiles, games, boards, mock(MembershipRepository.class), submissions, adapters,
+        mock(BillingService.class)).dashboard(new CurrentUser(userId, ""));
+
+    assertEquals(List.of("timeguessr", "wordle"), response.statsByGame().stream()
+        .map(value -> value.game().slug()).toList());
+    var timeGuessr = response.statsByGame().getFirst();
+    assertEquals(new BigDecimal("300.0000"), timeGuessr.average());
+    assertEquals(new BigDecimal("400"), timeGuessr.best());
+    assertEquals(2, timeGuessr.results());
+    assertEquals(LocalDate.of(2026, 11, 22), timeGuessr.lastPlayedOn());
+    assertEquals(Instant.parse("2026-11-22T12:00:00Z"), timeGuessr.lastSubmittedAt());
+  }
+
+  @Test
+  void privateHistoryIsPaginatedAndSubmissionDetailPreservesRawText() {
+    UUID userId = UUID.randomUUID();
+    Profile profile = new Profile(userId, "Player", "#dfff4f", Instant.now());
+    Game game = game("wordle", "Wordle", "lower");
+    ProfileRepository profiles = mock(ProfileRepository.class);
+    GameRepository games = mock(GameRepository.class);
+    SubmissionRepository submissions = mock(SubmissionRepository.class);
+    GameAdapterRegistry adapters = new GameAdapterRegistry(List.of(new WordleParser()));
+    when(profiles.findById(userId)).thenReturn(Optional.of(profile));
+    when(games.findBySlugAndActiveTrue("wordle")).thenReturn(Optional.of(game));
+    when(games.findById(game.id)).thenReturn(Optional.of(game));
+    String share = "Wordle 2,000 4/6\nâ¬›ðŸŸ©â¬›ðŸŸ©â¬›\nðŸŸ©ðŸŸ©ðŸŸ©ðŸŸ©ðŸŸ©";
+    Submission newest = new Submission(userId, game.id,
+        new ParsedSubmission("2000", 2000, LocalDate.of(2026, 11, 22), new BigDecimal("4"),
+            Map.of("displayScore", "4/6", "attemptsUsed", 4), 3), share,
+        Instant.parse("2026-11-22T15:00:00Z"));
+    Submission older = new Submission(userId, game.id,
+        new ParsedSubmission("1999", 1999, LocalDate.of(2026, 11, 21), new BigDecimal("5"),
+            Map.of("displayScore", "5/6"), 3), "older share", Instant.parse("2026-11-21T15:00:00Z"));
+    PageRequest requestedPage = PageRequest.of(1, 10);
+    when(submissions.findByUserIdAndGameIdOrderByPlayedOnDescCreatedAtDescIdDesc(userId, game.id, requestedPage))
+        .thenReturn(new PageImpl<>(List.of(newest, older), requestedPage, 22));
+    when(submissions.findByUserIdAndGameIdOrderByPlayedOnDescCreatedAtDescIdDesc(userId, game.id, PageRequest.of(0, 30)))
+        .thenReturn(new PageImpl<>(List.of(newest, older), PageRequest.of(0, 30), 2));
+    when(submissions.findByIdAndUserId(newest.id, userId)).thenReturn(Optional.of(newest));
+    DailyGamesService service = service(profiles, games, mock(LeaderboardRepository.class),
+        mock(MembershipRepository.class), submissions, adapters, mock(BillingService.class));
+
+    var history = service.submissionHistory(new CurrentUser(userId, ""), "wordle", 1, 10);
+    assertEquals(1, history.page());
+    assertEquals(3, history.totalPages());
+    assertEquals(22, history.totalSubmissions());
+    assertEquals(List.of("2000", "1999"), history.submissions().stream()
+        .map(ApiModels.SubmissionSummaryView::puzzleKey).toList());
+    assertEquals("4/6", history.submissions().getFirst().metrics().get("displayScore"));
+
+    var detail = service.submissionDetail(new CurrentUser(userId, ""), newest.id);
+    assertEquals(share, detail.rawText());
+    assertEquals(3, detail.parserVersion());
+    assertEquals("wordle", detail.game().slug());
+  }
+
+  @Test
+  void submissionHistoryAndDetailsAreScopedToTheAuthenticatedUser() {
+    UUID userId = UUID.randomUUID(), anotherUserId = UUID.randomUUID(), submissionId = UUID.randomUUID();
+    ProfileRepository profiles = mock(ProfileRepository.class);
+    SubmissionRepository submissions = mock(SubmissionRepository.class);
+    when(profiles.findById(userId)).thenReturn(Optional.of(new Profile(userId, "Player", "#dfff4f", Instant.now())));
+    when(submissions.findByIdAndUserId(submissionId, userId)).thenReturn(Optional.empty());
+    DailyGamesService service = service(profiles, mock(GameRepository.class), mock(LeaderboardRepository.class),
+        mock(MembershipRepository.class), submissions, mock(GameAdapterRegistry.class), mock(BillingService.class));
+
+    assertEquals("NOT_FOUND", assertThrows(ApiException.class,
+        () -> service.submissionDetail(new CurrentUser(userId, ""), submissionId)).code);
+    verify(submissions).findByIdAndUserId(submissionId, userId);
+    verify(submissions, never()).findByIdAndUserId(submissionId, anotherUserId);
+    assertEquals("INVALID_PAGE", assertThrows(ApiException.class,
+        () -> service.submissionHistory(new CurrentUser(userId, ""), "wordle", -1, 10)).code);
+  }
+
   @Test
   void placementPointsLoseTwentyPercentOfThePreviousPlaceAndRoundDown() {
     List<Integer> expected = List.of(100, 80, 64, 51, 40, 32, 25, 20, 16, 12, 9, 7, 5, 4, 3, 2, 1, 0, 0);

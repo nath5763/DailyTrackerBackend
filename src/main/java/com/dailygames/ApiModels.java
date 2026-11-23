@@ -84,9 +84,21 @@ final class ApiModels {
   record ScoreView(UUID id, String puzzleKey, LocalDate playedOn, BigDecimal primaryScore, String gameName, String gameSlug,
                    GameView game, Map<String, Object> metrics, String submissionMethod) {}
   record StatsView(BigDecimal average, BigDecimal best, int currentStreak, int results) {}
-  record GameStatsView(GameView game, BigDecimal average, BigDecimal best, int currentStreak, int results) {}
+  record GameStatsView(GameView game, BigDecimal average, BigDecimal best, int currentStreak, int results,
+                       LocalDate lastPlayedOn, Instant lastSubmittedAt) {}
   record DashboardResponse(ProfileView profile, StatsView stats, List<GameStatsView> statsByGame,
                            List<ScoreView> recentScores, List<BoardSummary> leaderboards) {}
+  record SubmissionSummaryView(UUID id, String puzzleKey, LocalDate playedOn, Instant submittedAt,
+                               BigDecimal primaryScore, Map<String, Object> metrics, String submissionMethod,
+                               List<ResultDetailView> details) {}
+  record SubmissionTrendPointView(UUID id, LocalDate playedOn, BigDecimal primaryScore,
+                                  Map<String, Object> metrics) {}
+  record SubmissionHistoryResponse(GameView game, List<SubmissionSummaryView> submissions,
+                                   List<SubmissionTrendPointView> trend, int page, int pageSize,
+                                   long totalSubmissions, int totalPages) {}
+  record SubmissionDetailView(UUID id, String puzzleKey, LocalDate playedOn, Instant submittedAt,
+                              BigDecimal primaryScore, Map<String, Object> metrics, String submissionMethod,
+                              int parserVersion, String rawText, GameView game, List<ResultDetailView> details) {}
   record PreviewResponse(ParsedSubmission submission) {}
   record MemberView(UUID userId, UUID shareId, String displayName, String avatarColor, boolean owner) {}
   record RankingView(int rank, UUID userId, UUID shareId, String displayName, BigDecimal average, int gamesPlayed,

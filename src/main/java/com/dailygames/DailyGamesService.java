@@ -4,6 +4,8 @@ import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -72,9 +74,34 @@ class DailyGamesService {
   DashboardResponse dashboard(CurrentUser current) {
     Profile profile = requireProfile(current.id());
     List<Submission> values = submissions.findByUserIdOrderByPlayedOnDescCreatedAtDesc(current.id());
-    List<GameStatsView> gameStats = statsByGame(values);
+    List<GameStatsView> gameStats = statsByGame(values, true);
     return new DashboardResponse(profileView(profile), legacyStats(gameStats), gameStats,
         values.stream().limit(7).map(this::scoreView).toList(), listBoards(current));
+  }
+
+  SubmissionHistoryResponse submissionHistory(CurrentUser current, String gameSlug, int page, int size) {
+    requireProfile(current.id());
+    if (page < 0 || size < 1 || size > 50) {
+      throw new ApiException(400, "INVALID_PAGE", "Choose a valid history page and page size.");
+    }
+    Game game = requireGame(gameSlug);
+    Page<Submission> history = submissions.findByUserIdAndGameIdOrderByPlayedOnDescCreatedAtDescIdDesc(
+        current.id(), game.id, PageRequest.of(page, size));
+    List<SubmissionTrendPointView> trend = submissions
+        .findByUserIdAndGameIdOrderByPlayedOnDescCreatedAtDescIdDesc(current.id(), game.id, PageRequest.of(0, 30))
+        .stream().map(this::trendPointView).toList();
+    return new SubmissionHistoryResponse(gameView(game), history.stream()
+        .map(value -> submissionSummaryView(value, game)).toList(),
+        trend, history.getNumber(), history.getSize(), history.getTotalElements(), history.getTotalPages());
+  }
+
+  SubmissionDetailView submissionDetail(CurrentUser current, UUID id) {
+    requireProfile(current.id());
+    Submission value = submissions.findByIdAndUserId(id, current.id()).orElseThrow(this::notFound);
+    Game game = games.findById(value.gameId).orElseThrow(this::notFound);
+    return new SubmissionDetailView(value.id, value.puzzleKey, value.playedOn, value.createdAt,
+        value.primaryScore, value.metrics, value.submissionMethod.name(), value.parserVersion, value.rawText,
+        gameView(game), adapters.resultDetails(game.slug, value.metrics));
   }
 
   List<BoardSummary> listBoards(CurrentUser current) {
@@ -800,7 +827,7 @@ class DailyGamesService {
     Profile profile = profiles.findByShareId(shareId).orElseThrow(this::notFound);
     if (!profile.userId.equals(current.id()) && !memberships.sharesLeaderboard(current.id(), profile.userId)) throw notFound();
     List<Submission> values = submissions.findByUserIdOrderByPlayedOnDescCreatedAtDesc(profile.userId);
-    List<GameStatsView> gameStats = statsByGame(values);
+    List<GameStatsView> gameStats = statsByGame(values, false);
     return new ProfileResponse(profileView(profile), profile.userId.equals(current.id()), legacyStats(gameStats), gameStats,
         values.stream().map(this::scoreView).toList());
   }
@@ -915,12 +942,29 @@ class DailyGamesService {
     return new ScoreView(value.id, value.puzzleKey, value.playedOn, value.primaryScore, game.name, game.slug,
         gameView(game), value.metrics, value.submissionMethod.name());
   }
-  private List<GameStatsView> statsByGame(List<Submission> values) {
+  private SubmissionSummaryView submissionSummaryView(Submission value, Game game) {
+    return new SubmissionSummaryView(value.id, value.puzzleKey, value.playedOn, value.createdAt,
+        value.primaryScore, value.metrics, value.submissionMethod.name(),
+        adapters.resultDetails(game.slug, value.metrics));
+  }
+  private SubmissionTrendPointView trendPointView(Submission value) {
+    return new SubmissionTrendPointView(value.id, value.playedOn, value.primaryScore, value.metrics);
+  }
+  private List<GameStatsView> statsByGame(List<Submission> values, boolean recentFirst) {
     return values.stream().collect(Collectors.groupingBy(value -> value.gameId)).entrySet().stream().map(entry -> {
       Game game = games.findById(entry.getKey()).orElseThrow(this::notFound);
       StatsView stats = stats(entry.getValue(), game);
-      return new GameStatsView(gameView(game), stats.average(), stats.best(), stats.currentStreak(), stats.results());
-    }).sorted(Comparator.comparing(value -> value.game().name(), String.CASE_INSENSITIVE_ORDER)).toList();
+      Submission mostRecent = entry.getValue().stream().max(Comparator
+          .comparing((Submission value) -> value.playedOn)
+          .thenComparing(value -> value.createdAt)
+          .thenComparing(value -> value.id)).orElseThrow();
+      return new GameStatsView(gameView(game), stats.average(), stats.best(), stats.currentStreak(), stats.results(),
+          mostRecent.playedOn, mostRecent.createdAt);
+    }).sorted(recentFirst
+        ? Comparator.comparing(GameStatsView::lastPlayedOn, Comparator.nullsLast(Comparator.reverseOrder()))
+            .thenComparing(GameStatsView::lastSubmittedAt, Comparator.nullsLast(Comparator.reverseOrder()))
+            .thenComparing(value -> value.game().name(), String.CASE_INSENSITIVE_ORDER)
+        : Comparator.comparing(value -> value.game().name(), String.CASE_INSENSITIVE_ORDER)).toList();
   }
   private StatsView stats(List<Submission> values, Game game) {
     if (values.isEmpty()) return new StatsView(null, null, 0, 0);

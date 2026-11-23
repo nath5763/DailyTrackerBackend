@@ -133,6 +133,15 @@ class DailyGamesController {
   @PutMapping("/me/profile") ProfileView onboard(Authentication authentication, @Valid @RequestBody OnboardingRequest request) { return service.onboard(current(authentication), request); }
   @PatchMapping("/me/theme") ThemeResponse updateTheme(Authentication authentication, @Valid @RequestBody ThemeRequest request) { return service.updateTheme(current(authentication), request); }
   @GetMapping("/dashboard") DashboardResponse dashboard(Authentication authentication) { return service.dashboard(current(authentication)); }
+  @GetMapping("/dashboard/games/{game}/submissions") SubmissionHistoryResponse submissionHistory(
+      Authentication authentication, @PathVariable String game,
+      @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size) {
+    return service.submissionHistory(current(authentication), game, page, size);
+  }
+  @GetMapping("/dashboard/submissions/{id}") SubmissionDetailView submissionDetail(
+      Authentication authentication, @PathVariable UUID id) {
+    return service.submissionDetail(current(authentication), id);
+  }
   @GetMapping("/profiles/{shareId}") ProfileResponse profile(Authentication authentication, @PathVariable UUID shareId) { return service.profile(current(authentication), shareId); }
   @GetMapping("/games") List<GameView> games(Authentication authentication) { current(authentication); return service.listGames(); }
 
