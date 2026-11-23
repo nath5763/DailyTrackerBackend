@@ -29,6 +29,11 @@ class ResultDetailFormatterTest {
         ResultDetailFormatter.fromMetrics("globle", Map.of("proximityGrid", "🟨🟥🟥🟩")));
     assertEquals(List.of(new ResultDetailView("Path", "💡🔵🟡🔵")),
         ResultDetailFormatter.fromMetrics("strands", Map.of("resultSequence", "💡🔵🟡🔵")));
+    assertEquals(List.of(new ResultDetailView("Count", "13"), new ResultDetailView("Track", "93"),
+            new ResultDetailView("Angle", "93"), new ResultDetailView("Tempo", "11"),
+            new ResultDetailView("Split", "98")),
+        ResultDetailFormatter.fromMetrics("perceptle", Map.of("countScore", 13, "trackScore", 93,
+            "angleScore", 93, "tempoScore", 11, "splitScore", 98)));
   }
 
   @Test void formatsVerifiedSecondaryDetailsAndOmitsUnavailableOnes() {

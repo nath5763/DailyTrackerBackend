@@ -42,6 +42,7 @@ A categorized collection of daily puzzle and casual browser games for research a
 | Kakuro | Fill number runs to match sum clues. | https://www.kakuro.com/ |
 | Nonograms / Picross | Reveal pixel art using row/column clues. | https://www.nonograms.org/ |
 | Set Daily Puzzle | Identify sets of three cards whose attributes match or differ. | https://www.setgame.com/set/puzzle |
+| Perceptle | Test counting, tracking, angle, tempo, and split perception skills. | https://perceptle.io/ |
 
 ## Geography and Maps
 

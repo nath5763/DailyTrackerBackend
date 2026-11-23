@@ -585,6 +585,17 @@ class DailyGamesIntegrationTest {
         "select tracked_game_slug from game_catalog where slug = 'farflung'", String.class));
   }
 
+  @Test void migrationExposesPerceptleAsAnActiveTrackedCatalogGame() {
+    Game perceptle = games.findBySlugAndActiveTrue("perceptle").orElseThrow();
+    assertEquals("https://perceptle.io/", perceptle.sourceUrl);
+    assertEquals("UTC", perceptle.releaseTimezone);
+    assertEquals("higher", perceptle.rankingDirection);
+    assertEquals("perceptle", jdbc.queryForObject(
+        "select tracked_game_slug from game_catalog where slug = 'perceptle'", String.class));
+    assertEquals("Logic, Grid, and Number Puzzles", jdbc.queryForObject(
+        "select category from game_catalog where slug = 'perceptle'", String.class));
+  }
+
   private ConfirmedSubmission confirmed(ParsedSubmission parsed) {
     return new ConfirmedSubmission(parsed.puzzleKey(), parsed.puzzleNumber(), parsed.playedOn(), parsed.primaryScore(),
         parsed.metrics(), parsed.parserVersion());

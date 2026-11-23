@@ -17,6 +17,7 @@ final class ResultDetailFormatter {
       case "quordle" -> indexed("Q", values(metrics.get("guesses")), value -> value == null ? "X" : value + " guesses");
       case "timeguessr" -> indexed("R", values(metrics.get("roundScores")), value -> number(value) + " pts");
       case "farflung" -> indexed("P", values(metrics.get("rarities")), ResultDetailFormatter::text);
+      case "perceptle" -> perceptle(metrics);
       case "contexto" -> combine(contexto(metrics), assistance(metrics));
       case "globle" -> single("Path", metrics.get("proximityGrid"));
       case "strands" -> single("Path", metrics.get("resultSequence"));
@@ -32,6 +33,16 @@ final class ResultDetailFormatter {
           assistance(metrics));
       default -> LINKEDIN_GAMES.contains(gameSlug) ? assistance(metrics) : List.of();
     };
+  }
+
+  private static List<ResultDetailView> perceptle(Map<String, Object> metrics) {
+    List<ResultDetailView> details = new ArrayList<>();
+    add(details, "Count", metrics.get("countScore"), "");
+    add(details, "Track", metrics.get("trackScore"), "");
+    add(details, "Angle", metrics.get("angleScore"), "");
+    add(details, "Tempo", metrics.get("tempoScore"), "");
+    add(details, "Split", metrics.get("splitScore"), "");
+    return List.copyOf(details);
   }
 
   private static List<ResultDetailView> contexto(Map<String, Object> metrics) {
