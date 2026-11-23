@@ -16,12 +16,12 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class GameAdapterRegistryTest {
   private static final Set<String> PARTIAL = Set.of("strands", "nyt-mini-crossword", "semantle", "contexto",
-      "redactle", "nerdle", "worldle", "globle", "murdle", "quordle", "timeguessr", "travle", "foximax",
+      "redactle", "nerdle", "worldle", "globle", "murdle", "quordle", "timeguessr", "travle", "farflung", "foximax",
       "loldle-classic", "loldle-quote", "loldle-ability", "loldle-emoji", "loldle-splash");
   private final GameAdapterRegistry registry = new GameAdapterRegistry(List.of(new ConnectionsParser(), new WordleParser(),
       new StrandsParser(), new NytMiniParser(), new SemantleParser(), new ContextoParser(), new RedactleParser(),
       new NerdleParser(), new WorldleParser(), new GlobleParser(), new MurdleParser(), new QuordleParser(),
-      new TimeGuessrParser(), new TravleParser(), new FoxiMaxParser(), new LoldleClassicAdapter(), new LoldleQuoteAdapter(),
+      new TimeGuessrParser(), new TravleParser(), new FarflungParser(), new FoxiMaxParser(), new LoldleClassicAdapter(), new LoldleQuoteAdapter(),
       new LoldleAbilityAdapter(), new LoldleEmojiAdapter(), new LoldleSplashAdapter()));
 
   @Test void detectsOnlyNamedGames() {
@@ -32,13 +32,14 @@ class GameAdapterRegistryTest {
     assertEquals("foximax", registry.detectGame("🦊#FoxiMax #1549 6/8 (19 letters)").orElseThrow());
     assertTrue(registry.detectGame("🟩🟩🟩🟩🟩").isEmpty());
     assertTrue(registry.detectGame("Wordle 1961 4/6\n#Worldle #1103 (28.01.2025) 1/6 (100%)").isEmpty());
+    assertEquals("farflung", registry.detectGame("Farflung #50 · 195/500 km").orElseThrow());
     assertTrue(registry.detectGame("Squirdle #100 3/8").isEmpty());
   }
 
   @Test void reportsEveryRequestedGameWithoutPretendingUnsupportedFormatsWork() {
     var all = registry.capabilities();
-    assertEquals(82, all.size());
-    assertEquals(82, all.stream().map(ApiModels.ParserCapabilityView::gameId).distinct().count());
+    assertEquals(83, all.size());
+    assertEquals(83, all.stream().map(ApiModels.ParserCapabilityView::gameId).distinct().count());
     assertEquals("PARTIAL", all.stream().filter(value -> value.gameId().equals("worldle"))
         .findFirst().orElseThrow().status());
     var unsupported = all.stream().filter(value -> value.gameId().equals("waffle")).findFirst().orElseThrow();
@@ -48,6 +49,7 @@ class GameAdapterRegistryTest {
     Map<String, Set<String>> formats = registry.supportedFormats();
     assertEquals(Set.of("share-text"), formats.get("worldle"));
     assertEquals(Set.of("share-text"), formats.get("travle"));
+    assertEquals(Set.of("share-text"), formats.get("farflung"));
     assertEquals(Set.of(), formats.get("waffle"));
     assertEquals(Set.of("share-text"), formats.get("connections"));
     assertEquals(Set.of("batch-share-text"), formats.get("loldle-classic"));

@@ -14,7 +14,7 @@ final class GameParserCapabilities {
       "squaredle", "weaver", "semantle", "contexto", "redactle", "letter-boxed",
       "guardian-quick-crossword", "nyt-sudoku", "nyt-tiles", "nerdle", "mathler", "kenken", "kakuro",
       "nonograms-picross", "worldle", "globle", "geoguessr-daily-challenge", "travle", "flagle",
-      "statele", "timeguessr", "foximax", "murdle", "framed", "moviedle", "costcodle", "heardle-decades",
+      "statele", "timeguessr", "farflung", "foximax", "murdle", "framed", "moviedle", "costcodle", "heardle-decades",
       "bandle", "immaculate-grid", "weddle", "poeltl");
 
   static final List<String> REQUESTED_GAME_IDS;

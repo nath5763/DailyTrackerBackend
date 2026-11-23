@@ -16,6 +16,7 @@ final class ResultDetailFormatter {
       case "connections" -> indexed("R", values(metrics.get("rows")), ResultDetailFormatter::text);
       case "quordle" -> indexed("Q", values(metrics.get("guesses")), value -> value == null ? "X" : value + " guesses");
       case "timeguessr" -> indexed("R", values(metrics.get("roundScores")), value -> number(value) + " pts");
+      case "farflung" -> indexed("P", values(metrics.get("rarities")), ResultDetailFormatter::text);
       case "contexto" -> combine(contexto(metrics), assistance(metrics));
       case "globle" -> single("Path", metrics.get("proximityGrid"));
       case "strands" -> single("Path", metrics.get("resultSequence"));

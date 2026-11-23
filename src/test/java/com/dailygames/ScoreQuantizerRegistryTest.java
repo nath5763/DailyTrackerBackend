@@ -13,13 +13,24 @@ class ScoreQuantizerRegistryTest {
   private final ScoreQuantizerRegistry registry = new ScoreQuantizerRegistry();
 
   @Test void definesASeparateStrategyForEveryRequestedGame() {
-    assertEquals(73, registry.strategies().size());
-    assertEquals(73, registry.strategies().stream().map(ScoreStrategySpec::gameId).distinct().count());
+    assertEquals(74, registry.strategies().size());
+    assertEquals(74, registry.strategies().stream().map(ScoreStrategySpec::gameId).distinct().count());
     for (String mode : LoldleParser.MODES) {
       var strategy = registry.strategy("loldle-" + mode).orElseThrow();
       assertEquals("attemptsUsed", strategy.primaryMetric());
       assertEquals(MetricDirection.ASCENDING, strategy.primaryDirection());
     }
+  }
+
+  @Test void comparesFarflungByHighestDistanceAndProducesTies() {
+    NormalizedScore shortTrip = score("farflung", 195, Map.of(
+        "completionStatus", "WIN", "distanceKm", 195, "gameMode", "Daily"));
+    NormalizedScore longTrip = score("farflung", 350, Map.of(
+        "completionStatus", "WIN", "distanceKm", 350, "gameMode", "Daily"));
+    NormalizedScore tied = score("farflung", 350, Map.of(
+        "completionStatus", "WIN", "distanceKm", 350, "gameMode", "Daily"));
+    assertTrue(registry.compare(longTrip, shortTrip) < 0);
+    assertTrue(registry.sameRank(longTrip, tied));
   }
 
   @Test void comparesQuordleByFailuresBeforePenalizedTotalAndProducesTies() {

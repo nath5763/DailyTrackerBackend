@@ -576,6 +576,15 @@ class DailyGamesIntegrationTest {
         "select tracked_game_slug from game_catalog where slug = 'travle'", String.class));
   }
 
+  @Test void migrationExposesFarflungAsAnActiveTrackedCatalogGame() {
+    Game farflung = games.findBySlugAndActiveTrue("farflung").orElseThrow();
+    assertEquals("https://farflung.game/", farflung.sourceUrl);
+    assertEquals("UTC", farflung.releaseTimezone);
+    assertEquals("higher", farflung.rankingDirection);
+    assertEquals("farflung", jdbc.queryForObject(
+        "select tracked_game_slug from game_catalog where slug = 'farflung'", String.class));
+  }
+
   private ConfirmedSubmission confirmed(ParsedSubmission parsed) {
     return new ConfirmedSubmission(parsed.puzzleKey(), parsed.puzzleNumber(), parsed.playedOn(), parsed.primaryScore(),
         parsed.metrics(), parsed.parserVersion());
